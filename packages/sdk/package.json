@@ -1,0 +1,55 @@
+{
+  "name": "@melaya/sdk",
+  "version": "0.1.0",
+  "description": "Official TypeScript/JavaScript SDK for the Melaya unified market-data & streaming API across 70+ venues.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "melaya",
+    "trading",
+    "crypto",
+    "market-data",
+    "exchange",
+    "websocket",
+    "orderbook",
+    "ohlcv",
+    "ticker",
+    "agentic-ai",
+    "sdk"
+  ],
+  "homepage": "https://melaya.org",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/melaya-labs/melaya.git",
+    "directory": "packages/sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/melaya-labs/melaya/issues"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

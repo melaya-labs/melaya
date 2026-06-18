@@ -1,0 +1,35 @@
+[package]
+name = "melaya"
+version = "0.1.0"
+edition = "2021"
+description = "Official Melaya SDK for Rust — unified market data, strategies, backtests, and streaming."
+license = "MIT"
+repository = "https://github.com/melaya-oss/sdk-rust"
+keywords = ["melaya", "trading", "crypto", "market-data", "websocket"]
+categories = ["api-bindings", "web-programming"]
+
+[lib]
+name = "melaya"
+path = "src/lib.rs"
+
+[[example]]
+name = "e2e"
+path = "examples/e2e.rs"
+
+[dependencies]
+reqwest       = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde         = { version = "1",    features = ["derive"] }
+serde_json    = "1"
+tokio         = { version = "1",    features = ["full"] }
+# tokio-tungstenite 0.24 re-exports rustls 0.23 via the Connector enum.
+# We pull rustls in directly so we can build ClientConfig for insecure mode.
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-native-roots"] }
+futures-util  = "0.3"
+url           = "2"
+thiserror     = "1"
+# Must match the rustls that tokio-tungstenite 0.24 vendors (0.23.x).
+rustls        = { version = "0.23", features = ["ring"] }
+webpki-roots  = "0.26"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }

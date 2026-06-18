@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "melaya"
+version = "0.1.0"
+description = "Official Python SDK for the Melaya unified market-data & streaming API across 70+ venues."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "Apache-2.0"
+authors = [{ name = "Melaya" }]
+keywords = [
+    "melaya",
+    "trading",
+    "crypto",
+    "market-data",
+    "exchange",
+    "websocket",
+    "orderbook",
+    "ohlcv",
+    "ticker",
+    "agentic-ai",
+    "sdk",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
+dependencies = ["httpx>=0.27"]
+
+[project.optional-dependencies]
+stream = ["websockets>=12"]
+
+[project.urls]
+Homepage = "https://melaya.org"
+Documentation = "https://melaya.org/docs"
+Repository = "https://github.com/melaya-labs/melaya"
+Issues = "https://github.com/melaya-labs/melaya/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/melaya"]

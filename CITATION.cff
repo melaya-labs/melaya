@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+title: Melaya — Agentic platform for trading, research, and automation
+message: "If you reference Melaya, please cite it using this metadata."
+type: software
+authors:
+  - given-names: Antoine
+    family-names: Roche
+    affiliation: Melaya
+abstract: >-
+  Melaya is an agentic platform that applies trading-grade discipline to
+  general automation: scoped tools, permissions, secure connectors, RAG,
+  cost tracking, audit logs, and human-in-the-loop approval. It includes a
+  unified REST and WebSocket API for normalized market data and trading
+  across 71 venues, backed by an in-house Rust engine.
+url: "https://melaya.org"
+repository-code: "https://github.com/melaya-labs/melaya"
+keywords:
+  - agentic-ai
+  - ai-agents
+  - automation
+  - trading
+  - crypto-trading
+  - market-data
+  - human-in-the-loop
+  - rag
+license: Apache-2.0

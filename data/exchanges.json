@@ -1,0 +1,641 @@
+[
+  {
+    "id": "ascendex",
+    "name": "AscendEX",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "azuro",
+    "name": "Azuro",
+    "market": "prediction-market",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": false
+  },
+  {
+    "id": "backpack",
+    "name": "Backpack",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "bequant",
+    "name": "Bequant",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "bigone",
+    "name": "BigONE",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "binance",
+    "name": "Binance",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "binanceusdm",
+    "name": "Binance Perpetuals (USD-M)",
+    "market": "perpetuals",
+    "subtype": "linear",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "bingx",
+    "name": "BingX",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "bingxfutures",
+    "name": "BingX Perpetuals",
+    "market": "perpetuals",
+    "subtype": "linear",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "bitfinex",
+    "name": "Bitfinex",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "bitget",
+    "name": "Bitget",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": true,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "bitgetfutures",
+    "name": "Bitget Perpetuals (USD-M)",
+    "market": "perpetuals",
+    "subtype": "linear",
+    "requiresPassphrase": true,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "bithumb",
+    "name": "Bithumb",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "bitmart",
+    "name": "BitMart",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "bitopro",
+    "name": "BitoPro",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "bitrue",
+    "name": "Bitrue",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "bitso",
+    "name": "Bitso",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "bitstamp",
+    "name": "Bitstamp",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "bitvavo",
+    "name": "Bitvavo",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "btcmarkets",
+    "name": "BTC Markets",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "btcturk",
+    "name": "BTCTurk",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "btse",
+    "name": "BTSE",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "bullish",
+    "name": "Bullish",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "bybit",
+    "name": "Bybit",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "bybitlinear",
+    "name": "Bybit Perpetuals (linear)",
+    "market": "perpetuals",
+    "subtype": "linear",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "cexio",
+    "name": "CEX.IO",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "coinbase",
+    "name": "Coinbase",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": true,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "coincheck",
+    "name": "Coincheck",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": false
+  },
+  {
+    "id": "coinex",
+    "name": "CoinEx",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "coinmate",
+    "name": "CoinMate",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "coinmetro",
+    "name": "CoinMetro",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "coinone",
+    "name": "CoinOne",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "coinstore",
+    "name": "Coinstore",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "coinw",
+    "name": "CoinW",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "cryptocom",
+    "name": "Crypto.com",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": true,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "deepcoin",
+    "name": "Deepcoin",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "digifinex",
+    "name": "Digifinex",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "drift_pm",
+    "name": "Drift PM",
+    "market": "prediction-market",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": false
+  },
+  {
+    "id": "exmo",
+    "name": "Exmo",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "foxbit",
+    "name": "Foxbit",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": false
+  },
+  {
+    "id": "gemini",
+    "name": "Gemini",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "hashkey",
+    "name": "HashKey",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "hitbtc",
+    "name": "HitBTC",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "hyperliquid",
+    "name": "Hyperliquid Spot",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "indodax",
+    "name": "Indodax",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "kalshi",
+    "name": "Kalshi",
+    "market": "prediction-market",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": false
+  },
+  {
+    "id": "kraken",
+    "name": "Kraken",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "kucoin",
+    "name": "KuCoin",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": true,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "latoken",
+    "name": "LATOKEN",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "lbank",
+    "name": "LBank",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "luno",
+    "name": "Luno",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "mexc",
+    "name": "MEXC",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "ndax",
+    "name": "NDAX",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "okx",
+    "name": "OKX Spot",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": true,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "okxswap",
+    "name": "OKX Perpetuals",
+    "market": "perpetuals",
+    "subtype": "linear",
+    "requiresPassphrase": true,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "onetrading",
+    "name": "One Trading",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "overtime",
+    "name": "Overtime Markets",
+    "market": "prediction-market",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": false
+  },
+  {
+    "id": "p2b",
+    "name": "P2B",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": false
+  },
+  {
+    "id": "paymium",
+    "name": "Paymium",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "phemex",
+    "name": "Phemex",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "poloniex",
+    "name": "Poloniex",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "polymarket",
+    "name": "Polymarket",
+    "market": "prediction-market",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": false
+  },
+  {
+    "id": "sxbet",
+    "name": "SX Bet",
+    "market": "prediction-market",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": false
+  },
+  {
+    "id": "toobit",
+    "name": "Toobit",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "upbit",
+    "name": "Upbit",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "weex",
+    "name": "WEEX",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "whitebit",
+    "name": "WhiteBIT",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "woox",
+    "name": "WOO X",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": true,
+    "tickerStream": true
+  },
+  {
+    "id": "xt",
+    "name": "XT.com",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "zebpay",
+    "name": "ZebPay",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  },
+  {
+    "id": "zonda",
+    "name": "Zonda",
+    "market": "spot",
+    "subtype": "",
+    "requiresPassphrase": false,
+    "requiresApplicationId": false,
+    "tickerStream": true
+  }
+]

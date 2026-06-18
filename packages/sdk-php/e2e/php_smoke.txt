@@ -1,0 +1,196 @@
+<?php
+declare(strict_types=1);
+putenv('MELAYA_INSECURE_TLS=1');
+require 'C:/Github/melaya-labs/melaya/packages/sdk-php/autoload.php';
+use Melaya\Melaya;
+use Melaya\MelayaException;
+
+$key = getenv('MK');
+if (!$key) { fwrite(STDERR, "set MK=mk_...\n"); exit(2); }
+$m = new Melaya($key);
+$SPOT = ['binance', 'BTC/USDT', 'spot'];
+$PERP_EX = 'binanceusdm';
+$PERP_SYM = 'BTC/USDT:USDT';
+$RHAI = 'fn evaluate() { emit_long(param("qty")); }';
+$RESULTS = [];
+function rec($cat, $name, $st, $d = '') { global $RESULTS; $RESULTS[] = [$cat, $name, $st, substr($d, 0, 80)]; }
+function snip($v) { return substr((string)json_encode($v), 0, 80); }
+function chk($cat, $name, $fn, $validate = null, $retry = false) {
+    $max = $retry ? 2 : 1;
+    for ($i = 1; $i <= $max; $i++) {
+        try {
+            $r = $fn();
+            if ($validate === null || $validate($r)) { rec($cat, $name, 'PASS', snip($r)); return $r; }
+            if ($i === $max) { rec($cat, $name, 'FAIL', 'invalid shape: ' . snip($r)); return $r; }
+        } catch (MelayaException $e) {
+            if ($i === $max) { rec($cat, $name, 'FAIL', ($e->status ?: '') . ' ' . ($e->errorCode ?: '') . ' ' . $e->getMessage()); return null; }
+        } catch (\Throwable $e) {
+            if ($i === $max) { rec($cat, $name, 'FAIL', get_class($e) . ': ' . $e->getMessage()); return null; }
+        }
+        usleep(1600000);
+    }
+    return null;
+}
+function isAssoc($r) { return is_array($r) && (count($r) === 0 || !array_is_list($r)); }
+function nonEmpty($r) { return is_array($r) && count($r) > 0; }
+function arrMin($n) { return fn($r) => is_array($r) && count($r) >= $n; }
+function streamChk($cat, $name, $open) {
+    try {
+        $ws = $open(); $frame = $ws->readFrame(); $ws->close();
+        if ($frame !== null) rec($cat, $name, 'PASS', 'frame ' . snip($frame));
+        else rec($cat, $name, 'FAIL', 'no frame in time');
+    } catch (\Throwable $e) { rec($cat, $name, 'FAIL', 'ws ' . get_class($e) . ': ' . substr($e->getMessage(), 0, 50)); }
+}
+
+echo "\n-- market --\n";
+chk('market', 'listExchanges', fn() => $m->market->listExchanges(), arrMin(60));
+$ticker = chk('market', 'ticker', fn() => $m->market->ticker(...$SPOT), fn($r) => isAssoc($r) && (isset($r['last']) || isset($r['bid'])), true);
+chk('market', 'orderbook', fn() => $m->market->orderbook('binance', 'BTC/USDT', 5, 'spot'), fn($r) => isset($r['bids']) && count($r['bids']) > 0, true);
+chk('market', 'ohlcv', fn() => $m->market->ohlcv('binance', 'BTC/USDT', '1h', 10, 'spot'), arrMin(1), true);
+chk('market', 'trades', fn() => $m->market->trades(...$SPOT), arrMin(1), true);
+chk('market', 'markets', fn() => $m->market->markets('binance'), arrMin(1));
+chk('market', 'currencies', fn() => $m->market->currencies('kraken'), arrMin(1), true);
+chk('market', 'status', fn() => $m->market->status('binance'), fn($r) => $r !== null);
+chk('market', 'time', fn() => $m->market->time('binance'), fn($r) => $r !== null);
+chk('market', 'tickers', fn() => $m->market->tickers('binance', ['BTC/USDT', 'ETH/USDT']), 'nonEmpty', true);
+chk('market', 'fundingRates', fn() => $m->market->fundingRates($PERP_EX, [$PERP_SYM]), 'nonEmpty', true);
+chk('market', 'fundingRateHistory', fn() => $m->market->fundingRateHistory($PERP_EX, $PERP_SYM, 24), arrMin(1), true);
+chk('market', 'openInterest', fn() => $m->market->openInterest($PERP_EX, [$PERP_SYM]), 'nonEmpty', true);
+chk('market', 'openInterestHistory', fn() => $m->market->openInterestHistory($PERP_EX, $PERP_SYM, 24), arrMin(1), true);
+chk('market', 'instruments', fn() => $m->market->instruments($PERP_EX), fn($r) => $r !== null);
+chk('market', 'liquidationEvents', fn() => $m->market->liquidationEvents($PERP_EX, null, null, 10), fn($r) => is_array($r));
+chk('market', 'ohlcvMulti', fn() => $m->market->ohlcvMulti('binance', ['BTC/USDT', 'ETH/USDT'], '1h', 5, 'spot'), 'nonEmpty', true);
+chk('market', 'marketConstraints', fn() => $m->market->marketConstraints($PERP_EX, $PERP_SYM), fn($r) => $r !== null);
+chk('market', 'fundingRateHistoryMulti', fn() => $m->market->fundingRateHistoryMulti([$PERP_EX, 'bybitlinear'], $PERP_SYM, 24), 'nonEmpty', true);
+chk('market', 'openInterestHistoryMulti', fn() => $m->market->openInterestHistoryMulti([$PERP_EX, 'bybitlinear'], $PERP_SYM, 24), 'nonEmpty', true);
+chk('market', 'predictionMarkets', fn() => $m->market->predictionMarkets('polymarket'), arrMin(1), true);
+chk('market', 'catalogCounts', fn() => $m->market->catalogCounts(), fn($r) => ($r['tools'] ?? 0) > 0);
+
+echo "-- account --\n";
+$keys = chk('account', 'keys', fn() => $m->account->keys(), fn($r) => is_array($r));
+chk('account', 'usage', fn() => $m->account->usage(), fn($r) => isset($r['tier']));
+chk('account', 'apiKeyStatus', fn() => $m->account->apiKeyStatus(), 'isAssoc');
+
+echo "-- strategies --\n";
+$list = chk('strategies', 'list', fn() => $m->strategies->list(), arrMin(1));
+$readSid = $list[0]['strategyId'] ?? null;
+if ($readSid) {
+    chk('strategies', 'get', fn() => $m->strategies->get($readSid), fn($r) => ($r['strategyId'] ?? '') === $readSid);
+    chk('strategies', 'status', fn() => $m->strategies->status($readSid), 'isAssoc');
+    chk('strategies', 'executions', fn() => $m->strategies->executions($readSid), fn($r) => is_array($r));
+    chk('strategies', 'trades', fn() => $m->strategies->trades($readSid), fn($r) => is_array($r));
+    chk('strategies', 'performance', fn() => $m->strategies->performance($readSid), fn($r) => is_array($r));
+    chk('strategies', 'logs', fn() => $m->strategies->logs($readSid), fn($r) => is_array($r));
+    chk('strategies', 'aiOptStatus', fn() => $m->strategies->aiOptStatus($readSid), 'isAssoc');
+    chk('strategies', 'aiOptRuns', fn() => $m->strategies->aiOptRuns($readSid), fn($r) => $r !== null);
+}
+$created = chk('strategies', 'create(custom,paper)', fn() => $m->strategies->create([
+    'name' => 'PHP full-smoke (custom)', 'strategyType' => 'custom',
+    'exchange' => $PERP_EX, 'symbol' => $PERP_SYM, 'market' => 'FUTURES', 'dryRun' => true,
+    'params' => ['language' => 'rhai', 'definition' => $RHAI, 'qty' => 0.001],
+]), fn($r) => ($r['ok'] ?? false) && ($r['strategyId'] ?? null));
+$paperSid = $created['strategyId'] ?? null;
+if ($paperSid) {
+    chk('strategies', 'pause', fn() => $m->strategies->pause($paperSid), fn($r) => $r['ok'] ?? false);
+    chk('strategies', 'resume', fn() => $m->strategies->resume($paperSid), fn($r) => $r['ok'] ?? false);
+    chk('strategies', 'updateParams', fn() => $m->strategies->updateParams($paperSid, ['qty' => 0.002]), fn($r) => $r['ok'] ?? false);
+    chk('strategies', 'aiOptStop', fn() => $m->strategies->aiOptStop($paperSid), fn($r) => $r['ok'] ?? false);
+    echo "-- sim --\n";
+    chk('sim', 'balance', fn() => $m->sim->balance($paperSid), fn($r) => isset($r['total']));
+    chk('sim', 'positions', fn() => $m->sim->positions($paperSid), fn($r) => is_array($r));
+    chk('sim', 'listAccounts', fn() => $m->sim->listAccounts(), fn($r) => is_array($r));
+    chk('sim', 'myTrades', fn() => $m->sim->myTrades($paperSid), fn($r) => is_array($r));
+    $px = 60000.0;
+    if (is_array($ticker)) { $px = (float)($ticker['last'] ?? $ticker['bid'] ?? 60000); }
+    $ord = chk('sim', 'createOrder(limit,resting)', fn() => $m->sim->createOrder($paperSid, $PERP_EX, $PERP_SYM, 'buy', 0.001, 'limit', round($px * 0.5), 'FUTURES'), fn($r) => isset($r['order_id']));
+    chk('sim', 'openOrders', fn() => $m->sim->openOrders($paperSid), fn($r) => is_array($r));
+    if ($ord && isset($ord['order_id'])) {
+        $oid = $ord['order_id'];
+        chk('sim', 'cancelOrder', fn() => $m->sim->cancelOrder($paperSid, $oid, $PERP_SYM, $PERP_EX), 'isAssoc');
+    } else { rec('sim', 'cancelOrder', 'SKIP', 'no resting order'); }
+} else {
+    foreach (['pause', 'resume', 'updateParams', 'aiOptStop'] as $n) rec('strategies', $n, 'SKIP', 'create failed');
+    foreach (['balance', 'positions', 'listAccounts', 'myTrades', 'createOrder(limit,resting)', 'openOrders', 'cancelOrder'] as $n) rec('sim', $n, 'SKIP', 'no paper sid');
+}
+rec('strategies', 'aiOptStart', 'WIRED', 'not invoked (billed optimization)');
+rec('strategies', 'aiOptApprove', 'WIRED', 'not invoked (applies optimizer output)');
+
+echo "-- backtest --\n";
+$now = (int)(microtime(true) * 1000);
+$bt = chk('backtest', 'start(custom)', fn() => $m->backtest->start([
+    'strategyType' => 'custom', 'exchange' => 'binance', 'symbol' => 'BTC/USDT', 'timeframe' => '1h',
+    'since_ms' => $now - 60 * 86400000, 'until_ms' => $now, 'initial_equity' => 10000,
+    'language' => 'rhai', 'definition' => $RHAI, 'custom_code' => $RHAI, 'params' => ['qty' => 0.001],
+]), fn($r) => isset($r['job_id']));
+$jobId = $bt['job_id'] ?? null;
+if ($jobId) {
+    $status = 'pending';
+    for ($i = 0; $i < 20 && !in_array($status, ['done', 'error', 'halted', 'cancelled']); $i++) {
+        sleep(2);
+        try { $status = strtolower((string)($m->backtest->job($jobId)['status'] ?? '')); } catch (\Throwable $e) {}
+    }
+    chk('backtest', 'job(poll)', fn() => $m->backtest->job($jobId), fn($r) => ($r['job_id'] ?? '') === $jobId);
+    if ($status === 'done') {
+        chk('backtest', 'results', fn() => $m->backtest->results($jobId), 'isAssoc');
+        chk('backtest', 'trades', fn() => $m->backtest->trades($jobId, 10), fn($r) => is_array($r));
+    } else { rec('backtest', 'results', 'SKIP', "job $status"); rec('backtest', 'trades', 'SKIP', "job $status"); }
+} else { foreach (['job(poll)', 'results', 'trades'] as $n) rec('backtest', $n, 'SKIP', 'start failed'); }
+chk('backtest', 'list', fn() => $m->backtest->list(5), fn($r) => is_array($r));
+chk('backtest', 'favorites', fn() => $m->backtest->favorites(5), fn($r) => is_array($r));
+chk('backtest', 'fundingRange', fn() => $m->backtest->fundingRange($PERP_EX, $PERP_SYM), fn($r) => $r === null || is_int($r));
+$sweep = chk('backtest', 'start(grid_sweep)', fn() => $m->backtest->start([
+    'mode' => 'grid_sweep', 'strategyType' => 'custom', 'exchange' => 'binance', 'symbol' => 'BTC/USDT', 'timeframe' => '1h',
+    'since_ms' => $now - 30 * 86400000, 'until_ms' => $now, 'language' => 'rhai', 'definition' => $RHAI, 'custom_code' => $RHAI,
+    'paramRanges' => ['qty' => [0.001, 0.002]],
+]), fn($r) => isset($r['job_id']));
+if ($sweep && isset($sweep['job_id'])) {
+    chk('backtest', 'sweep', fn() => $m->backtest->sweep($sweep['job_id'], null, 10), 'isAssoc');
+} else { rec('backtest', 'sweep', 'SKIP', 'no sweep parent'); }
+$cj = chk('backtest', 'start(for-cancel)', fn() => $m->backtest->start([
+    'strategyType' => 'custom', 'exchange' => 'binance', 'symbol' => 'ETH/USDT', 'timeframe' => '1h',
+    'since_ms' => $now - 365 * 86400000, 'until_ms' => $now, 'language' => 'rhai', 'definition' => $RHAI, 'custom_code' => $RHAI, 'params' => ['qty' => 0.001],
+]), fn($r) => isset($r['job_id']));
+if ($cj && isset($cj['job_id'])) {
+    $cjId = $cj['job_id'];
+    try { $r = $m->backtest->cancel($cjId); rec('backtest', 'cancel', 'PASS', snip($r)); }
+    catch (MelayaException $e) {
+        if ($e->status === 409) rec('backtest', 'cancel', 'PASS', '409 race (ok): ' . $e->errorCode);
+        else rec('backtest', 'cancel', 'FAIL', $e->status . ' ' . $e->errorCode);
+    }
+    chk('backtest', 'delete', fn() => $m->backtest->delete($cjId), fn($r) => $r['ok'] ?? false);
+} else { rec('backtest', 'cancel', 'SKIP', 'no job'); rec('backtest', 'delete', 'SKIP', 'no job'); }
+rec('backtest', 'deleteAll', 'WIRED', 'not invoked (soft-deletes ALL non-favorited jobs)');
+
+echo "-- stream --\n";
+streamChk('stream', 'ticker', fn() => $m->stream->ticker(...$SPOT));
+streamChk('stream', 'orderbook', fn() => $m->stream->orderbook('binance', 'BTC/USDT', 10, 'spot'));
+streamChk('stream', 'ohlcv', fn() => $m->stream->ohlcv('binance', 'BTC/USDT', '1m', 'spot'));
+streamChk('stream', 'trades', fn() => $m->stream->trades(...$SPOT));
+streamChk('stream', 'liquidations', fn() => $m->stream->liquidations($PERP_EX));
+streamChk('stream', 'strategies(private)', fn() => $m->stream->strategies());
+if (is_array($keys) && count($keys) > 0) {
+    $k = $keys[0];
+    streamChk('stream', 'private(account)', fn() => $m->stream->private($k['exchange'], $k['market'] ?? null, $k['apiKeyId'] ?? null));
+} else { rec('stream', 'private(account)', 'SKIP', 'no connected key'); }
+
+if ($paperSid) {
+    chk('teardown', 'strategies.stop', fn() => $m->strategies->stop($paperSid), fn($r) => $r['ok'] ?? false);
+    chk('teardown', 'strategies.delete', fn() => $m->strategies->delete($paperSid), fn($r) => $r['ok'] ?? false);
+}
+
+echo "\n" . str_repeat('=', 72) . "\n";
+$cats = [];
+foreach ($RESULTS as $r) { if (!in_array($r[0], $cats)) $cats[] = $r[0]; }
+$nP = $nF = $nW = $nS = 0;
+foreach ($cats as $cat) {
+    echo "-- $cat --\n";
+    foreach ($RESULTS as [$c, $name, $st, $d]) {
+        if ($c !== $cat) continue;
+        echo sprintf("  %-5s %-28s %s\n", $st, $name, $d);
+        $st === 'PASS' && $nP++; $st === 'FAIL' && $nF++; $st === 'WIRED' && $nW++; $st === 'SKIP' && $nS++;
+    }
+}
+echo str_repeat('=', 72) . "\n";
+echo "PASS $nP   FAIL $nF   WIRED(not-invoked) $nW   SKIP $nS   |  total " . ($nP + $nF + $nW + $nS) . "\n";
+echo $nF === 0 ? "RESULT: GO\n" : "RESULT: NO-GO\n";
+exit($nF === 0 ? 0 : 1);

@@ -1,0 +1,72 @@
+id,name,market,subtype,requiresPassphrase,requiresApplicationId,tickerStream
+ascendex,AscendEX,spot,,False,False,True
+azuro,Azuro,prediction-market,,False,False,False
+backpack,Backpack,spot,,False,False,True
+bequant,Bequant,spot,,False,False,True
+bigone,BigONE,spot,,False,False,True
+binance,Binance,spot,,False,False,True
+binanceusdm,Binance Perpetuals (USD-M),perpetuals,linear,False,False,True
+bingx,BingX,spot,,False,False,True
+bingxfutures,BingX Perpetuals,perpetuals,linear,False,False,True
+bitfinex,Bitfinex,spot,,False,False,True
+bitget,Bitget,spot,,True,False,True
+bitgetfutures,Bitget Perpetuals (USD-M),perpetuals,linear,True,False,True
+bithumb,Bithumb,spot,,False,False,True
+bitmart,BitMart,spot,,False,False,True
+bitopro,BitoPro,spot,,False,False,True
+bitrue,Bitrue,spot,,False,False,True
+bitso,Bitso,spot,,False,False,True
+bitstamp,Bitstamp,spot,,False,False,True
+bitvavo,Bitvavo,spot,,False,False,True
+btcmarkets,BTC Markets,spot,,False,False,True
+btcturk,BTCTurk,spot,,False,False,True
+btse,BTSE,spot,,False,False,True
+bullish,Bullish,spot,,False,False,True
+bybit,Bybit,spot,,False,False,True
+bybitlinear,Bybit Perpetuals (linear),perpetuals,linear,False,False,True
+cexio,CEX.IO,spot,,False,False,True
+coinbase,Coinbase,spot,,True,False,True
+coincheck,Coincheck,spot,,False,False,False
+coinex,CoinEx,spot,,False,False,True
+coinmate,CoinMate,spot,,False,False,True
+coinmetro,CoinMetro,spot,,False,False,True
+coinone,CoinOne,spot,,False,False,True
+coinstore,Coinstore,spot,,False,False,True
+coinw,CoinW,spot,,False,False,True
+cryptocom,Crypto.com,spot,,True,False,True
+deepcoin,Deepcoin,spot,,False,False,True
+digifinex,Digifinex,spot,,False,False,True
+drift_pm,Drift PM,prediction-market,,False,False,False
+exmo,Exmo,spot,,False,False,True
+foxbit,Foxbit,spot,,False,False,False
+gemini,Gemini,spot,,False,False,True
+hashkey,HashKey,spot,,False,False,True
+hitbtc,HitBTC,spot,,False,False,True
+hyperliquid,Hyperliquid Spot,spot,,False,False,True
+indodax,Indodax,spot,,False,False,True
+kalshi,Kalshi,prediction-market,,False,False,False
+kraken,Kraken,spot,,False,False,True
+kucoin,KuCoin,spot,,True,False,True
+latoken,LATOKEN,spot,,False,False,True
+lbank,LBank,spot,,False,False,True
+luno,Luno,spot,,False,False,True
+mexc,MEXC,spot,,False,False,True
+ndax,NDAX,spot,,False,False,True
+okx,OKX Spot,spot,,True,False,True
+okxswap,OKX Perpetuals,perpetuals,linear,True,False,True
+onetrading,One Trading,spot,,False,False,True
+overtime,Overtime Markets,prediction-market,,False,False,False
+p2b,P2B,spot,,False,False,False
+paymium,Paymium,spot,,False,False,True
+phemex,Phemex,spot,,False,False,True
+poloniex,Poloniex,spot,,False,False,True
+polymarket,Polymarket,prediction-market,,False,False,False
+sxbet,SX Bet,prediction-market,,False,False,False
+toobit,Toobit,spot,,False,False,True
+upbit,Upbit,spot,,False,False,True
+weex,WEEX,spot,,False,False,True
+whitebit,WhiteBIT,spot,,False,False,True
+woox,WOO X,spot,,False,True,True
+xt,XT.com,spot,,False,False,True
+zebpay,ZebPay,spot,,False,False,True
+zonda,Zonda,spot,,False,False,True

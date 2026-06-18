@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Melaya</AssemblyName>
+    <RootNamespace>Melaya</RootNamespace>
+    <PackageId>Melaya.SDK</PackageId>
+    <Version>0.1.0</Version>
+    <Description>Official Melaya SDK for .NET — market data, strategies, backtesting, and streaming across 70+ venues.</Description>
+    <Authors>Melaya</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+</Project>
