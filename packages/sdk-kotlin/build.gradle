@@ -1,6 +1,7 @@
 plugins {
     id 'org.jetbrains.kotlin.jvm' version '2.2.20'
     id 'application'
+    id 'com.vanniktech.maven.publish' version '0.30.0'
 }
 group = 'org.melaya'
 version = '0.1.0'
@@ -27,4 +28,22 @@ configurations {
 tasks.named('run', JavaExec) {
     classpath = sourceSets.e2e.runtimeClasspath
     mainClass = 'org.melaya.E2EKt'
+}
+
+mavenPublishing {
+    publishToMavenCentral()
+    signAllPublications()
+    coordinates('org.melaya', 'melaya-sdk-kotlin', '0.1.0')
+    pom {
+        name = 'Melaya Kotlin'
+        description = 'Official Kotlin SDK for the Melaya trading platform — market data, paper + live trading, backtesting, and streaming.'
+        url = 'https://github.com/melaya-labs/melaya'
+        licenses { license { name = 'Apache-2.0'; url = 'https://www.apache.org/licenses/LICENSE-2.0' } }
+        developers { developer { id = 'melaya-labs'; name = 'Melaya'; email = 'info@melaya.org' } }
+        scm {
+            url = 'https://github.com/melaya-labs/melaya'
+            connection = 'scm:git:https://github.com/melaya-labs/melaya.git'
+            developerConnection = 'scm:git:ssh://git@github.com/melaya-labs/melaya.git'
+        }
+    }
 }

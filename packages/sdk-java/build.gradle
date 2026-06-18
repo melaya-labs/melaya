@@ -1,10 +1,11 @@
 plugins {
     id 'java'
     id 'application'
+    id 'com.vanniktech.maven.publish' version '0.30.0'
 }
 
 group = 'org.melaya'
-version = '1.0.0'
+version = '0.1.0'
 
 java {
     toolchain {
@@ -50,4 +51,22 @@ configurations {
 tasks.named('run', JavaExec) {
     classpath = sourceSets.e2e.runtimeClasspath
     mainClass = 'org.melaya.E2E'
+}
+
+mavenPublishing {
+    publishToMavenCentral()
+    signAllPublications()
+    coordinates('org.melaya', 'melaya-sdk', '0.1.0')
+    pom {
+        name = 'Melaya Java'
+        description = 'Official Java SDK for the Melaya trading platform — market data, paper + live trading, backtesting, and streaming.'
+        url = 'https://github.com/melaya-labs/melaya'
+        licenses { license { name = 'Apache-2.0'; url = 'https://www.apache.org/licenses/LICENSE-2.0' } }
+        developers { developer { id = 'melaya-labs'; name = 'Melaya'; email = 'info@melaya.org' } }
+        scm {
+            url = 'https://github.com/melaya-labs/melaya'
+            connection = 'scm:git:https://github.com/melaya-labs/melaya.git'
+            developerConnection = 'scm:git:ssh://git@github.com/melaya-labs/melaya.git'
+        }
+    }
 }

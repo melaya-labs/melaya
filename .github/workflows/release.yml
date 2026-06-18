@@ -73,17 +73,25 @@ jobs:
       - run: gem build *.gemspec && gem push *.gem
         working-directory: packages/sdk-ruby
 
-  # Maven Central (Java + Kotlin) — opt-in: needs Sonatype creds + a GPG key, and a
-  # publishing{}/signing{} block in each build.gradle. Uncomment once configured.
-  # maven:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-java@v4
-  #       with: { distribution: temurin, java-version: "21" }
-  #     - run: gradle publish
-  #       working-directory: packages/sdk-java
-  #       env:
-  #         ORG_GRADLE_PROJECT_ossrhUsername: "${{ secrets.MAVEN_USER }}"
-  #         ORG_GRADLE_PROJECT_ossrhPassword: "${{ secrets.MAVEN_PASS }}"
-  #         ORG_GRADLE_PROJECT_signingKey:    "${{ secrets.GPG_KEY }}"
+  maven:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - name: Publish Java SDK to Maven Central
+        run: gradle publishToMavenCentral --no-configuration-cache -PmavenCentralAutomaticPublishing=true
+        working-directory: packages/sdk-java
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: "${{ secrets.CENTRAL_USERNAME }}"
+          ORG_GRADLE_PROJECT_mavenCentralPassword: "${{ secrets.CENTRAL_PASSWORD }}"
+          ORG_GRADLE_PROJECT_signingInMemoryKey: "${{ secrets.GPG_PRIVATE_KEY }}"
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: "${{ secrets.GPG_PASSPHRASE }}"
+      - name: Publish Kotlin SDK to Maven Central
+        run: gradle publishToMavenCentral --no-configuration-cache -PmavenCentralAutomaticPublishing=true
+        working-directory: packages/sdk-kotlin
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: "${{ secrets.CENTRAL_USERNAME }}"
+          ORG_GRADLE_PROJECT_mavenCentralPassword: "${{ secrets.CENTRAL_PASSWORD }}"
+          ORG_GRADLE_PROJECT_signingInMemoryKey: "${{ secrets.GPG_PRIVATE_KEY }}"
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: "${{ secrets.GPG_PASSPHRASE }}"
