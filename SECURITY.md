@@ -4,7 +4,7 @@
 
 If you discover a security issue in this repository (the docs or the SDKs) or in the Melaya platform, please report it privately — do **not** open a public issue.
 
-- Email: **security@melaya.org**
+- Email: **info@melaya.org**
 - Or use GitHub's [private vulnerability reporting](https://github.com/melaya-labs/melaya/security/advisories/new).
 
 Please include steps to reproduce, the affected component, and any relevant logs. We aim to acknowledge reports within 72 hours.

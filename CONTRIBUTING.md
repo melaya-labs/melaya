@@ -17,23 +17,69 @@ Thanks for your interest. This repository is the public home for Melaya's **docu
 
 ## Developing the SDKs
 
-TypeScript (`packages/sdk`):
+Every SDK lives under [`packages/`](./packages) and ships a smoke test under its
+`e2e/` directory (Rust uses `examples/`, Cargo's convention). Export your API key
+as `MK=mk_...` to run a smoke test against the live API.
 
+**TypeScript** — [`packages/sdk`](./packages/sdk)
 ```bash
-cd packages/sdk
-npm install
-npx tsc --noEmit       # typecheck
-MELAYA_API_KEY=mk_... npx tsx ../../examples/typescript.ts   # smoke test
+cd packages/sdk && npm install && npx tsc --noEmit
+MK=mk_... node e2e/smoke.mjs
 ```
 
-Python (`packages/sdk-python`):
-
+**Python** — [`packages/sdk-python`](./packages/sdk-python)
 ```bash
-cd packages/sdk-python
-pip install -e ".[stream]"
+cd packages/sdk-python && pip install -e ".[stream]"
 python -m py_compile src/melaya/*.py
-MELAYA_API_KEY=mk_... python ../../examples/python.py
+MK=mk_... python e2e/smoke.py
 ```
+
+**Go** — [`packages/sdk-go`](./packages/sdk-go)
+```bash
+cd packages/sdk-go && go build ./...
+cd e2e && go mod tidy && MK=mk_... go run .
+```
+
+**Rust** — [`packages/sdk-rust`](./packages/sdk-rust)
+```bash
+cd packages/sdk-rust && cargo build
+MK=mk_... cargo run --example e2e
+```
+
+**Java** (JDK 21+) — [`packages/sdk-java`](./packages/sdk-java)
+```bash
+cd packages/sdk-java && gradle build
+MK=mk_... gradle run
+```
+
+**Kotlin** (JDK 21+) — [`packages/sdk-kotlin`](./packages/sdk-kotlin)
+```bash
+cd packages/sdk-kotlin && gradle build
+MK=mk_... gradle run
+```
+
+**C# / .NET** (.NET 8+) — [`packages/sdk-csharp`](./packages/sdk-csharp)
+```bash
+cd packages/sdk-csharp && dotnet build
+MK=mk_... dotnet run --project e2e
+```
+
+**Ruby** — [`packages/sdk-ruby`](./packages/sdk-ruby)
+```bash
+cd packages/sdk-ruby && ruby -Ilib -e 'require "melaya"'   # loads (stdlib only)
+MK=mk_... ruby e2e/smoke.rb
+```
+
+**PHP** (8.1+) — [`packages/sdk-php`](./packages/sdk-php)
+```bash
+cd packages/sdk-php && composer install   # or rely on the bundled autoload.php
+MK=mk_... php e2e/smoke.php
+```
+
+All nine SDKs expose the same surface (market data, account, paper + live
+trading, backtesting, and public + private streaming) and are validated by their
+e2e smoke. Live order-placement methods (`trade.createOrder`, `cancelOrder`, …)
+move real funds — test with the paper `sim` broker or a `dryRun` strategy.
 
 ## Pull requests
 
