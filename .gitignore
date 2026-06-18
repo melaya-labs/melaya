@@ -30,3 +30,6 @@
 *.pem
 *.key
 id_rsa*
+
+# local gradle overrides (e.g. dev-box truststore) — don't commit
+**/gradle.properties
