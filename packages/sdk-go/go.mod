@@ -1,4 +1,4 @@
-module github.com/melaya-labs/melaya-go
+module github.com/melaya-labs/melaya/packages/sdk-go
 
 go 1.22
 

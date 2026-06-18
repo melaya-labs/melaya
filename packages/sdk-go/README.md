@@ -5,7 +5,7 @@ Official Go SDK for the [Melaya](https://melaya.org) unified market-data and tra
 ## Install
 
 ```sh
-go get github.com/melaya-labs/melaya-go
+go get github.com/melaya-labs/melaya/packages/sdk-go
 ```
 
 Requires Go 1.22+. The only external dependency is `github.com/gorilla/websocket` for WebSocket streaming.
@@ -20,7 +20,7 @@ import (
     "fmt"
     "log"
 
-    melaya "github.com/melaya-labs/melaya-go/melaya"
+    melaya "github.com/melaya-labs/melaya/packages/sdk-go/melaya"
 )
 
 func main() {

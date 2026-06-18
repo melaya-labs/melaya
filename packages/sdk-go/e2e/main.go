@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	melaya "github.com/melaya-labs/melaya-go/melaya"
+	melaya "github.com/melaya-labs/melaya/packages/sdk-go/melaya"
 )
 
 // ── result store ──────────────────────────────────────────────────────────────

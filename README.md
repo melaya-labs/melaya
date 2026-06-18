@@ -4,8 +4,9 @@
 
 [Website](https://melaya.org) · [Docs](https://melaya.org/docs) · [Agentic trading](./docs/agentic-trading.md) · [API Reference](https://melaya.org/docs) · [Discord](https://discord.gg/2BBMUUdnkj)
 
-[![npm](https://img.shields.io/npm/v/@melaya/sdk?logo=npm&label=%40melaya%2Fsdk)](https://www.npmjs.com/package/@melaya/sdk)
-[![PyPI](https://img.shields.io/pypi/v/melaya?logo=pypi&logoColor=white&label=melaya)](https://pypi.org/project/melaya/)
+[![npm](https://img.shields.io/badge/npm-%40melaya%2Fsdk-CB3837?logo=npm&logoColor=white)](https://www.npmjs.com/package/@melaya/sdk)
+[![PyPI](https://img.shields.io/badge/pypi-melaya-3775A9?logo=pypi&logoColor=white)](https://pypi.org/project/melaya/)
+[![SDKs](https://img.shields.io/badge/SDKs-9_languages-6E56CF)](#sdks)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/2BBMUUdnkj)
 [![Stars](https://img.shields.io/github/stars/melaya-labs/melaya?style=social)](https://github.com/melaya-labs/melaya)
@@ -101,7 +102,7 @@ Official clients for the Melaya API live in [`packages/`](./packages). One `mk_`
 |:--:|---|---|---|
 | | **TypeScript / JavaScript** | [`@melaya/sdk`](./packages/sdk) | `npm install @melaya/sdk` |
 | <img src="assets/packages/python.png" height="20"/> | **Python** | [`melaya`](./packages/sdk-python) | `pip install melaya` |
-| <img src="assets/packages/go.png" height="20"/> | **Go** | [`melaya-go`](./packages/sdk-go) | `go get github.com/melaya-labs/melaya-go` |
+| <img src="assets/packages/go.png" height="20"/> | **Go** | [`melaya-go`](./packages/sdk-go) | `go get github.com/melaya-labs/melaya/packages/sdk-go` |
 | <img src="assets/packages/rust.png" height="20"/> | **Rust** | [`melaya`](./packages/sdk-rust) | `cargo add melaya` |
 | <img src="assets/packages/java.png" height="20"/> | **Java** | [`org.melaya:melaya-sdk`](./packages/sdk-java) | Gradle / Maven |
 | <img src="assets/packages/kotlin.png" height="20"/> | **Kotlin** | [`org.melaya:melaya-sdk-kotlin`](./packages/sdk-kotlin) | Gradle |
