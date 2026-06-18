@@ -14,6 +14,7 @@ on:
 
 jobs:
   npm:
+    if: false   # TEMP: @melaya/sdk 0.1.0 published manually; re-enable after attaching Trusted Publisher
     runs-on: ubuntu-latest
     permissions:
       id-token: write      # OIDC — npm Trusted Publishing, no token/secret needed
@@ -47,6 +48,7 @@ jobs:
         working-directory: packages/sdk-rust
 
   nuget:
+    if: false   # TEMP: enable once a nuget.org account + NUGET_API_KEY exist
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
