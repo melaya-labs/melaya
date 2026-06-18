@@ -34,3 +34,20 @@ jar {
     }
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
+
+// e2e smoke lives under e2e/ (separate source set; uses the main library output + deps)
+sourceSets {
+    e2e {
+        java.srcDirs = ['e2e']
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+configurations {
+    e2eImplementation.extendsFrom implementation
+    e2eRuntimeOnly.extendsFrom runtimeOnly
+}
+tasks.named('run', JavaExec) {
+    classpath = sourceSets.e2e.runtimeClasspath
+    mainClass = 'org.melaya.E2E'
+}

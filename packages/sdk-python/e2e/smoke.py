@@ -2,7 +2,7 @@
 Safety: paper/sim only. NEVER places a live order or launches a live strategy.
 Destructive/billable endpoints (backtest.delete_all, strategies.ai_opt_start /
 ai_opt_approve) are WIRED-checked, not invoked.
-Run: MK=mk_... python full_smoke.py   (SDK src on sys.path)
+Run: MK=mk_... python smoke.py   (SDK src on sys.path)
 """
 import asyncio
 import os
@@ -234,6 +234,16 @@ async def run_streams():
         rec("stream", "private(account)", "SKIP", "no connected key")
 
 asyncio.run(run_streams())
+
+# ════ TRADE — live credentialed reads (5); write ops WIRED — real funds ════
+_VEN = dict(exchange="bitgetfutures", api_key_id="BITGETFUTURES_0", market_type="futures")
+chk("trade", "balance", lambda: m.trade.balance(**_VEN), lambda r: r.get("ok") is True)
+chk("trade", "positions", lambda: m.trade.positions(**_VEN), lambda r: r.get("ok") is True)
+chk("trade", "open_orders", lambda: m.trade.open_orders(**_VEN), lambda r: r.get("ok") is True)
+chk("trade", "orders", lambda: m.trade.orders(**_VEN), lambda r: r.get("ok") is True)
+chk("trade", "my_trades", lambda: m.trade.my_trades(**_VEN, symbol="BTC/USDT:USDT"), lambda r: r.get("ok") is True)
+for _w in ["create_order","cancel_order","amend_order","cancel_all_orders","cancel_plan_orders","close_position","set_leverage","set_margin_mode","set_position_mode"]:
+    rec("trade", _w, "WIRED", "not invoked — LIVE write, real funds")
 
 # ════ TEARDOWN ════
 if paper_sid:

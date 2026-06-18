@@ -2,7 +2,7 @@
 // Safety: paper/sim only. NEVER places a live order or launches a live strategy.
 //   - destructive/billable endpoints (backtest.deleteAll, strategies.aiOptStart,
 //     aiOptApprove) are WIRED-checked, not invoked, to avoid data loss / spend.
-// Run: MK=mk_... NODE_TLS_REJECT_UNAUTHORIZED=0 node full_smoke.mjs
+// Run: MK=mk_... NODE_TLS_REJECT_UNAUTHORIZED=0 node smoke.mjs
 import { pathToFileURL } from "node:url";
 const { Melaya, MelayaError } = await import(new URL("../dist/index.js", import.meta.url).href);
 
@@ -179,6 +179,16 @@ await streamChk("stream", "strategies(private)", () => m.stream.strategies());
 const qkey = (await m.account.keys().catch(() => []))[0];
 if (qkey) { await streamChk("stream", "private(account)", () => m.stream.private({ exchange: qkey.exchange, market: qkey.market, apiKeyId: qkey.apiKeyId })); }
 else { skip("stream", "private(account)", "no connected key"); }
+
+// ════ TRADE — live credentialed reads (5); write ops WIRED — real funds ════
+const VEN = { exchange: "bitgetfutures", apiKeyId: "BITGETFUTURES_0", marketType: "futures" };
+await chk("trade", "balance", () => m.trade.balance(VEN), (r) => r?.ok === true);
+await chk("trade", "positions", () => m.trade.positions(VEN), (r) => r?.ok === true);
+await chk("trade", "openOrders", () => m.trade.openOrders(VEN), (r) => r?.ok === true);
+await chk("trade", "orders", () => m.trade.orders(VEN), (r) => r?.ok === true);
+await chk("trade", "myTrades", () => m.trade.myTrades({ ...VEN, symbol: "BTC/USDT:USDT" }), (r) => r?.ok === true);
+for (const w of ["createOrder","cancelOrder","amendOrder","cancelAllOrders","cancelPlanOrders","closePosition","setLeverage","setMarginMode","setPositionMode"])
+  wired("trade", w, "not invoked — LIVE write, real funds");
 
 // ════ TEARDOWN — stop + delete the paper strategy we created ════
 if (paperSid) {

@@ -22,3 +22,11 @@
 # package locks we don't ship from staging
 **/go.sum
 **/*.exe
+
+# secrets (belt-and-suspenders)
+.env
+.env.*
+**/.env
+*.pem
+*.key
+id_rsa*

@@ -11,3 +11,20 @@ dependencies {
 }
 application { mainClass = 'org.melaya.E2EKt' }
 kotlin { jvmToolchain(21) }
+
+// e2e smoke lives under e2e/ (separate source set; uses the main library output + deps)
+sourceSets {
+    e2e {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+kotlin.sourceSets.e2e.kotlin.srcDirs = ['e2e']
+configurations {
+    e2eImplementation.extendsFrom implementation
+    e2eRuntimeOnly.extendsFrom runtimeOnly
+}
+tasks.named('run', JavaExec) {
+    classpath = sourceSets.e2e.runtimeClasspath
+    mainClass = 'org.melaya.E2EKt'
+}
