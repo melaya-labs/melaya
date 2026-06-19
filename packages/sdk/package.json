@@ -1,6 +1,6 @@
 {
   "name": "@melaya/sdk",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Official TypeScript/JavaScript SDK for the Melaya unified market-data & streaming API across 70+ venues.",
   "license": "Apache-2.0",
   "type": "module",

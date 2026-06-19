@@ -1,3 +1,5 @@
+import com.vanniktech.maven.publish.SonatypeHost
+
 plugins {
     id 'java'
     id 'application'
@@ -5,7 +7,7 @@ plugins {
 }
 
 group = 'org.melaya'
-version = '0.1.1'
+version = '0.1.2'
 
 java {
     toolchain {
@@ -54,9 +56,9 @@ tasks.named('run', JavaExec) {
 }
 
 mavenPublishing {
-    publishToMavenCentral()
+    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
     signAllPublications()
-    coordinates('org.melaya', 'melaya-sdk', '0.1.1')
+    coordinates('org.melaya', 'melaya-sdk', '0.1.2')
     pom {
         name = 'Melaya Java'
         description = 'Official Java SDK for the Melaya trading platform — market data, paper + live trading, backtesting, and streaming.'

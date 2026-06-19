@@ -2,6 +2,15 @@
 
 All notable changes to the Melaya SDKs are documented here. This project follows [Semantic Versioning](https://semver.org).
 
+## [0.1.2] — Preview
+
+Release-pipeline fixes so all SDKs publish from one tag.
+
+### Fixed
+- Maven Central publishing targets the Central Portal (`SonatypeHost.CENTRAL_PORTAL`) — fixes the legacy-OSSRH 402 on `createStagingRepository`.
+- RubyGems job uses a token (`RUBYGEMS_API_KEY`) instead of the non-existent `configure-rubygems-credentials@v1` action.
+- crates job publishes with `--allow-dirty` (regenerated `Cargo.lock`).
+
 ## [0.1.1] — Preview
 
 First clean multi-registry cut: all nine SDKs publish together from one version tag.
