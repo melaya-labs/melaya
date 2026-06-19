@@ -51,7 +51,7 @@ Research-grade, self-hostable multi-agent trading projects.
 
 ## Unified market-data & trading APIs
 
-One interface over many venues — so your agent doesn't maintain N integrations.
+One interface over many venues, so your agent doesn't maintain N integrations.
 
 - **[Melaya API](https://melaya.org/docs)** — normalized REST + WebSocket over **70+ venues** (60 spot, 5 perp, 6 prediction-market/DEX): tickers, order books, OHLCV, trades, funding, open interest, liquidations, account state, paper + live trading, native backtesting, and private streams. One `mk_` key; **nine official SDKs** (TypeScript, Python, Rust, Go, Ruby, Java, Kotlin, C#/.NET, PHP). ([exchanges & the unified API](./exchanges.md))
 - **[CCXT](https://github.com/ccxt/ccxt)** — the ubiquitous client library for 100+ exchanges (JS/Python/PHP/C#). Self-hosted, per-venue quirks surface in your code.
@@ -62,7 +62,7 @@ One interface over many venues — so your agent doesn't maintain N integrations
 
 ## AI agent frameworks
 
-General-purpose frameworks for composing trading agents and crews — pair any with a market/trading API above and strong guardrails.
+General-purpose frameworks for composing trading agents and crews. Pair any with a market/trading API above and strong guardrails.
 
 - **[LangGraph](https://github.com/langchain-ai/langgraph)** — graph-based, stateful agent orchestration (cycles, branches, human-in-the-loop checkpoints). Strong fit for trading crews.
 - **[CrewAI](https://github.com/crewAIInc/crewAI)** — role-based multi-agent "crews" with sequential/hierarchical processes.
@@ -94,7 +94,7 @@ Validate a strategy before an agent runs it live. Prefer engines that share one 
 
 ## Risk, execution & safety
 
-The part most "AI trading" demos skip — and the part that matters when capital is real.
+The part most "AI trading" demos skip, and the part that matters when capital is real.
 
 - **Position & exposure limits** — per-trade and portfolio caps, enforced *before* an order is placed. (Melaya: write cap per cycle + daily order quota + Risk-Manager veto.)
 - **Human-in-the-loop approval** — gate risky actions (order placement, withdrawals) behind an operator decision, with an audit trail. *(Melaya ships this natively on every order, with batch approval and full audit chain.)*
@@ -156,4 +156,4 @@ You can't run an agent with real money in a black box.
 
 ## Contributing
 
-Open a PR adding a resource under the right section. Keep entries concise and genuinely useful — one line, real link, no marketing. This list is most valuable when it's curated, not a link dump. Prefer maintained, widely-used, or uniquely-capable resources over exhaustive coverage.
+Open a PR adding a resource under the right section. Keep entries concise and genuinely useful: one line, real link, no marketing. This list is most valuable when it's curated, not a link dump. Prefer maintained, widely-used, or uniquely-capable resources over exhaustive coverage.

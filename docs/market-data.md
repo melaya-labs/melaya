@@ -7,7 +7,7 @@ funding rate API, open interest, liquidations stream, WebSocket crypto data.
 
 # Market data & streaming
 
-Normalized **REST reads** and **public WebSocket streams** across all [70+ venues](./exchanges.md) — CEX, perpetuals, and prediction markets, one schema. For account, trading, backtesting, and strategy/crew launch, see [Trading & strategies](./trading.md).
+Normalized **REST reads** and **public WebSocket streams** across all [70+ venues](./exchanges.md): CEX, perpetuals, and prediction markets, one schema. For account, trading, backtesting, and strategy/crew launch, see [Trading & strategies](./trading.md).
 
 - **REST base:** `https://api.melaya.org`
 - **WebSocket base:** `wss://wss.melaya.org`
@@ -84,7 +84,7 @@ The same surface exists in all 9 SDKs (idiomatic per language). See runnable qui
 
 ## Normalized schema
 
-Regardless of venue, market data comes back in one shape — a ticker always exposes `bid`, `ask`, `last`, `high`, `low`, `baseVolume`, `quoteVolume`, and `timestamp`. Your code does not branch per exchange. Full detail on the [Exchanges](./exchanges.md#normalized-schema) page.
+Regardless of venue, market data comes back in one shape: a ticker always exposes `bid`, `ask`, `last`, `high`, `low`, `baseVolume`, `quoteVolume`, and `timestamp`. Your code does not branch per exchange. Full detail on the [Exchanges](./exchanges.md#normalized-schema) page.
 
 ## Where next
 

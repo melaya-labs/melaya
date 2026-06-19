@@ -8,7 +8,7 @@ isolation. Internal control IDs, file paths, and hostnames are intentionally omi
 
 # Security & trust
 
-Melaya runs autonomous agents that can touch money, credentials, and production systems — so security is the product, not an afterthought. This page is the public overview of how Melaya protects your data and bounds what agents can do. It is organized by control domain (mapped internally to the SOC 2 Trust Service Criteria).
+Melaya runs autonomous agents that can touch money, credentials, and production systems, so security is the product, not an afterthought. This page is the public overview of how Melaya protects your data and bounds what agents can do. It is organized by control domain (mapped internally to the SOC 2 Trust Service Criteria).
 
 > **Reporting a vulnerability:** see [`SECURITY.md`](../SECURITY.md). Email **info@melaya.org** or use GitHub [private vulnerability reporting](https://github.com/melaya-labs/melaya/security/advisories/new). We aim to acknowledge within 72 hours.
 
@@ -62,7 +62,7 @@ Melaya runs autonomous agents that can touch money, credentials, and production 
 
 ## Compliance posture
 
-Melaya is **building toward SOC 2 Type II**, with an internal, continuously-maintained control matrix mapping each Trust Service Criterion (CC1–CC9) to the concrete control that implements it. **As of this writing Melaya does not yet hold a third-party SOC 2 Type I / Type II or ISO/IEC 27001 attestation** — this is a readiness posture, stated honestly rather than overclaimed. Enterprise and Citadel-tier customers can request the current control summary and roadmap under NDA.
+Melaya is **building toward SOC 2 Type II**, with an internal, continuously-maintained control matrix mapping each Trust Service Criterion (CC1–CC9) to the concrete control that implements it. **As of this writing Melaya does not yet hold a third-party SOC 2 Type I / Type II or ISO/IEC 27001 attestation.** This is a readiness posture, stated honestly rather than overclaimed. Enterprise and Citadel-tier customers can request the current control summary and roadmap under NDA.
 
 ## See also
 

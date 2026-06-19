@@ -7,7 +7,7 @@ This page is the **venue catalog, the normalized schema, and authentication**. T
 - **[Market data & streaming](./market-data.md)** — REST reads (ticker, order book, OHLCV, trades, funding, open interest, liquidations) and the public WebSocket streams.
 - **[Trading & strategies](./trading.md)** — account, paper (sim) trading, live trading, backtesting, launching `custom` strategies and `agent_crew` [trading crews](./agentic-trading.md), and the private streams.
 
-Official SDKs wrap the whole API in **9 languages** — TypeScript/JavaScript, Python, Go, Rust, Java, Kotlin, C#/.NET, Ruby, and PHP (see [`packages/`](../packages)). One `mk_` key unlocks the whole surface.
+Official SDKs wrap the whole API in **9 languages**: TypeScript/JavaScript, Python, Go, Rust, Java, Kotlin, C#/.NET, Ruby, and PHP (see [`packages/`](../packages)). One `mk_` key unlocks the whole surface.
 
 ## Supported venues
 
@@ -90,7 +90,7 @@ The 70+ venues break down into two families that **share one API surface**:
 
 ### Prediction markets & DEX
 
-Same schema, same `mk_` key, same streams — addressed by `venue` (e.g. `polymarket`, `kalshi`). Listings via `POST /api/v1/market/pm-markets`.
+Same schema, same `mk_` key, same streams, addressed by `venue` (e.g. `polymarket`, `kalshi`). Listings via `POST /api/v1/market/pm-markets`.
 
 <p align="center">
   <img src="../assets/exchanges/AZURO.png" height="30" alt="Azuro" title="Azuro"/>
@@ -103,7 +103,7 @@ Same schema, same `mk_` key, same streams — addressed by `venue` (e.g. `polyma
 
 ### Enabled on demand
 
-The venues above are the **validated, live** set — the ones currently activated for trading and reflected in `list-exchanges`. The engine carries **integrated adapters for additional venues** that aren't switched on yet, including major derivatives and perp-DEX venues such as **Deribit, BitMEX, Gate, HTX (Huobi), dYdX, Apex, Paradex, Delta, and Derive**, plus inverse / COIN-M and other perpetual markets on venues already listed. These are **pluggable but enabled on demand**: each is activated once it clears validation testing, which we prioritize when a customer wants to trade there. If your strategy needs a venue you don't see in the list, ask us to enable it — the adapter usually already exists.
+The venues above are the **validated, live** set: the ones currently activated for trading and reflected in `list-exchanges`. The engine carries **integrated adapters for additional venues** that aren't switched on yet, including major derivatives and perp-DEX venues such as **Deribit, BitMEX, Gate, HTX (Huobi), dYdX, Apex, Paradex, Delta, and Derive**, plus inverse / COIN-M and other perpetual markets on venues already listed. These are **pluggable but enabled on demand**: each is activated once it clears validation testing, which we prioritize when a customer wants to trade there. If your strategy needs a venue you don't see in the list, ask us to enable it; the adapter usually already exists.
 
 The live, always-current list of **activated** venues is available programmatically (the dataset above is a snapshot; this endpoint is the source of truth):
 
@@ -117,11 +117,11 @@ GET https://api.melaya.org/api/v1/market/list-exchanges
 - **WebSocket base:** `wss://wss.melaya.org`
 - **Auth:** API keys prefixed `mk_`, passed as `?apiKey=mk_...` (query) or `Authorization: Bearer mk_...` (header).
 
-Market data, account/strategy reads, paper trading, and backtesting need only the `mk_` key. **Live** order placement and live strategy/crew launches additionally require a connected exchange key (referenced by `apiKeyId` — connect one in the dashboard → **Settings → Connectors**). Full read/write breakdown on the [Trading & strategies](./trading.md) page.
+Market data, account/strategy reads, paper trading, and backtesting need only the `mk_` key. **Live** order placement and live strategy/crew launches additionally require a connected exchange key (referenced by `apiKeyId`; connect one in the dashboard → **Settings → Connectors**). Full read/write breakdown on the [Trading & strategies](./trading.md) page.
 
 ## Normalized schema
 
-Regardless of venue, market data comes back in one shape — e.g. a ticker always exposes `bid`, `ask`, `last`, `high`, `low`, `baseVolume`, `quoteVolume`, and `timestamp`. This is the whole point: your code does not branch per exchange.
+Regardless of venue, market data comes back in one shape: a ticker always exposes `bid`, `ask`, `last`, `high`, `low`, `baseVolume`, `quoteVolume`, and `timestamp`. This is the whole point: your code does not branch per exchange.
 
 > Coverage and capabilities evolve. Always treat `GET /api/v1/market/list-exchanges` and the per-venue capability fields as the source of truth rather than hardcoding a venue list.
 

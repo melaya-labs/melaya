@@ -41,7 +41,7 @@ If your agents touch money, customer data, or production systems, that disciplin
 
 ## vs. open-source exchange libraries (CCXT and friends)
 
-Client-side libraries that wrap many exchanges put the integration burden on you: you install the library, manage rate limits, handle each venue's reconnect logic, and run it all on your own infrastructure. Melaya inverts this — the normalization and connection lifecycle live in a **hosted Rust engine**, and you talk to **one REST + WebSocket API**:
+Client-side libraries that wrap many exchanges put the integration burden on you: you install the library, manage rate limits, handle each venue's reconnect logic, and run it all on your own infrastructure. Melaya inverts this. The normalization and connection lifecycle live in a **hosted Rust engine**, and you talk to **one REST + WebSocket API**:
 
 - One schema across 70+ venues, server-maintained as exchanges change.
 - WebSocket streams without you managing reconnects, heartbeats, or per-venue framing.
@@ -51,15 +51,15 @@ A library is the right tool when you want to self-host everything; Melaya is the
 
 ## vs. retail trading bots (3Commas, Cryptohopper, Pionex)
 
-Classic bots automate **fixed, rule-based** strategies — grids, DCA, copy-trading. Melaya runs **reasoning AI crews** that analyze macro, technicals, sentiment, and risk each cycle, propose *sized* trades, and **ask a human to approve** — with server-managed exits, a paper-soak gate before live, drawdown/loss circuit breakers, and a full audit trail. You also get bring-your-own-model, a unified API across 70+ venues, and native backtesting. It's an AI trading **desk**, not a preset bot.
+Classic bots automate **fixed, rule-based** strategies like grids, DCA, and copy-trading. Melaya runs **reasoning AI crews** that analyze macro, technicals, sentiment, and risk each cycle, propose *sized* trades, and **ask a human to approve**, with server-managed exits, a paper-soak gate before live, drawdown/loss circuit breakers, and a full audit trail. You also get bring-your-own-model, a unified API across 70+ venues, and native backtesting. It's an AI trading **desk**, not a preset bot.
 
 ## vs. single-exchange APIs
 
-Going direct to one exchange's API is fine until you need a second venue — then you're maintaining N integrations, N auth schemes, and N sets of quirks. Melaya gives you **one integration that already speaks all of them**, normalized — plus everything above the raw API (paper, backtest, strategies, crews, streams).
+Going direct to one exchange's API is fine until you need a second venue; then you're maintaining N integrations, N auth schemes, and N sets of quirks. Melaya gives you **one integration that already speaks all of them**, normalized, plus everything above the raw API (paper, backtest, strategies, crews, streams).
 
 ## vs. building it yourself
 
-The honest alternative to Melaya is building your own infrastructure: venue adapters, a normalization layer, a backtester, a paper broker, a secrets vault, an approval system, observability, and an agent runtime. Melaya is all of that behind one API and one engine, with AI agentic trading on top — built by someone who shipped production trading systems for a decade.
+The honest alternative to Melaya is building your own infrastructure: venue adapters, a normalization layer, a backtester, a paper broker, a secrets vault, an approval system, observability, and an agent runtime. Melaya is all of that behind one API and one engine, with AI agentic trading on top, built by someone who shipped production trading systems for a decade.
 
 ## The short version
 

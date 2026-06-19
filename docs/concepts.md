@@ -15,11 +15,11 @@ A **crew** (or **pipeline**) is a directed graph of agents. Output flows from on
 - **loop** — an agent iterates until a stop condition or an iteration cap.
 - **condition** — branch to a different agent based on the previous output.
 
-Crews let you decompose a workflow — research, analysis, execution, review — into specialized roles instead of one over-loaded prompt. The flagship example is an [AI agentic trading](./agentic-trading.md) crew: Macro → TA → Risk → Execution personas trading with human approval.
+Crews let you decompose a workflow (research, analysis, execution, review) into specialized roles instead of one over-loaded prompt. The flagship example is an [AI agentic trading](./agentic-trading.md) crew: Macro → TA → Risk → Execution personas trading with human approval.
 
 ## Scheduling & triggers
 
-Crews don't only run on demand. Each can run on a **cadence**: a **time** schedule (e.g. daily, or every few minutes), an **event** trigger that wakes the crew on a real-world or market condition (e.g. a sharp price drop or a liquidation cascade on a watched symbol), or a **hybrid** of both — a routine timer plus event preemption, whichever fires first. Event triggers fire on the rising edge and are debounced; sub-minute cadences use an event-mode cooldown floor rather than firing faster than a reasoning cycle can finish. The trading-specific details (presets, the trigger composer, deterministic jitter) are in the [AI agentic trading guide](./agentic-trading.md#5-cadence--event-triggers).
+Crews don't only run on demand. Each can run on a **cadence**: a **time** schedule (e.g. daily, or every few minutes), an **event** trigger that wakes the crew on a real-world or market condition (e.g. a sharp price drop or a liquidation cascade on a watched symbol), or a **hybrid** of both: a routine timer plus event preemption, whichever fires first. Event triggers fire on the rising edge and are debounced, and sub-minute cadences use an event-mode cooldown floor rather than firing faster than a reasoning cycle can finish. The trading-specific details (presets, the trigger composer, deterministic jitter) are in the [AI agentic trading guide](./agentic-trading.md#5-cadence--event-triggers).
 
 ## Tools
 
@@ -35,7 +35,7 @@ Any tool can be marked as **requiring approval**. When an agent tries to call it
 
 ## Bring-your-own-model
 
-Melaya is not tied to one LLM vendor. Each agent picks its own provider and model — Anthropic Claude, OpenAI, Google Gemini, NVIDIA, Ollama, LM Studio, and others. Local providers (Ollama, LM Studio) run on your own hardware via a lightweight runner, so private data never leaves your machine.
+Melaya is not tied to one LLM vendor. Each agent picks its own provider and model: Anthropic Claude, OpenAI, Google Gemini, NVIDIA, Ollama, LM Studio, and others. Local providers (Ollama, LM Studio) run on your own hardware via a lightweight runner, so private data never leaves your machine.
 
 ## RAG
 
@@ -43,7 +43,7 @@ Melaya is not tied to one LLM vendor. Each agent picks its own provider and mode
 
 ## The trading engine
 
-Underneath the trading tools is an in-house **Rust engine** that normalizes market data and order routing across 70+ venues — CEX, perpetuals, and prediction markets on one schema. Every venue's quirks — symbol formats, rate limits, settlement suffixes, funding intervals — are absorbed by the engine and presented as one consistent shape. The same engine powers the public API the SDKs wrap: [market data & streaming](./market-data.md), [trading & strategies](./trading.md), and the [venue catalog](./exchanges.md).
+Underneath the trading tools is an in-house **Rust engine** that normalizes market data and order routing across 70+ venues: CEX, perpetuals, and prediction markets on one schema. Every venue's quirks (symbol formats, rate limits, settlement suffixes, funding intervals) are absorbed by the engine and presented as one consistent shape. The same engine powers the public API the SDKs wrap: [market data & streaming](./market-data.md), [trading & strategies](./trading.md), and the [venue catalog](./exchanges.md).
 
 ## Three ways to trade
 
@@ -57,15 +57,15 @@ The first two need only your `mk_` key; live order placement additionally binds 
 
 ## Backtesting
 
-Before any capital moves, a strategy can be replayed against historical data on the same **Rust engine** that runs it live — so the backtest and the live loop share one execution model. A backtest can be a single run, a **grid sweep** over a parameter space, or a **random sample**, and it reports trades, equity curve, and summary statistics. Funding and fees are modeled for perpetuals.
+Before any capital moves, a strategy can be replayed against historical data on the same **Rust engine** that runs it live, so the backtest and the live loop share one execution model. A backtest can be a single run, a **grid sweep** over a parameter space, or a **random sample**, and it reports trades, equity curve, and summary statistics. Funding and fees are modeled for perpetuals.
 
 ## AI parameter optimization
 
-A strategy's parameters don't have to be hand-tuned. The **AI optimizer** proposes parameter sets, evaluates them by backtest, and surfaces the strongest candidates for you to **approve** before they touch a live run — optimization with a human gate, not a black box.
+A strategy's parameters don't have to be hand-tuned. The **AI optimizer** proposes parameter sets, evaluates them by backtest, and surfaces the strongest candidates for you to **approve** before they touch a live run. It's optimization with a human gate, not a black box.
 
 ## The SDKs
 
-Everything above is reachable from **nine official SDKs** — TypeScript/JavaScript, Python, Go, Rust, Java, Kotlin, C#/.NET, Ruby, and PHP — each exposing one identical surface (market data, account, paper + live trading, strategies, backtesting, and public/private streams) over the unified API. The SDKs are thin; the engine, the normalization, and the safety rails live server-side.
+Everything above is reachable from **nine official SDKs** (TypeScript/JavaScript, Python, Go, Rust, Java, Kotlin, C#/.NET, Ruby, and PHP), each exposing one identical surface (market data, account, paper + live trading, strategies, backtesting, and public/private streams) over the unified API. The SDKs are thin; the engine, the normalization, and the safety rails live server-side.
 
 ## Observability
 

@@ -2,13 +2,13 @@
 
 **AI agentic trading** on Melaya means autonomous, multi-agent **trading crews** — teams of specialized AI agents that research the market, find setups, size risk, and execute orders, with a human in the loop on every trade and trading-desk safety rails throughout. It is the flagship of the Melaya [agentic orchestration platform](./concepts.md), wired directly into the [unified engine across 70+ venues](./exchanges.md).
 
-This page describes the capability end to end at a product level — what a crew is, how you build one, how a cycle runs, how it stays safe, and where it runs. The strategy logic, agent prompts, and engine internals are proprietary and not published here.
+This page describes the capability end to end at a product level: what a crew is, how you build one, how a cycle runs, how it stays safe, and where it runs. The strategy logic, agent prompts, and engine internals are proprietary and not published here.
 
 ---
 
 ## 1. What a trading crew is
 
-A trading crew is a **pipeline of specialized AI personas**, each with its own scoped toolkit, model, and job — instead of one over-loaded "trading bot" prompt. Each persona reasons in its own lane and hands a structured result to the next. A typical crew:
+A trading crew is a **pipeline of specialized AI personas**, each with its own scoped toolkit, model, and job, instead of one over-loaded "trading bot" prompt. Each persona reasons in its own lane and hands a structured result to the next. A typical crew:
 
 ```mermaid
 flowchart LR
@@ -63,7 +63,7 @@ Melaya ships **seven trading personas**. You pick which seats to fill, the model
 | 🧭 **Portfolio Manager** | Oversees the whole book — pauses, resumes, or rebalances across positions based on aggregate equity, regime shifts, and correlation/concentration. | Cross-position actions (all human-approved). |
 | ⚡ **Execution Trader** | The **only** seat allowed to place orders. Translates the approved plan into exact exchange calls — single entry with attached stop-loss and take-profit — and stops the instant you reject. | Placed orders + a structured fill/skip summary. |
 
-Run any subset, in **sequence or in parallel**. A common pattern is *Macro ∥ TA → Risk → Execution*: the analysts run concurrently, the Risk Manager waits for both, and only then does Execution get a sized plan. Each seat picks its own model independently — e.g. a strong cloud model on Risk for an airtight veto, a fast local model on TA for free, low-latency reads.
+Run any subset, in **sequence or in parallel**. A common pattern is *Macro ∥ TA → Risk → Execution*: the analysts run concurrently, the Risk Manager waits for both, and only then does Execution get a sized plan. Each seat picks its own model independently: a strong cloud model on Risk for an airtight veto, a fast local model on TA for free, low-latency reads.
 
 ---
 
@@ -107,15 +107,15 @@ You can scope tools **per persona**: leave a persona's toolkit empty to inherit 
 
 Once launched, a crew runs a loop:
 
-1. The crew **wakes** on its cadence — a timer, a market **event trigger**, or a hybrid of both.
+1. The crew **wakes** on its cadence: a timer, a market **event trigger**, or a hybrid of both.
 2. **Safety checks run first.** If a loss/cost/quota halt or a reactive blocker is tripped, the cycle is skipped (see §10–11).
 3. **Analysts pull live market data** through the unified API and produce structured signals.
-4. The **Risk Manager** turns signals into concrete, sized orders — or vetoes them.
-5. The **Execution Trader** proposes each order — and **pauses for your approval**.
+4. The **Risk Manager** turns signals into concrete, sized orders, or vetoes them.
+5. The **Execution Trader** proposes each order, then **pauses for your approval**.
 6. On approval, the order routes to the venue; a **server-side watcher manages the exits**.
 7. The crew **sleeps** until the next tick or trigger, then repeats.
 
-Personas can be wired sequentially or in parallel; an analyst's structured output becomes the next persona's input. A full multi-persona cycle typically takes anywhere from ~30 seconds (fast cloud models) to several minutes (local models) of wall-clock time — which is why cadence is designed around real cycle latency, not an idealized tick rate.
+Personas can be wired sequentially or in parallel; an analyst's structured output becomes the next persona's input. A full multi-persona cycle typically takes anywhere from ~30 seconds (fast cloud models) to several minutes (local models) of wall-clock time, which is why cadence is designed around real cycle latency, not an idealized tick rate.
 
 ---
 
@@ -127,7 +127,7 @@ Crews run on whatever rhythm the strategy needs. There are three modes:
 - **Event** — the crew waits on a market condition and fires when it trips, with a **cooldown floor** so it never fires more than once per interval. A liveness timer guarantees it still wakes periodically even when the market is quiet.
 - **Hybrid** — a routine timer **plus** event preemption: whichever fires first wins, so a big macro move can jump the queue instead of waiting for the next tick.
 
-Presets range from a 1-minute hybrid up to 4-hour and daily schedules, each carrying the mode that makes sense for that horizon. (Sub-minute "real-time" cadences are intentionally not offered — a multi-persona LLM cycle can't meaningfully complete that fast, so the event-mode cooldown is the honest equivalent.)
+Presets range from a 1-minute hybrid up to 4-hour and daily schedules, each carrying the mode that makes sense for that horizon. (Sub-minute "real-time" cadences are intentionally not offered: a multi-persona LLM cycle can't meaningfully complete that fast, so the event-mode cooldown is the honest equivalent.)
 
 **Event triggers** are built in a composer with two modes:
 
@@ -142,7 +142,7 @@ Triggers fire on the **rising edge only** and are debounced, so a volatile tape 
 
 ## 6. How the crew sees the market
 
-Analysts don't just snapshot a price at the top of a cycle — the crew maintains a **live market view** in the background:
+Analysts don't just snapshot a price at the top of a cycle; the crew maintains a **live market view** in the background:
 
 - **Streaming snapshots.** The crew subscribes to the venue's WSS feeds and always holds the latest frame for each symbol, so a persona's first read is instant and current.
 - **Timeline drain.** When a persona needs the *sequence* of what happened during the cadence sleep — a liquidation cascade building, a run of fills — it can drain the buffered timeline, not just the latest value.
@@ -155,7 +155,7 @@ The net effect: sub-second reactivity from a market event to the crew starting a
 
 ## 7. Human-in-the-loop on every order
 
-Every order-placing tool is gated. When the Execution Trader wants to place, modify, or close a position, the run **pauses and surfaces an approval card** with the exact order — symbol, side, size, entry, stop, and target.
+Every order-placing tool is gated. When the Execution Trader wants to place, modify, or close a position, the run **pauses and surfaces an approval card** with the exact order: symbol, side, size, entry, stop, and target.
 
 You can:
 
@@ -165,7 +165,7 @@ You can:
 
 When the crew proposes several orders at once, they're **coalesced into a single card** with per-row approve/reject, so you act on the whole batch in one decision instead of clicking through each. Analysts and the Risk Manager can read and reason all they like; **only the Execution persona can write, and even it cannot act without you.**
 
-Every decision — and every fill it leads to — is recorded in a complete audit trail (the request, who decided, what they changed, and the resulting execution), so any cycle can be reconstructed as "what did this crew do, by whose authority?"
+Every decision, and every fill it leads to, is recorded in a complete audit trail (the request, who decided, what they changed, and the resulting execution), so any cycle can be reconstructed as "what did this crew do, by whose authority?"
 
 > **Today vs. roadmap.** Approval on every order is currently **always-on** for live crews, and approvals are actioned in the Studio approval queue. A **programmatic approvals API** (receive an approval request, then approve / edit / reject in code) and the option to **selectively disable HITL** for fully-autonomous live crews are both on the roadmap, arriving with the broader agent API in v2.
 
@@ -173,7 +173,7 @@ Every decision — and every fill it leads to — is recorded in a complete audi
 
 ## 8. Server-managed stop-loss & take-profit
 
-Exits don't depend on the agent staying awake. Once an entry is approved, Melaya's engine **manages the stop-loss and take-profit server-side** — continuously watching the live tape and firing the close leg the moment price crosses your level. The Execution seat places a **single entry with the stop and target attached**; there are no fragile follow-up orders to manage. Works for spot and perpetuals.
+Exits don't depend on the agent staying awake. Once an entry is approved, Melaya's engine **manages the stop-loss and take-profit server-side**, continuously watching the live tape and firing the close leg the moment price crosses your level. The Execution seat places a **single entry with the stop and target attached**; there are no fragile follow-up orders to manage. Works for spot and perpetuals.
 
 This is also why the safe default on shutdown is to **leave** open positions: the venue-side SL/TP *is* the safety rail, so a crew that stops still has its exits protected. (A crew can optionally be set to flatten everything on shutdown instead.)
 
@@ -186,7 +186,7 @@ The same crew definition backs both:
 - **Paper** — a simulated broker, no real capital. Same approval flow, same audit trail, same cadence — it just routes through the sim broker so the whole pipeline is exercised end to end without money at risk.
 - **Live** — a connected exchange account.
 
-Mode and account are **launch-time choices** — build and validate once, deploy where you choose.
+Mode and account are **launch-time choices**: build and validate once, deploy where you choose.
 
 > **Paper-soak before live.** Live keys stay locked until a crew has cleared a paper-mode soak window (a minimum runtime *and* a minimum number of simulated fills). You can't trip the wrong account by accident on day one — a crew earns its live toggle by proving itself in paper first.
 
@@ -209,7 +209,7 @@ The blockers matter because they catch **in-flight** breaches: even if a cycle s
 
 ## 11. Safety rails (trading-grade discipline)
 
-Autonomous trading is only safe with guardrails. On top of the sidecars, Melaya enforces a layered set of rails — many at the platform/middleware level, so they hold **regardless of what the LLM does**:
+Autonomous trading is only safe with guardrails. On top of the sidecars, Melaya enforces a layered set of rails, many at the platform/middleware level, so they hold **regardless of what the LLM does**:
 
 - **Scoped permissions** — only the Execution persona can place orders; analysts are read-only.
 - **Human approval on every order** — *every order signed by a human*, with a full audit trail and per-row batch approval.
@@ -227,14 +227,14 @@ Autonomous trading is only safe with guardrails. On top of the sidecars, Melaya 
 
 ## 12. Where a crew runs — cloud or your own machine
 
-Where a crew executes depends on its runtime mode, but the **trust posture is consistent**: the crew only ever talks to Melaya's API and feeds, and **all venue requests route through Melaya's engine from Melaya's egress IP**. You whitelist Melaya's egress on your exchange — never your laptop.
+Where a crew executes depends on its runtime mode, but the **trust posture is consistent**: the crew only ever talks to Melaya's API and feeds, and **all venue requests route through Melaya's engine from Melaya's egress IP**. You whitelist Melaya's egress on your exchange, never your laptop.
 
 | Mode | Runs on | LLM prompt visibility |
 |---|---|---|
 | **Cloud pool** | Melaya's infrastructure (pooled, multi-tenant-isolated) | Melaya proxies the LLM call |
 | **Local runner** | Your own machine (Mac mini / NUC / Apple Silicon) | **Direct** — prompts and your model key never touch Melaya |
 
-Local-runner mode is required when any persona uses a **local model provider** (so your prompts stay on your hardware), and is the default for the highest tiers. In local mode, order intent and fills still flow through Melaya for the approval gate and audit chain — but the reasoning, the model key, and the crew code stay on your box. Market data is public either way.
+Local-runner mode is required when any persona uses a **local model provider** (so your prompts stay on your hardware), and is the default for the highest tiers. In local mode, order intent and fills still flow through Melaya for the approval gate and audit chain, but the reasoning, the model key, and the crew code stay on your box. Market data is public either way.
 
 ---
 
@@ -275,7 +275,7 @@ Three ready-to-run crews you can launch as-is and then adapt. All default to **p
 | **Daily Majors Long** | Daily (time) | BTC / ETH / SOL / BNB / AVAX | The "real" graduation strategy: conservative **long-only** entries, 2/3 confluence with funding/post-purge overrides, ATR-anchored stops, R:R ≥ 1.5, portfolio risk rating, and a release-window blackout. ≤ 0.5% equity per trade, ≤ 5% total exposure, ≤ 5 concurrent positions. |
 | **Intraday TA Reactive** | Hourly pulse + price-drop triggers (hybrid) | Majors | A TA-driven reactive crew on the 5-minute charts. Woken by the hourly timer *or* a per-symbol price-drop trigger (4% from the 24h high); the TA seat decides cascade-fade vs. structural-breakdown, Risk sizes bidirectionally with hard caps, Execution places one order per row. |
 
-Clone any template from your library to spin up a variant (e.g. *Hourly Mid-Caps*) — the clone is a fresh, private definition with the payload copied; edit cadence, universe, and personas from there.
+Clone any template from your library to spin up a variant (e.g. *Hourly Mid-Caps*). The clone is a fresh, private definition with the payload copied; edit cadence, universe, and personas from there.
 
 ---
 
@@ -313,6 +313,6 @@ Every `place_order` above is a human-approved card; every fill lands in the audi
 
 ## Get started
 
-Build your first crew from a template in the Studio, run it in **paper**, watch it argue through a few cycles, and approve a trade or two. When it's earned its soak, flip it to **live**. Prefer code? Launch the same crew via the API — see **[Launching a trading crew](./trading.md#launching-a-trading-crew)** for the full `agent_crew` payload (per-persona tools, steps, context, cadence, safety).
+Build your first crew from a template in the Studio, run it in **paper**, watch it argue through a few cycles, and approve a trade or two. When it's earned its soak, flip it to **live**. Prefer code? Launch the same crew via the API: see **[Launching a trading crew](./trading.md#launching-a-trading-crew)** for the full `agent_crew` payload (per-persona tools, steps, context, cadence, safety).
 
 See **[melaya.org](https://melaya.org)** to get started, and the [concepts](./concepts.md), [trading & strategies](./trading.md), and [exchanges](./exchanges.md) pages for the orchestration and market-API foundations underneath.

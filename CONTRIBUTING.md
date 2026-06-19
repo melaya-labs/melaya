@@ -1,6 +1,6 @@
 # Contributing to Melaya
 
-Thanks for your interest. This repository is the public home for Melaya's **documentation, SDKs, and reference data** — not the platform/engine source.
+Thanks for your interest. This repository is the public home for Melaya's **documentation, SDKs, and reference data**, not the platform/engine source.
 
 ## What we welcome
 
@@ -79,7 +79,7 @@ MK=mk_... php e2e/smoke.php
 All nine SDKs expose the same surface (market data, account, paper + live
 trading, backtesting, and public + private streaming) and are validated by their
 e2e smoke. Live order-placement methods (`trade.createOrder`, `cancelOrder`, …)
-move real funds — test with the paper `sim` broker or a `dryRun` strategy.
+move real funds, so test with the paper `sim` broker or a `dryRun` strategy.
 
 ## Pull requests
 

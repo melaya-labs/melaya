@@ -11,13 +11,13 @@
 [![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/2BBMUUdnkj)
 [![Stars](https://img.shields.io/github/stars/melaya-labs/melaya?style=social)](https://github.com/melaya-labs/melaya)
 
-This is the **open** home for Melaya: developer documentation, the official SDKs, and reference material. It does **not** contain the Melaya engine or platform source — it's everything you need to *build on top of* Melaya.
+This is the **open** home for Melaya: developer documentation, the official SDKs, and reference material. It does **not** contain the Melaya engine or platform source. It's everything you need to *build on top of* Melaya.
 
 ---
 
 ## What is Melaya?
 
-Melaya is a standalone agentic platform that applies **trading-grade discipline** to general automation. Agents are not loose chatbots with unlimited powers — they get scoped tools, explicit permissions, secure credentials, cost tracking, audit logs, data-quality monitoring, and human-in-the-loop approval where risk is high.
+Melaya is a standalone agentic platform that applies **trading-grade discipline** to general automation. Agents are not loose chatbots with unlimited powers. They get scoped tools, explicit permissions, secure credentials, cost tracking, audit logs, data-quality monitoring, and human-in-the-loop approval where risk is high.
 
 It's **three products that snap together**:
 
@@ -31,7 +31,7 @@ Most automation tools are either toy chatbots or brittle no-code flows. Melaya i
 
 ## Agentic trading crews
 
-Melaya's flagship for **AI agentic trading**: autonomous, multi-agent **trading crews** — *Macro → TA → Risk → Execution* personas that research the market, size risk, and execute, with **human-in-the-loop approval on every order** and **server-managed stop-loss / take-profit**, across the [unified 70+-venue engine](./docs/exchanges.md). Run them **paper or live**, on a schedule or on market triggers, with real-time reactive sidecars (drawdown / macro-blackout / funding-flip / liquidation-cascade) on top. Build one in the visual Studio, or launch it straight from the API as a `strategyType: "agent_crew"` strategy ([reference](./docs/trading.md#launching-a-trading-crew)).
+Melaya's flagship for **AI agentic trading**: autonomous, multi-agent **trading crews** of *Macro → TA → Risk → Execution* personas that research the market, size risk, and execute, with **human-in-the-loop approval on every order** and **server-managed stop-loss / take-profit**, across the [unified 70+-venue engine](./docs/exchanges.md). Run them **paper or live**, on a schedule or on market triggers, with real-time reactive sidecars (drawdown / macro-blackout / funding-flip / liquidation-cascade) on top. Build one in the visual Studio, or launch it straight from the API as a `strategyType: "agent_crew"` strategy ([reference](./docs/trading.md#launching-a-trading-crew)).
 
 ```mermaid
 flowchart LR
@@ -73,7 +73,7 @@ flowchart LR
 
 ## Models & providers
 
-Bring your own model — Melaya runs across **20+ AI providers**, plus local models on your own hardware (Ollama, LM Studio) so private data never leaves your machine.
+Bring your own model. Melaya runs across **20+ AI providers**, plus local models on your own hardware (Ollama, LM Studio) so private data never leaves your machine.
 
 <table>
   <tr><td align="center" width="110"><img src="./assets/providers/openai.svg" height="38" alt="OpenAI"/><br/><sub>OpenAI</sub></td><td align="center" width="110"><img src="./assets/providers/anthropic.png" height="38" alt="Anthropic"/><br/><sub>Anthropic</sub></td><td align="center" width="110"><img src="./assets/providers/gemini.png" height="38" alt="Google Gemini"/><br/><sub>Google Gemini</sub></td><td align="center" width="110"><img src="./assets/providers/nvidia.png" height="38" alt="NVIDIA"/><br/><sub>NVIDIA</sub></td><td align="center" width="110"><img src="./assets/providers/mistral.png" height="38" alt="Mistral"/><br/><sub>Mistral</sub></td></tr>
@@ -84,7 +84,7 @@ Bring your own model — Melaya runs across **20+ AI providers**, plus local mod
 
 ## SDKs
 
-Official clients for the Melaya API live in [`packages/`](./packages). One `mk_` key unlocks the whole surface — market data, account, paper + live trading, backtesting, and live streams:
+Official clients for the Melaya API live in [`packages/`](./packages). One `mk_` key unlocks the whole surface (market data, account, paper + live trading, backtesting, and live streams):
 
 <p align="center">
   <img src="assets/packages/python.png" height="34" alt="Python" hspace="6"/>
@@ -110,7 +110,7 @@ Official clients for the Melaya API live in [`packages/`](./packages). One `mk_`
 | <img src="assets/packages/ruby.png" height="20"/> | **Ruby** | [`melaya`](./packages/sdk-ruby) | `gem install melaya` |
 | <img src="assets/packages/php.png" height="20"/> | **PHP** | [`melaya/sdk`](./packages/sdk-php) | `composer require melaya/sdk` |
 
-Every SDK exposes the **same surface** — market data, account, paper + live trading, backtesting, and public + private streaming — and every one was **validated end-to-end against the live API** (~70 checks per language: all REST endpoints, a custom-strategy paper round-trip, a custom-strategy backtest, and all WebSocket streams). Runnable smoke tests live in each package's `e2e/`.
+Every SDK exposes the **same surface** (market data, account, paper + live trading, backtesting, and public + private streaming), and every one was **validated end-to-end against the live API** (~70 checks per language: all REST endpoints, a custom-strategy paper round-trip, a custom-strategy backtest, and all WebSocket streams). Runnable smoke tests live in each package's `e2e/`.
 
 ```bash
 npm install @melaya/sdk

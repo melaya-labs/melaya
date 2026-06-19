@@ -8,9 +8,9 @@ bot API, AI trading crew, agent_crew, human-in-the-loop trading, unified order A
 
 # Trading & strategies
 
-The authenticated plane: **account, paper (sim) trading, live trading, backtesting, and launching strategies** — including [AI agentic trading crews](./agentic-trading.md). For market data and public streams, see [Market data & streaming](./market-data.md); for the venue catalog and schema, see [Exchanges](./exchanges.md).
+The authenticated plane: **account, paper (sim) trading, live trading, backtesting, and launching strategies**, including [AI agentic trading crews](./agentic-trading.md). For market data and public streams, see [Market data & streaming](./market-data.md); for the venue catalog and schema, see [Exchanges](./exchanges.md).
 
-The same `mk_` key (sent as `Authorization: Bearer mk_...`) unlocks this plane. **Reads, paper trading, and backtesting need only the key; live order placement and live strategy/crew launches additionally require a connected exchange key** (referenced by `apiKeyId` — see `account.keys()`). Connect exchange keys in the dashboard → **Settings → Connectors**.
+The same `mk_` key (sent as `Authorization: Bearer mk_...`) unlocks this plane. **Reads, paper trading, and backtesting need only the key; live order placement and live strategy/crew launches additionally require a connected exchange key** (referenced by `apiKeyId`; see `account.keys()`). Connect exchange keys in the dashboard → **Settings → Connectors**.
 
 ## Account
 
@@ -18,7 +18,7 @@ The same `mk_` key (sent as `Authorization: Bearer mk_...`) unlocks this plane. 
 
 ## Paper trading (sim broker)
 
-Synthetic fills from the live tape — no venue, no credentials, no capital — per strategy:
+Synthetic fills from the live tape (no venue, no credentials, no capital), per strategy:
 `POST /api/v1/private/sim/create-order` · `cancel-order` · `GET .../sim/{balance,positions,open-orders,my-trades,list-accounts}`.
 
 ## Strategies
@@ -36,13 +36,13 @@ Two launchable `strategyType`s:
 
 ## Backtesting
 
-Native, on the Rust engine — the same engine that runs the strategy live.
+Native, on the Rust engine: the same engine that runs the strategy live.
 
 `POST /api/v1/private/backtest/start` (single, grid, or random sweep) · `GET .../backtest/{jobs/:id, results/:id, trades/:id, sweep/:parent, favorites, funding-range}` · list / cancel / delete.
 
 ## Live trading
 
-Real funds — a connected exchange key required. `POST /api/v1/private/<op>` for:
+Real funds, so a connected exchange key is required. `POST /api/v1/private/<op>` for:
 
 - **Writes** — `create-order`, `cancel-order`, `amend-order`, `cancel-all-orders`, `cancel-plan-orders`, `close-position`, `set-leverage`, `set-margin-mode`, `set-position-mode`.
 - **Reads** — `balance`, `positions`, `open-orders`, `orders`, `closed-orders`, `my-trades`, `leverage`, `leverage-tiers`.
@@ -82,11 +82,11 @@ const { job_id } = await m.backtest.start({
 for await (const ev of await m.stream.strategies()) console.log(ev.type);
 ```
 
-The same surface exists in all 9 SDKs (idiomatic per language). Live-trading **write** ops (`trade.createOrder`, `cancelOrder`, …) move **real funds** — test with the paper `sim` broker or a `dryRun` strategy first.
+The same surface exists in all 9 SDKs (idiomatic per language). Live-trading **write** ops (`trade.createOrder`, `cancelOrder`, …) move **real funds**, so test with the paper `sim` broker or a `dryRun` strategy first.
 
 ## Launching a trading crew
 
-A crew launches through the same `strategies.create` call — `strategyType: "agent_crew"` with the crew config in `params`. Run it `dryRun: true` for paper, or `dryRun: false` with an `apiKeyId` for live (live additionally requires the crew to have cleared its paper-soak window). See the [AI agentic trading guide](./agentic-trading.md) for what each field means.
+A crew launches through the same `strategies.create` call, with `strategyType: "agent_crew"` and the crew config in `params`. Run it `dryRun: true` for paper, or `dryRun: false` with an `apiKeyId` for live (live additionally requires the crew to have cleared its paper-soak window). See the [AI agentic trading guide](./agentic-trading.md) for what each field means.
 
 ```ts
 import { Melaya } from "@melaya/sdk";

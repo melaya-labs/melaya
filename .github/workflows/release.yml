@@ -105,3 +105,18 @@ jobs:
           ORG_GRADLE_PROJECT_mavenCentralPassword: "${{ secrets.CENTRAL_PASSWORD }}"
           ORG_GRADLE_PROJECT_signingInMemoryKey: "${{ secrets.GPG_PRIVATE_KEY }}"
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: "${{ secrets.GPG_PASSPHRASE }}"
+
+  go-tag:
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write      # push the Go submodule tag back to this repo
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Tag the Go module (subdir modules need a path-prefixed tag)
+        run: |
+          V="${GITHUB_REF_NAME}"                 # vX.Y.Z
+          TAG="packages/sdk-go/${V}"             # module is at packages/sdk-go/
+          git tag "$TAG" "$V"
+          git push origin "$TAG"
