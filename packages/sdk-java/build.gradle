@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'org.melaya'
-version = '0.1.0'
+version = '0.1.1'
 
 java {
     toolchain {
@@ -56,7 +56,7 @@ tasks.named('run', JavaExec) {
 mavenPublishing {
     publishToMavenCentral()
     signAllPublications()
-    coordinates('org.melaya', 'melaya-sdk', '0.1.0')
+    coordinates('org.melaya', 'melaya-sdk', '0.1.1')
     pom {
         name = 'Melaya Java'
         description = 'Official Java SDK for the Melaya trading platform — market data, paper + live trading, backtesting, and streaming.'

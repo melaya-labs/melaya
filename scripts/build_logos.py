@@ -1,8 +1,8 @@
 """Copy provider + exchange logos into the repo and render logo grids.
 
-Sources (the Melaya app's own brand assets):
-  C:\\Github\\melaya-platform\\client\\src\\assets\\connectors  (AI provider logos)
-  C:\\Github\\melaya-platform\\client\\src\\assets\\exchanges    (venue logos)
+Sources (the Melaya app's own brand assets) are passed via env vars:
+  MELAYA_CONNECTORS_DIR  (AI provider logos)
+  MELAYA_EXCHANGES_DIR   (venue logos)
 
 Outputs:
   assets/providers/*  + fills <!-- PROVIDERS_GRID --> in README.md
@@ -13,9 +13,9 @@ import os
 import re
 import shutil
 
-SRC_CONN = r"C:\Github\melaya-platform\client\src\assets\connectors"
-SRC_EXCH = r"C:\Github\melaya-platform\client\src\assets\exchanges"
-ROOT = r"C:\Users\tokaNo\melaya-oss"
+SRC_CONN = os.environ.get("MELAYA_CONNECTORS_DIR", "")
+SRC_EXCH = os.environ.get("MELAYA_EXCHANGES_DIR", "")
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ── Providers (display name, source filename) — all 19 we list ──────────────
 PROVIDERS = [

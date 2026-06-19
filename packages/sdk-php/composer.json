@@ -5,6 +5,10 @@
     "license": "MIT",
     "keywords": ["melaya", "trading", "market-data", "crypto", "sdk"],
     "homepage": "https://melaya.org",
+    "support": {
+        "source": "https://github.com/melaya-labs/melaya",
+        "issues": "https://github.com/melaya-labs/melaya/issues"
+    },
     "require": {
         "php": ">=8.1"
     },

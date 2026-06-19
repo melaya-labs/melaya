@@ -28,9 +28,11 @@ Design philosophy: agents should not be loose chatbots with unlimited powers. Th
 - Autonomous, multi-agent trading crews — specialized personas (Macro Analyst, TA Analyst, Risk Manager, Execution Trader, and more) running in sequence or parallel.
 - Human-in-the-loop approval on every order: only the execution persona can place trades, and it pauses for operator approval; every decision is audited.
 - Server-managed stop-loss / take-profit: the engine watches the live tape and fires exits when price crosses your level (spot and perpetuals).
-- Cadence: time schedules, market-event triggers (e.g. price-drop or liquidation cascade), or hybrid.
-- Safety rails: scoped permissions per persona, position/exposure limits, drawdown and consecutive-loss circuit breakers, paper-before-live, full audit trail.
+- Cadence: time schedules, market-event triggers (e.g. price-drop or liquidation cascade), or hybrid (timer plus event preemption; sub-minute cadences use an event-mode cooldown floor).
+- Safety rails: scoped permissions per persona, per-cycle write cap, per-tier daily order quota, daily LLM cost cap, position/exposure limits, drawdown and consecutive-loss circuit breakers, egress + tool allowlists, paper-soak gate before live, full audit trail.
+- Reactive sidecars: four real-time watchers run beside the crew — Drawdown Sentinel and Macro Blackout (blockers that reject writes before approval) plus Funding Flip and Liquidation Cascade (triggers that wake the crew early).
 - Paper or live: the same crew definition backs a simulated-broker paper launch or a connected-exchange live launch.
+- Launchable via API: crews launch through POST /api/v1/strategies as strategyType "agent_crew" (paper or live), the persona pipeline + per-persona tools + cadence + safety riding in params. Order approvals are actioned in the Studio approval queue today; a programmatic approvals API and the broader agent-builder API (arbitrary non-trading agents, pipelines, RAG, connectors) arrive in v2. HITL is currently always-on; opt-out for fully-autonomous live crews is on the roadmap.
 
 ## Unified market & trading API
 
@@ -39,14 +41,20 @@ Design philosophy: agents should not be loose chatbots with unlimited powers. Th
 - Market data: ticker, order book, OHLCV, public trades, exchange status/time, markets, currencies.
 - Derivatives: funding rates, funding-rate history, open interest, open-interest history, instrument constraints.
 - Streaming: live ticker, order book, OHLCV, public trades, and cross-exchange liquidations.
-- Trading: account balances, orders, positions, fills, and agent-driven strategies (exchange credentials required).
+- Trading: account balances, orders, positions, fills, live order placement (create/cancel/amend/close, leverage & margin controls), agent-driven strategies, paper (sim-broker) trading, and native backtesting on the Rust engine. Reads, paper, and backtests need only the `mk_` key; live order placement also requires a connected exchange key.
 - Authentication: API keys prefixed `mk_`, passed as `?apiKey=mk_...` or `Authorization: Bearer mk_...`.
+- Official SDKs in 9 languages (TypeScript/JavaScript, Python, Go, Rust, Java, Kotlin, C#/.NET, Ruby, PHP) wrap the full surface with one identical API each.
 
 ## Links
 
 - Website: https://melaya.org
 - Documentation: https://melaya.org/docs
-- TypeScript SDK: https://www.npmjs.com/package/@melaya/sdk
+- Source & SDKs (GitHub): https://github.com/melaya-labs/melaya
+- TypeScript/JavaScript SDK (npm): https://www.npmjs.com/package/@melaya/sdk
+- Python SDK (PyPI): https://pypi.org/project/melaya/
+- Rust SDK (crates.io): https://crates.io/crates/melaya
+- Ruby SDK (RubyGems): https://rubygems.org/gems/melaya
+- Go SDK (module): github.com/melaya-labs/melaya/packages/sdk-go/melaya
 - Discord: https://discord.gg/2BBMUUdnkj
 
 ## Keywords

@@ -2,11 +2,26 @@
 
 Melaya exposes **one normalized REST + WebSocket API over 70+ venues**, backed by an in-house Rust engine. You write your integration once against the Melaya schema; the engine handles each venue's symbol formats, rate limits, settlement suffixes, funding intervals, and connection lifecycles.
 
-The 70+ venues break down as **60 spot exchanges**, **5 perpetual-futures venues** (binanceusdm, bingxfutures, bitgetfutures, bybitlinear, okxswap), and **6 prediction-market / DEX venues** (azuro, drift_pm, kalshi, overtime, polymarket, sxbet). A machine-readable dataset — id, display name, market type, auth requirements (passphrase / application-id), and native ticker-stream support — is published here: [`data/exchanges.json`](../data/exchanges.json) · [`data/exchanges.csv`](../data/exchanges.csv).
+This page is the **venue catalog, the normalized schema, and authentication**. The endpoint reference is split across two companion pages:
+
+- **[Market data & streaming](./market-data.md)** — REST reads (ticker, order book, OHLCV, trades, funding, open interest, liquidations) and the public WebSocket streams.
+- **[Trading & strategies](./trading.md)** — account, paper (sim) trading, live trading, backtesting, launching `custom` strategies and `agent_crew` [trading crews](./agentic-trading.md), and the private streams.
+
+Official SDKs wrap the whole API in **9 languages** — TypeScript/JavaScript, Python, Go, Rust, Java, Kotlin, C#/.NET, Ruby, and PHP (see [`packages/`](../packages)). One `mk_` key unlocks the whole surface.
+
+## Supported venues
+
+The 70+ venues break down into two families that **share one API surface**:
+
+- **Centralized exchanges & perpetuals** — **60 spot exchanges** plus **5 perpetual-futures venues** (binanceusdm, bingxfutures, bitgetfutures, bybitlinear, okxswap).
+- **Prediction markets & DEX** — **6 venues** (azuro, drift_pm, kalshi, overtime, polymarket, sxbet).
+
+**One API, both families.** CEX, perpetuals, and prediction markets are all reached through the **same normalized REST + WebSocket schema, the same `mk_` key, and the same SDK methods** — you select the venue with the `exchange` (CEX/perp) or `venue` (prediction-market) parameter. There's no separate client and no separate auth: a ticker is a ticker, an order is an order, a stream is a stream, whether it's Binance spot, a Bybit perp, or a Polymarket event contract. Prediction-market listings come from `POST /api/v1/market/pm-markets` and the PM trading surface follows the identical call pattern (see [Market data](./market-data.md) and [Trading](./trading.md)). A machine-readable dataset — id, display name, market type, auth requirements (passphrase / application-id), and native ticker-stream support — is published here: [`data/exchanges.json`](../data/exchanges.json) · [`data/exchanges.csv`](../data/exchanges.csv).
+
+### Centralized exchanges & perpetuals
 
 <p align="center">
   <img src="../assets/exchanges/ASCENDEX.png" height="30" alt="AscendEX" title="AscendEX"/>
-  <img src="../assets/exchanges/AZURO.png" height="30" alt="Azuro" title="Azuro"/>
   <img src="../assets/exchanges/BACKPACK.png" height="30" alt="Backpack" title="Backpack"/>
   <img src="../assets/exchanges/BEQUANT.png" height="30" alt="Bequant" title="Bequant"/>
   <img src="../assets/exchanges/BIGONE.png" height="30" alt="BigONE" title="BigONE"/>
@@ -42,7 +57,6 @@ The 70+ venues break down as **60 spot exchanges**, **5 perpetual-futures venues
   <img src="../assets/exchanges/CRYPTOCOM.png" height="30" alt="Crypto.com" title="Crypto.com"/>
   <img src="../assets/exchanges/DEEPCOIN.png" height="30" alt="Deepcoin" title="Deepcoin"/>
   <img src="../assets/exchanges/DIGIFINEX.png" height="30" alt="Digifinex" title="Digifinex"/>
-  <img src="../assets/exchanges/DRIFT.png" height="30" alt="Drift PM" title="Drift PM"/>
   <img src="../assets/exchanges/EXMO.png" height="30" alt="Exmo" title="Exmo"/>
   <img src="../assets/exchanges/FOXBIT.png" height="30" alt="Foxbit" title="Foxbit"/>
   <img src="../assets/exchanges/GEMINI.png" height="30" alt="Gemini" title="Gemini"/>
@@ -50,7 +64,6 @@ The 70+ venues break down as **60 spot exchanges**, **5 perpetual-futures venues
   <img src="../assets/exchanges/HITBTC.png" height="30" alt="HitBTC" title="HitBTC"/>
   <img src="../assets/exchanges/HYPERLIQUID.png" height="30" alt="Hyperliquid Spot" title="Hyperliquid Spot"/>
   <img src="../assets/exchanges/indodax.png" height="30" alt="Indodax" title="Indodax"/>
-  <img src="../assets/exchanges/KALSHI.png" height="30" alt="Kalshi" title="Kalshi"/>
   <img src="../assets/exchanges/KRAKEN.png" height="30" alt="Kraken" title="Kraken"/>
   <img src="../assets/exchanges/KUCOIN.png" height="30" alt="KuCoin" title="KuCoin"/>
   <img src="../assets/exchanges/LATOKEN.png" height="30" alt="LATOKEN" title="LATOKEN"/>
@@ -61,13 +74,10 @@ The 70+ venues break down as **60 spot exchanges**, **5 perpetual-futures venues
   <img src="../assets/exchanges/OKX.png" height="30" alt="OKX Spot" title="OKX Spot"/>
   <img src="../assets/exchanges/OKX.png" height="30" alt="OKX Perpetuals" title="OKX Perpetuals"/>
   <img src="../assets/exchanges/ONETRADING.png" height="30" alt="One Trading" title="One Trading"/>
-  <img src="../assets/exchanges/OVERTIME.png" height="30" alt="Overtime Markets" title="Overtime Markets"/>
   <img src="../assets/exchanges/P2B.png" height="30" alt="P2B" title="P2B"/>
   <img src="../assets/exchanges/PAYMIUM.png" height="30" alt="Paymium" title="Paymium"/>
   <img src="../assets/exchanges/PHEMEX.png" height="30" alt="Phemex" title="Phemex"/>
   <img src="../assets/exchanges/POLONIEX.png" height="30" alt="Poloniex" title="Poloniex"/>
-  <img src="../assets/exchanges/POLYMARKET.png" height="30" alt="Polymarket" title="Polymarket"/>
-  <img src="../assets/exchanges/SXBET.png" height="30" alt="SX Bet" title="SX Bet"/>
   <img src="../assets/exchanges/TOOBIT.png" height="30" alt="Toobit" title="Toobit"/>
   <img src="../assets/exchanges/UPBIT.png" height="30" alt="Upbit" title="Upbit"/>
   <img src="../assets/exchanges/WEEX.png" height="30" alt="WEEX" title="WEEX"/>
@@ -78,49 +88,45 @@ The 70+ venues break down as **60 spot exchanges**, **5 perpetual-futures venues
   <img src="../assets/exchanges/ZONDA.png" height="30" alt="Zonda" title="Zonda"/>
 </p>
 
-- **REST base:** `https://api.melaya.org`
-- **WebSocket base:** `wss://wss.melaya.org`
-- **Auth:** API keys prefixed `mk_`, passed as `?apiKey=mk_...` (query) or `Authorization: Bearer mk_...` (header).
+### Prediction markets & DEX
 
-The live, always-current list of supported venues is available programmatically (the dataset above is a snapshot; this endpoint is the source of truth):
+Same schema, same `mk_` key, same streams — addressed by `venue` (e.g. `polymarket`, `kalshi`). Listings via `POST /api/v1/market/pm-markets`.
+
+<p align="center">
+  <img src="../assets/exchanges/AZURO.png" height="30" alt="Azuro" title="Azuro"/>
+  <img src="../assets/exchanges/DRIFT.png" height="30" alt="Drift PM" title="Drift PM"/>
+  <img src="../assets/exchanges/KALSHI.png" height="30" alt="Kalshi" title="Kalshi"/>
+  <img src="../assets/exchanges/OVERTIME.png" height="30" alt="Overtime Markets" title="Overtime Markets"/>
+  <img src="../assets/exchanges/POLYMARKET.png" height="30" alt="Polymarket" title="Polymarket"/>
+  <img src="../assets/exchanges/SXBET.png" height="30" alt="SX Bet" title="SX Bet"/>
+</p>
+
+### Enabled on demand
+
+The venues above are the **validated, live** set — the ones currently activated for trading and reflected in `list-exchanges`. The engine carries **integrated adapters for additional venues** that aren't switched on yet, including major derivatives and perp-DEX venues such as **Deribit, BitMEX, Gate, HTX (Huobi), dYdX, Apex, Paradex, Delta, and Derive**, plus inverse / COIN-M and other perpetual markets on venues already listed. These are **pluggable but enabled on demand**: each is activated once it clears validation testing, which we prioritize when a customer wants to trade there. If your strategy needs a venue you don't see in the list, ask us to enable it — the adapter usually already exists.
+
+The live, always-current list of **activated** venues is available programmatically (the dataset above is a snapshot; this endpoint is the source of truth):
 
 ```
 GET https://api.melaya.org/api/v1/market/list-exchanges
 ```
 
-## Market data (REST)
+## Bases & authentication
 
-| Endpoint | Returns |
-|---|---|
-| `GET /api/v1/market/ticker` | Best bid/ask, last, 24h aggregates |
-| `GET /api/v1/market/orderbook` | Order book to a given depth |
-| `GET /api/v1/market/ohlcv` | Candles for a timeframe |
-| `GET /api/v1/market/trades` | Recent public trades |
-| `GET /api/v1/market/markets` | Tradable markets on a venue |
-| `GET /api/v1/market/currencies` | Listed currencies on a venue |
-| `GET /api/v1/market/status` | Operational status: ok / maintenance / degraded |
-| `GET /api/v1/market/time` | Exchange server time |
+- **REST base:** `https://api.melaya.org`
+- **WebSocket base:** `wss://wss.melaya.org`
+- **Auth:** API keys prefixed `mk_`, passed as `?apiKey=mk_...` (query) or `Authorization: Bearer mk_...` (header).
 
-Batch and derivatives endpoints (POST) cover multi-symbol tickers, OHLCV, public trades, funding rates and history, open interest and history, instrument constraints, and cross-exchange liquidation events.
-
-## Streaming (WebSocket)
-
-Subscribe with your API key on the query string:
-
-| Stream | Path |
-|---|---|
-| Ticker | `wss://wss.melaya.org/ws/ticker?apiKey=mk_...&exchange=binance&symbol=BTC/USDT&market=spot` |
-| Order book | `wss://wss.melaya.org/ws/orderbook?apiKey=mk_...&exchange=bybit&symbol=BTC/USDT&limit=20&market=spot` |
-| OHLCV | `wss://wss.melaya.org/ws/ohlcv?apiKey=mk_...&exchange=binance&symbol=BTC/USDT&timeframe=1m&market=spot` |
-| Public trades | `wss://wss.melaya.org/ws/public-trades?apiKey=mk_...&exchange=binance&symbol=BTC/USDT&market=spot` |
-| Liquidations | `wss://wss.melaya.org/ws/liquidations?apiKey=mk_...&exchange=binance` |
-
-The ticker stream fires only when the normalized ticker advances (no duplicate frames). Liquidations can be filtered to one venue or consumed as a cross-exchange firehose.
-
-> Authenticated account & trading streams (balances, orders, positions, agent strategies) are part of the Melaya product and require your connected exchange credentials — see the product docs at [melaya.org/docs](https://melaya.org/docs). This open SDK covers the public market-data surface above.
+Market data, account/strategy reads, paper trading, and backtesting need only the `mk_` key. **Live** order placement and live strategy/crew launches additionally require a connected exchange key (referenced by `apiKeyId` — connect one in the dashboard → **Settings → Connectors**). Full read/write breakdown on the [Trading & strategies](./trading.md) page.
 
 ## Normalized schema
 
 Regardless of venue, market data comes back in one shape — e.g. a ticker always exposes `bid`, `ask`, `last`, `high`, `low`, `baseVolume`, `quoteVolume`, and `timestamp`. This is the whole point: your code does not branch per exchange.
 
 > Coverage and capabilities evolve. Always treat `GET /api/v1/market/list-exchanges` and the per-venue capability fields as the source of truth rather than hardcoding a venue list.
+
+## Where next
+
+- **[Market data & streaming →](./market-data.md)** — every REST read + the public WebSocket streams.
+- **[Trading & strategies →](./trading.md)** — account, paper, live, backtesting, and launching `custom` + `agent_crew` strategies.
+- **[AI agentic trading →](./agentic-trading.md)** — the conceptual guide to trading crews.

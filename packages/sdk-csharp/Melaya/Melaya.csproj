@@ -8,7 +8,7 @@
     <AssemblyName>Melaya</AssemblyName>
     <RootNamespace>Melaya</RootNamespace>
     <PackageId>Melaya.SDK</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Description>Official Melaya SDK for .NET — market data, strategies, backtesting, and streaming across 70+ venues.</Description>
     <Authors>Melaya</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

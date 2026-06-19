@@ -1,11 +1,11 @@
-# Publish every Melaya SDK on a version tag.
-#   git tag v0.1.0 && git push origin v0.1.0   →   all registries publish in parallel.
-# Requires these repo secrets (Settings → Secrets → Actions); a job is skipped if its
-# token is empty, so you can add registries incrementally:
-#   PYPI_TOKEN · CARGO_TOKEN · RUBYGEMS_API_KEY · NUGET_API_KEY   (npm uses OIDC Trusted Publishing — no secret)
-# Go publishes from the git tag itself (no job). PHP publishes via the Packagist webhook
-# (register the repo once at packagist.org). Java/Kotlin → Maven Central needs a one-time
-# Sonatype + GPG setup in the Gradle build (separate job below, opt-in via MAVEN_* secrets).
+# Publish every Melaya SDK on one version tag:
+#   git tag v0.1.1 && git push origin v0.1.1   →   npm, PyPI, crates, RubyGems, and Maven Central
+#   (Java + Kotlin) all publish in parallel. Go publishes from the tag itself (no job).
+# NOTE: a Maven Central release is IMMUTABLE — the version you tag is final, no re-runs.
+# PHP/Packagist is published manually via scripts/release-php.ps1 (mirrors packages/sdk-php into the
+# standalone melaya-labs/melaya-php repo that Packagist watches). NuGet is off until an account exists.
+# Secrets (Settings → Secrets → Actions): PYPI_TOKEN · CARGO_TOKEN · CENTRAL_USERNAME ·
+# CENTRAL_PASSWORD · GPG_PRIVATE_KEY · GPG_PASSPHRASE  (npm + RubyGems use OIDC, no secret).
 name: release
 on:
   push:
@@ -14,7 +14,6 @@ on:
 
 jobs:
   npm:
-    if: false   # TEMP: @melaya/sdk 0.1.0 published manually; re-enable after attaching Trusted Publisher
     runs-on: ubuntu-latest
     permissions:
       id-token: write      # OIDC — npm Trusted Publishing, no token/secret needed
@@ -61,7 +60,6 @@ jobs:
         working-directory: packages/sdk-csharp
 
   rubygems:
-    if: false   # TEMP: melaya 0.1.0 pushed manually; re-enable for 0.1.1+ (OIDC Trusted Publishing)
     runs-on: ubuntu-latest
     permissions:
       id-token: write      # OIDC — RubyGems Trusted Publishing, no token, MFA stays on

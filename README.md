@@ -31,7 +31,7 @@ Most automation tools are either toy chatbots or brittle no-code flows. Melaya i
 
 ## Agentic trading crews
 
-Melaya's flagship for **AI agentic trading**: autonomous, multi-agent **trading crews** — *Macro → TA → Risk → Execution* personas that research the market, size risk, and execute, with **human-in-the-loop approval on every order** and **server-managed stop-loss / take-profit**, across the [unified 70+-venue engine](./docs/exchanges.md). Run them **paper or live**, on a schedule or on market triggers.
+Melaya's flagship for **AI agentic trading**: autonomous, multi-agent **trading crews** — *Macro → TA → Risk → Execution* personas that research the market, size risk, and execute, with **human-in-the-loop approval on every order** and **server-managed stop-loss / take-profit**, across the [unified 70+-venue engine](./docs/exchanges.md). Run them **paper or live**, on a schedule or on market triggers, with real-time reactive sidecars (drawdown / macro-blackout / funding-flip / liquidation-cascade) on top. Build one in the visual Studio, or launch it straight from the API as a `strategyType: "agent_crew"` strategy ([reference](./docs/trading.md#launching-a-trading-crew)).
 
 ```mermaid
 flowchart LR
@@ -153,7 +153,10 @@ Get a key at [melaya.org](https://melaya.org) → Settings → API Keys. Keys ar
 
 - [AI agentic trading](./docs/agentic-trading.md) — autonomous multi-agent trading crews with human-in-the-loop and managed exits.
 - [Concepts](./docs/concepts.md) — agents, crews, tools, connectors, HITL, scheduling, the trading engine.
-- [Exchanges](./docs/exchanges.md) — the 70+ supported venues and the normalized schema.
+- [Exchanges](./docs/exchanges.md) — the 70+ supported venues (CEX, perps, prediction markets) and the normalized schema.
+- [Market data & streaming](./docs/market-data.md) — REST reads + public WebSocket streams.
+- [Trading & strategies](./docs/trading.md) — account, paper, live, backtesting, and launching `custom` + `agent_crew` strategies.
+- [Security & trust](./docs/security.md) — encryption, isolation, audit, and the control posture.
 - [FAQ](./docs/faq.md) — common questions about Melaya.
 - [Comparison](./docs/comparison.md) — how Melaya differs from other agent and trading-API platforms.
 - [Awesome Agentic Trading](./docs/awesome-agentic-trading.md) — a curated list of tools for building AI agents that trade.
