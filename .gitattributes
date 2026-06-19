@@ -1,3 +1,17 @@
+# ── Line endings ───────────────────────────────────────────────────────────
+# Store LF in the repo and check out LF on every platform (Windows/macOS/Linux/CI).
+# Deterministic regardless of each dev's core.autocrlf; stops the
+# "LF will be replaced by CRLF" warnings. Binaries below are never normalized.
+* text=auto eol=lf
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.svg  text eol=lf
+*.exe  binary
+*.gem  binary
+
 # `composer require melaya/sdk` should download the PHP SDK only, not the whole
 # 9-language monorepo. The published archive = this repo's root composer.json +
 # LICENSE + packages/sdk-php/. Everything else is export-ignored (GitHub's zipball,
