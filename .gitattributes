@@ -1,0 +1,29 @@
+# `composer require melaya/sdk` should download the PHP SDK only, not the whole
+# 9-language monorepo. The published archive = this repo's root composer.json +
+# LICENSE + packages/sdk-php/. Everything else is export-ignored (GitHub's zipball,
+# which Composer downloads, honors export-ignore like `git archive`).
+#
+# When you add a new top-level path to the repo, add an export-ignore line here or
+# it will leak into the PHP package.
+/.github             export-ignore
+/.gitattributes      export-ignore
+/.gitignore          export-ignore
+/CHANGELOG.md        export-ignore
+/CITATION.cff        export-ignore
+/CONTRIBUTING.md     export-ignore
+/README.md           export-ignore
+/SECURITY.md         export-ignore
+/llms.txt            export-ignore
+/assets              export-ignore
+/data                export-ignore
+/docs                export-ignore
+/examples            export-ignore
+/scripts             export-ignore
+/packages/sdk        export-ignore
+/packages/sdk-python export-ignore
+/packages/sdk-go     export-ignore
+/packages/sdk-rust   export-ignore
+/packages/sdk-java   export-ignore
+/packages/sdk-kotlin export-ignore
+/packages/sdk-csharp export-ignore
+/packages/sdk-ruby   export-ignore

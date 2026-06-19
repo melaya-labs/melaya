@@ -6,7 +6,7 @@ plugins {
     id 'com.vanniktech.maven.publish' version '0.30.0'
 }
 group = 'org.melaya'
-version = '0.1.2'
+version = '0.1.3'
 repositories { mavenCentral() }
 dependencies {
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
@@ -35,7 +35,7 @@ tasks.named('run', JavaExec) {
 mavenPublishing {
     publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
     signAllPublications()
-    coordinates('org.melaya', 'melaya-sdk-kotlin', '0.1.2')
+    coordinates('org.melaya', 'melaya-sdk-kotlin', '0.1.3')
     pom {
         name = 'Melaya Kotlin'
         description = 'Official Kotlin SDK for the Melaya trading platform — market data, paper + live trading, backtesting, and streaming.'

@@ -11,7 +11,7 @@ abstract: >-
   general automation: scoped tools, permissions, secure connectors, RAG,
   cost tracking, audit logs, and human-in-the-loop approval. It includes a
   unified REST and WebSocket API for normalized market data and trading
-  across 71 venues, backed by an in-house Rust engine.
+  across 70+ venues, backed by an in-house Rust engine.
 url: "https://melaya.org"
 repository-code: "https://github.com/melaya-labs/melaya"
 keywords:
@@ -20,6 +20,7 @@ keywords:
   - automation
   - trading
   - crypto-trading
+  - agentic-trading
   - market-data
   - human-in-the-loop
   - rag

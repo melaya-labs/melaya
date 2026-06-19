@@ -2,8 +2,9 @@
 #   git tag v0.1.1 && git push origin v0.1.1   →   npm, PyPI, crates, RubyGems, and Maven Central
 #   (Java + Kotlin) all publish in parallel. Go publishes from the tag itself (no job).
 # NOTE: a Maven Central release is IMMUTABLE — the version you tag is final, no re-runs.
-# PHP/Packagist is published manually via scripts/release-php.ps1 (mirrors packages/sdk-php into the
-# standalone melaya-labs/melaya-php repo that Packagist watches). NuGet is off until an account exists.
+# NuGet uses Trusted Publishing (OIDC) — set the NUGET_USER secret to your nuget.org username.
+# PHP/Packagist publishes from the repo-root composer.json (autoload -> packages/sdk-php/src) on each
+# tag; .gitattributes export-ignore keeps the download PHP-only. Submit the repo to Packagist once.
 # Secrets (Settings → Secrets → Actions): PYPI_TOKEN · CARGO_TOKEN · CENTRAL_USERNAME ·
 # CENTRAL_PASSWORD · GPG_PRIVATE_KEY · GPG_PASSPHRASE  (npm + RubyGems use OIDC, no secret).
 name: release
@@ -49,15 +50,21 @@ jobs:
         env: { CARGO_REGISTRY_TOKEN: "${{ secrets.CARGO_TOKEN }}" }
 
   nuget:
-    if: false   # TEMP: enable once a nuget.org account + NUGET_API_KEY exist
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write      # OIDC — NuGet Trusted Publishing (no stored API key)
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: "8.0.x" }
+        with: { dotnet-version: "10.0.x" }     # csproj targets net10.0
+      - uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: ${{ secrets.NUGET_USER }}      # your nuget.org username (not email)
       - run: dotnet pack Melaya -c Release -o out
         working-directory: packages/sdk-csharp
-      - run: dotnet nuget push "out/*.nupkg" -k "${{ secrets.NUGET_API_KEY }}" -s https://api.nuget.org/v3/index.json --skip-duplicate
+      - run: dotnet nuget push "out/*.nupkg" --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
         working-directory: packages/sdk-csharp
 
   rubygems:
@@ -66,7 +73,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
         with: { ruby-version: "3.3" }
-      - run: gem build *.gemspec && gem push *.gem
+      - run: |
+          rm -f *.gem               # drop any stale gem so the push glob hits only the fresh build
+          gem build *.gemspec
+          gem push *.gem
         working-directory: packages/sdk-ruby
         env:
           GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 putenv('MELAYA_INSECURE_TLS=1');
-require 'C:/Github/melaya-labs/melaya/packages/sdk-php/autoload.php';
+require __DIR__ . '/../autoload.php';
 use Melaya\Melaya;
 use Melaya\MelayaException;
 

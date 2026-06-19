@@ -1,13 +1,14 @@
 {
     "name": "melaya/sdk",
-    "description": "Official Melaya PHP SDK — unified market data, strategies, backtesting, and streaming.",
+    "description": "Official Melaya PHP SDK \u2014 unified market data, strategies, backtesting, and streaming across 70+ venues.",
     "type": "library",
     "license": "Apache-2.0",
-    "keywords": ["melaya", "trading", "market-data", "crypto", "sdk"],
+    "keywords": ["melaya", "trading", "market-data", "crypto", "sdk", "websocket", "backtesting"],
     "homepage": "https://melaya.org",
     "support": {
         "source": "https://github.com/melaya-labs/melaya",
-        "issues": "https://github.com/melaya-labs/melaya/issues"
+        "issues": "https://github.com/melaya-labs/melaya/issues",
+        "docs": "https://melaya.org/docs"
     },
     "require": {
         "php": ">=8.1"
@@ -17,12 +18,12 @@
     },
     "autoload": {
         "psr-4": {
-            "Melaya\\": "src/"
+            "Melaya\\": "packages/sdk-php/src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Melaya\\Tests\\": "tests/"
+            "Melaya\\Tests\\": "packages/sdk-php/tests/"
         }
     },
     "minimum-stability": "stable",
