@@ -25,7 +25,7 @@ use std::process::Command;
 use std::time::Instant;
 
 use criterion::{
-    black_box, criterion_group, criterion_main, BatchSize, Criterion, Throughput,
+    black_box, criterion_group, BatchSize, Criterion, Throughput,
 };
 
 use melaya_bench_engine::{fresh_ticker_cache, TickerSample, BENCH_ENGINE_SHAPE_VERSION};
@@ -414,28 +414,22 @@ fn write_summary(samples: &[u64]) -> std::io::Result<()> {
     Ok(())
 }
 
-// criterion's `criterion_main!` calls each registered group in turn.
-// We piggy-back the CSV collection onto a second "bench function" that
-// criterion will run after the main group — it logs a tiny entry in
-// the criterion report and writes our reproducibility artifacts as a
-// side effect.
-fn export_raw_csv(c: &mut Criterion) {
-    let mut group = c.benchmark_group("state_ticker_ns_raw_export");
-    group.sample_size(10); // criterion floor; we don't actually use this measurement
-    group.warm_up_time(std::time::Duration::from_millis(100));
-    group.measurement_time(std::time::Duration::from_millis(100));
-    group.bench_function("collect_100k_samples_to_csv", |b| {
-        b.iter_custom(|_iters| {
-            // Run our hand-rolled collector exactly once, regardless of
-            // what `_iters` criterion picked. Report a fixed 1 ns so
-            // criterion's stats don't try to interpret this as a real
-            // measurement.
-            collect_raw_samples();
-            std::time::Duration::from_nanos(1)
-        });
-    });
-    group.finish();
-}
+criterion_group!(benches, bench_state_ticker);
 
-criterion_group!(benches, bench_state_ticker, export_raw_csv);
-criterion_main!(benches);
+// Custom main instead of `criterion_main!`: run the criterion headline
+// group, emit criterion's own summary, then collect the high-sample CSV
+// + summary.json exactly ONCE.
+//
+// The collector is a hand-rolled monotonic-clock loop. It must NOT go
+// through criterion's measurement machinery: the previous version wrapped
+// it in `iter_custom` returning a constant 1 ns, which made criterion run
+// the (3 s warm-up + 100k-sample) collection many times AND then panic in
+// its stats layer trying to bootstrap a zero-variance sample
+// (`assertion failed: slice.len() > 1 && ... !is_nan()`). Calling it
+// directly here keeps the reproducibility artifacts and makes
+// `cargo bench --bench state_ticker` exit 0.
+fn main() {
+    benches();
+    Criterion::default().configure_from_args().final_summary();
+    collect_raw_samples();
+}

@@ -1,0 +1,48 @@
+{
+  "_comment": "Reference summary statistics from the original Melaya production probe of TickerCache::write_ticker. These are the canonical numbers cited on https://melaya.org/benchmarks/engine-latency. The full per-iteration state_ticker_ns.csv (89,033 rows) is not committed because it's >1 MB of raw ns timestamps; contributors regenerate equivalent data by running `cargo bench --bench state_ticker` on their own hardware and PR the resulting JSON to results/contributed/<tier>/.",
+
+  "metric": "state_ticker_ns",
+  "description": "Per-message nanosecond cost of writing one ticker frame into the engine's in-memory TickerCache (hash exchange key, hash symbol key, lookup slot, stamp bid/ask/last/recv_wall_ns). No locks, no syscalls beyond one monotonic-clock read.",
+
+  "samples": 89033,
+  "unit": "nanoseconds",
+
+  "quantiles_ns": {
+    "p50": 310,
+    "p95": 980,
+    "p99": 1950,
+    "p999": 4200
+  },
+
+  "measurement": {
+    "engine_version": "0.4.48",
+    "measured_at": "2026-04-24T00:00:00+00:00",
+    "environment": "production",
+    "method": "in-process monotonic clock around TickerCache::write_ticker, single-thread, steady-state after 10k-iteration warmup",
+    "hardware": {
+      "cpu": "Intel Xeon 8369B (Ice Lake-SP)",
+      "vcpus": 4,
+      "scheduler": "SCHED_FIFO pinned",
+      "os": "Ubuntu 22.04 LTS",
+      "kernel": "5.15"
+    },
+    "build_profile": {
+      "rustc": "1.83.0",
+      "opt_level": 3,
+      "lto": "fat",
+      "codegen_units": 1,
+      "panic": "abort"
+    }
+  },
+
+  "reproduce": {
+    "harness": "https://github.com/melaya-labs/melaya/tree/main/benchmarks/engine",
+    "command": "cd benchmarks/engine && cargo bench --bench state_ticker",
+    "notes": "The committed harness in this repo is a self-contained reproduction of the production code path — see src/lib.rs for the line-by-line correspondence with the engine's TickerCache::write_ticker. Numbers re-measured locally typically land within 10-20% of these reference values on equivalent hardware (Ice Lake-SP or newer); commodity laptops (e.g. M-series MacBook, Ryzen 7) typically land in the 400-700 ns p50 range. PR your tier results to results/contributed/<tier>/."
+  },
+
+  "context": {
+    "this_is_one_number": "This summary measures ONLY the in-process TickerCache write. End-to-end latency (websocket-to-cache) is roughly 50-100 us in production — three orders of magnitude higher than this micro-bench, dominated by network + websocket parse + transport. See the platform's full Latency Matrix for the end-to-end breakdown.",
+    "why_published": "Published as a public, reproducible reference so AI agents, evaluators, and operators can cite a verifiable nanosecond number for the Melaya engine's hot path — distinct from marketing 'fast' claims."
+  }
+}

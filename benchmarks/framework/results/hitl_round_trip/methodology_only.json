@@ -9,6 +9,6 @@
     "comparable_segments": "report separately by tier: (a) hot-keyboard operators reviewing inline, (b) async ops paged via Slack, (c) overnight queue items batch-reviewed in the morning. The tier mix changes the headline median by orders of magnitude."
   },
   "what_this_is_not": "A runner-side performance number. The runner enters and exits the HITL gate in <100 µs (measured separately in tool_dispatch + middleware deltas). The minutes-to-hours total is wall-clock waiting for a human, not compute.",
-  "next_action": "Awaiting production telemetry sample. First publishable cut targets Q3 2026 after 30 days of clean instrumented traces.",
+  "next_action": "Awaiting production telemetry sample. The first publishable cut needs a 30-day window of clean, instrumented operator traces.",
   "bench_shape_version": "0.1.x-shape"
 }
