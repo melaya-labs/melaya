@@ -34,7 +34,7 @@ Melaya runs autonomous agents that can touch money, credentials, and production 
 ## Human-in-the-loop & autonomy bounds
 
 - **Approval gates** — any risky tool can require human approval; the run pauses and surfaces the exact arguments to an operator who approves, edits, or rejects. For trading crews, **every order** is gated (always-on today; selective opt-out for fully-autonomous live crews is on the roadmap).
-- **Trading safety rails** — per-cycle write caps, per-tier daily order quotas, daily LLM cost caps, drawdown and consecutive-loss circuit breakers, and a paper-soak gate before any crew can trade live. See the [AI agentic trading guide](./agentic-trading.md#11-safety-rails-trading-grade-discipline).
+- **Trading safety rails** — per-cycle write caps, per-tier daily order quotas, daily LLM cost caps, drawdown and consecutive-loss circuit breakers, and dry-run mode so any crew can validate end to end on live market data before going live. See the [AI agentic trading guide](./agentic-trading.md#11-safety-rails-trading-grade-discipline).
 - **Egress & tool allowlists** — a trading crew can't reach exchanges or arbitrary URLs directly; all order flow goes through Melaya's engine, and a server-enforced tool allowlist bounds what any crew can invoke — defense-in-depth against prompt injection.
 
 ## Observability & audit

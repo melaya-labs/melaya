@@ -51,7 +51,7 @@ A library is the right tool when you want to self-host everything; Melaya is the
 
 ## vs. retail trading bots (3Commas, Cryptohopper, Pionex)
 
-Classic bots automate **fixed, rule-based** strategies like grids, DCA, and copy-trading. Melaya runs **reasoning AI crews** that analyze macro, technicals, sentiment, and risk each cycle, propose *sized* trades, and **ask a human to approve**, with server-managed exits, a paper-soak gate before live, drawdown/loss circuit breakers, and a full audit trail. You also get bring-your-own-model, a unified API across 70+ venues, and native backtesting. It's an AI trading **desk**, not a preset bot.
+Classic bots automate **fixed, rule-based** strategies like grids, DCA, and copy-trading. Melaya runs **reasoning AI crews** that analyze macro, technicals, sentiment, and risk each cycle, propose *sized* trades, and **ask a human to approve**, with server-managed exits, dry-run mode end to end, drawdown/loss circuit breakers, and a full audit trail. You also get bring-your-own-model, a unified API across 70+ venues, and native backtesting. It's an AI trading **desk**, not a preset bot.
 
 ## vs. single-exchange APIs
 

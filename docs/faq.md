@@ -106,7 +106,7 @@ A typical cycle: the crew wakes on its cadence → safety checks run first → a
 
 ### Is autonomous AI trading safe?
 
-It's only safe with guardrails, which is the entire design point. Melaya enforces layered rails, most at the platform level so they hold **regardless of what the LLM does**: scoped permissions (only the Execution seat writes), human approval on every order, a Risk Manager veto, a per-cycle write cap, a daily order quota, a daily LLM cost cap, cumulative- and consecutive-loss circuit breakers, tenant isolation, an egress allowlist (the crew can't reach exchanges directly), a server-enforced tool allowlist, and a **paper-soak gate** before any crew can go live. On top of these, four optional **reactive sidecars** watch the market in real time.
+It's only safe with guardrails, which is the entire design point. Melaya enforces layered rails, most at the platform level so they hold **regardless of what the LLM does**: scoped permissions (only the Execution seat writes), human approval on every order, a Risk Manager veto, a per-cycle write cap, a daily order quota, a daily LLM cost cap, cumulative- and consecutive-loss circuit breakers, tenant isolation, an egress allowlist (the crew can't reach exchanges directly), a server-enforced tool allowlist, and **dry-run mode** end to end so any crew can validate on live market data before going live. On top of these, four optional **reactive sidecars** watch the market in real time.
 
 ### What are the reactive sidecars?
 
@@ -119,7 +119,7 @@ Independent watchers that run *beside* the crew loop. Two are **blockers** that 
 
 ### What's the difference between paper and live trading?
 
-The **same crew definition** backs both. **Paper** routes orders through a simulated broker that fills against the live tape: no venue, no credentials, no capital, but the same approval flow, cadence, and audit trail. **Live** routes to a connected exchange account. Mode is a launch-time choice. Live keys stay locked until a crew clears a **paper-soak window** (a minimum runtime and minimum number of simulated fills), so you can't trip the wrong account on day one.
+The **same crew definition** backs both. **Paper** routes orders through a simulated broker that fills against the live tape: no venue, no credentials, no capital, but the same approval flow, cadence, and audit trail. **Live** routes to a connected exchange account. Mode is a launch-time choice. Run paper for as long as you want, watch the equity curve, then flip to live when you trust what you see.
 
 ### What is "server-managed stop-loss / take-profit"?
 
@@ -207,7 +207,7 @@ In local-runner mode the LLM call goes directly from your machine to your provid
 
 ### How does Melaya keep autonomous agents safe?
 
-Three foundational layers plus trading-specific rails: **(1)** scoped tools and permissions, so an agent can only do what it's granted; **(2)** encrypted per-user credential isolation, so agents never see raw secrets; **(3)** human-in-the-loop approval gates on risky tools, so the run pauses for an operator decision and every decision is audited. For trading, add write caps, order quotas, cost caps, loss circuit breakers, an egress allowlist, a server-enforced tool allowlist, and the paper-soak gate.
+Three foundational layers plus trading-specific rails: **(1)** scoped tools and permissions, so an agent can only do what it's granted; **(2)** encrypted per-user credential isolation, so agents never see raw secrets; **(3)** human-in-the-loop approval gates on risky tools, so the run pauses for an operator decision and every decision is audited. For trading, add write caps, order quotas, cost caps, loss circuit breakers, an egress allowlist, a server-enforced tool allowlist, and dry-run mode end to end.
 
 ### How are my exchange API keys and secrets stored?
 
@@ -261,7 +261,7 @@ Yes, via the user-data tools (Google Sheets/Drive/Docs, local Excel/Word, files,
 
 ### How do I get started?
 
-Build your first crew from a template in the Studio, run it in **paper**, watch it reason through a few cycles, and approve a trade or two. When it's cleared its soak, flip the same definition to **live**. Developers can launch the same crew via the API. See the [AI agentic trading guide](./agentic-trading.md), [concepts](./concepts.md), [trading & strategies](./trading.md), and [exchanges](./exchanges.md).
+Build your first crew from a template in the Studio, run it in **paper**, watch it reason through a few cycles, and approve a trade or two. When you trust what you see, flip the same definition to **live**. Developers can launch the same crew via the API. See the [AI agentic trading guide](./agentic-trading.md), [concepts](./concepts.md), [trading & strategies](./trading.md), and [exchanges](./exchanges.md).
 
 ### Do I need an exchange account to try it?
 

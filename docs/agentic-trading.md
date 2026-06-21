@@ -188,7 +188,7 @@ The same crew definition backs both:
 
 Mode and account are **launch-time choices**: build and validate once, deploy where you choose.
 
-> **Paper-soak before live.** Live keys stay locked until a crew has cleared a paper-mode soak window (a minimum runtime *and* a minimum number of simulated fills). You can't trip the wrong account by accident on day one — a crew earns its live toggle by proving itself in paper first.
+> **Dry-run mode, end to end.** Every crew can run in paper mode for as long as you want, with the same personas, tools, approval flow, and audit trail as live. Validate the crew against real market data, watch the equity curve, then flip to live when you trust what you see.
 
 ---
 
@@ -221,7 +221,7 @@ Autonomous trading is only safe with guardrails. On top of the sidecars, Melaya 
 - **Tenant isolation** — when many crews share infrastructure, each one's approvals and state are strictly isolated; one user's approval can never release another's order.
 - **Egress allowlist** — a crew container can't reach exchanges or arbitrary URLs directly. All order flow goes through Melaya's engine; venue requests originate from Melaya's own egress, never the crew's host.
 - **Server-enforced tool allowlist** — a crew can only use tools on the trading allowlist, enforced at both the API boundary and at container-build time.
-- **Paper-soak gate** before live (see §9).
+- **Dry-run mode** end to end before live (see §9).
 
 ---
 
@@ -313,6 +313,6 @@ Every `place_order` above is a human-approved card; every fill lands in the audi
 
 ## Get started
 
-Build your first crew from a template in the Studio, run it in **paper**, watch it argue through a few cycles, and approve a trade or two. When it's earned its soak, flip it to **live**. Prefer code? Launch the same crew via the API: see **[Launching a trading crew](./trading.md#launching-a-trading-crew)** for the full `agent_crew` payload (per-persona tools, steps, context, cadence, safety).
+Build your first crew from a template in the Studio, run it in **paper**, watch it argue through a few cycles, and approve a trade or two. When you trust what you see, flip it to **live**. Prefer code? Launch the same crew via the API: see **[Launching a trading crew](./trading.md#launching-a-trading-crew)** for the full `agent_crew` payload (per-persona tools, steps, context, cadence, safety).
 
 See **[melaya.org](https://melaya.org)** to get started, and the [concepts](./concepts.md), [trading & strategies](./trading.md), and [exchanges](./exchanges.md) pages for the orchestration and market-API foundations underneath.

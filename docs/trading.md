@@ -86,7 +86,7 @@ The same surface exists in all 9 SDKs (idiomatic per language). Live-trading **w
 
 ## Launching a trading crew
 
-A crew launches through the same `strategies.create` call, with `strategyType: "agent_crew"` and the crew config in `params`. Run it `dryRun: true` for paper, or `dryRun: false` with an `apiKeyId` for live (live additionally requires the crew to have cleared its paper-soak window). See the [AI agentic trading guide](./agentic-trading.md) for what each field means.
+A crew launches through the same `strategies.create` call, with `strategyType: "agent_crew"` and the crew config in `params`. Run it `dryRun: true` for paper, or `dryRun: false` with an `apiKeyId` for live. See the [AI agentic trading guide](./agentic-trading.md) for what each field means.
 
 ```ts
 import { Melaya } from "@melaya/sdk";
