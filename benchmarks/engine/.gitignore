@@ -1,0 +1,11 @@
+# Local bench artefacts — these are produced fresh by each
+# `cargo bench` run and shouldn't be committed.
+target/
+Cargo.lock
+
+# Per-run output of YOUR machine. The committed files in results/ are:
+#   - README.md           (contributor submission instructions)
+#   - contributed/*.json  (PR'd tier measurements; see results/README.md)
+# Everything else under results/ is local-only.
+results/state_ticker_ns.csv
+results/summary.json

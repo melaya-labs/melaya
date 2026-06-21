@@ -1,0 +1,34 @@
+{
+  "n": 10000,
+  "min_us": 0.5,
+  "p50_us": 0.6,
+  "p90_us": 0.6,
+  "p95_us": 0.6,
+  "p99_us": 1.1,
+  "p999_us": 2.0,
+  "max_us": 51.5,
+  "metric": "tool_dispatch_0arg",
+  "shim_call": "Toolkit.dispatch (0-arg)",
+  "bench_shape_version": "0.1.x-shape",
+  "headline_samples": 10000,
+  "run_at_unix_ms": 1781948625978,
+  "run_at_iso": "2026-06-20T09:43:45+00:00",
+  "env": {
+    "cpu_model": "13th Gen Intel(R) Core(TM) i9-13900H",
+    "logical_cores": 20,
+    "os_kernel": "Windows 11 (10.0.22631)",
+    "python_version": "3.12.4",
+    "cpu_governor": null,
+    "turbo_state": null,
+    "arch": "AMD64",
+    "os": "win32"
+  },
+  "what_this_is": "Per-call cost of one Toolkit.dispatch on a zero-arg async tool whose body returns immediately. Measures pure runner overhead: name lookup, kwargs merge, await, ToolResponse wrap. NO tool work, NO middleware, NO network.",
+  "what_this_is_not": "End-to-end tool latency (which includes the tool's own HTTP / FS / DB work). Middleware-augmented dispatch (HITL gate, audit log, postprocess add their own deltas, measured separately in production telemetry).",
+  "reference_hardware": "Production reference: see results/contributed/ for tier submissions. First contributor PR becomes the citable reference for each tier.",
+  "extra": {
+    "shape": "0arg",
+    "n_args": 0,
+    "iterations": 10000
+  }
+}

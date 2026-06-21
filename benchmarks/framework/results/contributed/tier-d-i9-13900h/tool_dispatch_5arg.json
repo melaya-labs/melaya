@@ -1,0 +1,34 @@
+{
+  "n": 10000,
+  "min_us": 0.6,
+  "p50_us": 0.7,
+  "p90_us": 0.7,
+  "p95_us": 0.7,
+  "p99_us": 0.9,
+  "p999_us": 1.1,
+  "max_us": 1.2,
+  "metric": "tool_dispatch_5arg",
+  "shim_call": "Toolkit.dispatch (5-arg)",
+  "bench_shape_version": "0.1.x-shape",
+  "headline_samples": 10000,
+  "run_at_unix_ms": 1781948627519,
+  "run_at_iso": "2026-06-20T09:43:47+00:00",
+  "env": {
+    "cpu_model": "13th Gen Intel(R) Core(TM) i9-13900H",
+    "logical_cores": 20,
+    "os_kernel": "Windows 11 (10.0.22631)",
+    "python_version": "3.12.4",
+    "cpu_governor": null,
+    "turbo_state": null,
+    "arch": "AMD64",
+    "os": "win32"
+  },
+  "what_this_is": "Same as tool_dispatch_0arg but with a 5-element input dict (the median shape for operator-registered tools in the production runner).",
+  "what_this_is_not": "Schema validation cost \u2014 the runtime validates input against the JSON schema in the middleware chain (not modelled here). That delta is separately measured.",
+  "reference_hardware": "",
+  "extra": {
+    "shape": "5arg",
+    "n_args": 5,
+    "iterations": 10000
+  }
+}

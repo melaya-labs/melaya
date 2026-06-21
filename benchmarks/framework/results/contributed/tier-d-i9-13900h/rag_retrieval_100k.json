@@ -1,0 +1,37 @@
+{
+  "n": 2000,
+  "min_us": 2681.4,
+  "p50_us": 5519.7,
+  "p90_us": 7895.9,
+  "p95_us": 8450.4,
+  "p99_us": 9662.4,
+  "p999_us": 14083.2,
+  "max_us": 17888.6,
+  "metric": "rag_retrieval_100k",
+  "shim_call": "RagIndex.retrieve(top_k=5) over 100k 384-dim chunks",
+  "bench_shape_version": "0.1.x-shape",
+  "headline_samples": 2000,
+  "run_at_unix_ms": 1781948622617,
+  "run_at_iso": "2026-06-20T09:43:42+00:00",
+  "env": {
+    "cpu_model": "13th Gen Intel(R) Core(TM) i9-13900H",
+    "logical_cores": 20,
+    "os_kernel": "Windows 11 (10.0.22631)",
+    "python_version": "3.12.4",
+    "cpu_governor": null,
+    "turbo_state": null,
+    "arch": "AMD64",
+    "os": "win32"
+  },
+  "what_this_is": "Same path as rag_retrieval_10k but with a 100k-chunk corpus. The curve from 10k \u2192 100k shows how the search step scales: brute force is O(N\u00b7D), so expect ~10\u00d7 growth in p50 between the two.",
+  "what_this_is_not": "Production-scale RAG. For corpora past 1M, switch to a production ANN index, which is sub-linear in N.",
+  "reference_hardware": "",
+  "extra": {
+    "n_chunks": 100000,
+    "dim": 384,
+    "top_k": 5,
+    "iterations": 2000,
+    "embedder": "RandomProjection-deterministic",
+    "ann_backend": "numpy brute-force (cosine via inner product)"
+  }
+}

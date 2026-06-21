@@ -1,0 +1,34 @@
+{
+  "n": 5000,
+  "min_us": 1.1,
+  "p50_us": 1.4,
+  "p90_us": 1.6,
+  "p95_us": 1.6,
+  "p99_us": 1.8,
+  "p999_us": 3.5,
+  "max_us": 58.8,
+  "metric": "context_assembly",
+  "shim_call": "ContextAssembler.assemble (system + 5 docs + 10 tools)",
+  "bench_shape_version": "0.1.x-shape",
+  "headline_samples": 5000,
+  "run_at_unix_ms": 1781948882870,
+  "run_at_iso": "2026-06-20T09:48:02+00:00",
+  "env": {
+    "cpu_model": "13th Gen Intel(R) Core(TM) i9-13900H",
+    "logical_cores": 20,
+    "os_kernel": "Windows 11 (10.0.22631)",
+    "python_version": "3.12.4",
+    "cpu_governor": null,
+    "turbo_state": null,
+    "arch": "AMD64",
+    "os": "win32"
+  },
+  "what_this_is": "Per-turn cost of building the static context block the model sees: system prompt + granted knowledge docs + tool schemas, packed into one payload. Pure string/dict assembly, no model call.",
+  "what_this_is_not": "The rolling message-history pack (model_wrapper) or RAG retrieval (rag). Knowledge-doc content here is synthetic.",
+  "reference_hardware": "",
+  "extra": {
+    "iterations": 5000,
+    "n_docs": 5,
+    "n_tools": 10
+  }
+}

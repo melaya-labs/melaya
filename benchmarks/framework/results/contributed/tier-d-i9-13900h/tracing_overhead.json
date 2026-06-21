@@ -1,0 +1,33 @@
+{
+  "n": 10000,
+  "min_us": 0.2,
+  "p50_us": 0.3,
+  "p90_us": 0.9,
+  "p95_us": 1.1,
+  "p99_us": 1.4,
+  "p999_us": 8.3,
+  "max_us": 6280.7,
+  "metric": "tracing_overhead",
+  "shim_call": "Tracer.span (open + attrs + close + in-process export)",
+  "bench_shape_version": "0.1.x-shape",
+  "headline_samples": 10000,
+  "run_at_unix_ms": 1781948887508,
+  "run_at_iso": "2026-06-20T09:48:07+00:00",
+  "env": {
+    "cpu_model": "13th Gen Intel(R) Core(TM) i9-13900H",
+    "logical_cores": 20,
+    "os_kernel": "Windows 11 (10.0.22631)",
+    "python_version": "3.12.4",
+    "cpu_governor": null,
+    "turbo_state": null,
+    "arch": "AMD64",
+    "os": "win32"
+  },
+  "what_this_is": "Per-span observability tax: open an OpenTelemetry-style span, stamp the gen_ai.* + cost + latency attributes, close it, hand to the exporter. This is what enabling tracing adds per traced operation.",
+  "what_this_is_not": "Real OTLP network export (mocked to an in-process list) or the backend span store. It is the runner-side emit cost only.",
+  "reference_hardware": "",
+  "extra": {
+    "iterations": 10000,
+    "attrs": 6
+  }
+}

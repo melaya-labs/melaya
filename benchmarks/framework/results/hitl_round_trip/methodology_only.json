@@ -1,0 +1,14 @@
+{
+  "metric": "hitl_round_trip",
+  "status": "methodology_only",
+  "reason": "HITL approval is human-bound — the round-trip is dominated by operator attention, not runner latency. Cannot be benched synthetically.",
+  "measurement_methodology": {
+    "instrumentation": "the production HITL middleware emits two timestamps per approval: `t_approval_requested` (when the runner pauses for human input) and `t_approval_received` (when the operator clicks approve / deny in the UI).",
+    "collection_window": "30 days of production telemetry. Excludes denials (they're a different distribution) and excludes approvals on a HITL_TIMEOUT cleanup (they're not real operator decisions).",
+    "publication_format": "median + IQR + p95 + p99 + long-tail max. Human attention is not Gaussian — the tail matters more than the mean.",
+    "comparable_segments": "report separately by tier: (a) hot-keyboard operators reviewing inline, (b) async ops paged via Slack, (c) overnight queue items batch-reviewed in the morning. The tier mix changes the headline median by orders of magnitude."
+  },
+  "what_this_is_not": "A runner-side performance number. The runner enters and exits the HITL gate in <100 µs (measured separately in tool_dispatch + middleware deltas). The minutes-to-hours total is wall-clock waiting for a human, not compute.",
+  "next_action": "Awaiting production telemetry sample. First publishable cut targets Q3 2026 after 30 days of clean instrumented traces.",
+  "bench_shape_version": "0.1.x-shape"
+}

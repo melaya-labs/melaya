@@ -1,0 +1,91 @@
+# benchmarks/engine — reproducible micro-benchmark for the Melaya engine
+# `state_ticker_ns` hot path.
+#
+# === DESIGN NOTE: WHY THIS CRATE IS SELF-CONTAINED ===
+#
+# An earlier revision of this bench depended on the engine via a relative
+# path:  `the engine = { path = "../../../../melaya-platform/..." }`.
+# That works on the maintainer's dev box but BREAKS for every external
+# user, because:
+#
+#   1. `the engine` is not on crates.io — there is no `version = "..."`
+#      to fall back to.
+#   2. `melaya-platform` is a PRIVATE repository (not on GitHub), so
+#      external clones cannot resolve the path dependency.
+#   3. Even if access were granted, the engine crate pulls in tungstenite,
+#      rustls, sqlx, ureq, hmac, etc. — a 5-10 minute cold compile that
+#      buries a 30-second microbench under build time.
+#
+# The right long-term fix is to publish `the engine` to crates.io.
+# Until that happens, this crate provides a **faithful microbenchmark of
+# the same data structure and key-normalization work** that
+# `TickerCache::write_ticker` performs on the production hot path:
+#
+#   * A `HashMap<(String, String), TickerSnapshot>` insert.
+#   * Two `into_lower` / `into_upper` calls on the owned exchange + symbol
+#     Strings (same fast-path-if-canonical impl as the engine).
+#   * A `now_ns` monotonic-clock read (engine: `timing::now_ns`; bench:
+#     `std::time::Instant::now`).
+#
+# The engine's own `write_ticker` *additionally* mirrors the price
+# into every live OHLCV candle for the symbol — but in the production
+# probe that produced the 310 ns headline, no candles were seeded for
+# most of the streamed (exchange, symbol) pairs, so that path is a
+# no-op `HashMap::get` returning `None`. Equivalence to the in-engine
+# histogram is therefore tight; see `src/lib.rs` for the line-by-line
+# mapping and README.md for the broader caveats.
+#
+# Anyone with platform access can verify by running the engine's
+# in-process histogram (`GET /api/v1/internal/engine/ingest-metrics`)
+# alongside this bench on the same hardware and comparing the
+# `state_ticker_ns.p50_ns` field. Bench and engine should agree within
+# ~10-15% (the engine's `recv_wall_ns` formatting overhead, mirrored
+# into recv_wall_ms, is a 1-cycle integer divide we elide).
+#
+# See README.md for the full reproduction recipe and hardware-tier
+# expectations.
+
+[package]
+name        = "melaya-bench-engine"
+version     = "0.2.0"
+edition     = "2021"
+publish     = false
+description = "Reproducible micro-bench for the Melaya engine state_ticker_ns hot path. Self-contained, no platform clone required."
+license     = "Apache-2.0"
+
+# Standalone — NOT a member of the OSS `packages/` workspace, so this
+# crate's `[profile.bench]` doesn't get overridden by a parent workspace
+# manifest. Also keeps the bench's dependency graph (criterion + serde)
+# from leaking into SDK builds.
+[workspace]
+
+[lib]
+name = "melaya_bench_engine"
+path = "src/lib.rs"
+
+[dependencies]
+# Intentionally minimal — same stdlib HashMap the engine uses, plus
+# serde for the snapshot struct (matches engine derive set), plus
+# chrono for the run-timestamp metadata.
+serde      = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+criterion  = { version = "0.5", features = ["html_reports"] }
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono     = { version = "0.4", default-features = false, features = ["clock"] }
+
+[[bench]]
+name    = "state_ticker"
+harness = false
+
+# Same flags as the engine's production release profile so we're benching
+# apples to apples with what ships:
+#   opt-level = 3, fat LTO, single codegen unit, no debug info.
+# (`panic = "abort"` is omitted intentionally — criterion's harness
+# wants unwinds for assertion failures during measurement validation.)
+[profile.bench]
+opt-level     = 3
+lto           = "fat"
+codegen-units = 1
+debug         = false

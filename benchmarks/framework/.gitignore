@@ -1,0 +1,16 @@
+# Local bench artefacts — produced fresh by each `pytest benches/` run
+# and not committed. The committed files under results/ are:
+#   - README.md                              (contributor submission flow)
+#   - results/contributed/<tier>/<metric>.json  (PR'd tier measurements)
+#   - results/hitl_round_trip/methodology_only.json (human-bound metric)
+# Everything else under results/ is your local per-run output.
+results/*/summary.json
+results/*/*.csv
+
+# Python build / env
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+build/
+dist/

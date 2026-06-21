@@ -1,0 +1,33 @@
+{
+  "n": 5000,
+  "min_us": 49.9,
+  "p50_us": 53.0,
+  "p90_us": 60.7,
+  "p95_us": 76.3,
+  "p99_us": 113.3,
+  "p999_us": 240.3,
+  "max_us": 1237.3,
+  "metric": "session_memory",
+  "shim_call": "SessionMemory.save+load (50-turn working memory roundtrip)",
+  "bench_shape_version": "0.1.x-shape",
+  "headline_samples": 5000,
+  "run_at_unix_ms": 1781948884607,
+  "run_at_iso": "2026-06-20T09:48:04+00:00",
+  "env": {
+    "cpu_model": "13th Gen Intel(R) Core(TM) i9-13900H",
+    "logical_cores": 20,
+    "os_kernel": "Windows 11 (10.0.22631)",
+    "python_version": "3.12.4",
+    "cpu_governor": null,
+    "turbo_state": null,
+    "arch": "AMD64",
+    "os": "win32"
+  },
+  "what_this_is": "Cross-run memory cost: serialize a 50-turn crew working memory to the session store and load+restore it on the next run. Models the persistence bookkeeping a long-running crew pays between runs.",
+  "what_this_is_not": "Real DB/disk latency (the store is in-process here) or vector-memory retrieval (that's rag). Memory content is synthetic.",
+  "reference_hardware": "",
+  "extra": {
+    "iterations": 5000,
+    "turns": 50
+  }
+}

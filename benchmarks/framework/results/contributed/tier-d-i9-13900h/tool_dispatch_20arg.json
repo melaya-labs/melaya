@@ -1,0 +1,34 @@
+{
+  "n": 10000,
+  "min_us": 0.9,
+  "p50_us": 1.0,
+  "p90_us": 1.1,
+  "p95_us": 1.1,
+  "p99_us": 1.3,
+  "p999_us": 2.9,
+  "max_us": 53.0,
+  "metric": "tool_dispatch_20arg",
+  "shim_call": "Toolkit.dispatch (20-arg)",
+  "bench_shape_version": "0.1.x-shape",
+  "headline_samples": 10000,
+  "run_at_unix_ms": 1781948629055,
+  "run_at_iso": "2026-06-20T09:43:49+00:00",
+  "env": {
+    "cpu_model": "13th Gen Intel(R) Core(TM) i9-13900H",
+    "logical_cores": 20,
+    "os_kernel": "Windows 11 (10.0.22631)",
+    "python_version": "3.12.4",
+    "cpu_governor": null,
+    "turbo_state": null,
+    "arch": "AMD64",
+    "os": "win32"
+  },
+  "what_this_is": "Wide-arg dispatch \u2014 20-element input dict, modelling long-tail tools like `melaya_create_order` with every optional risk param filled in.",
+  "what_this_is_not": "Network or DB latency \u2014 the tool returns in <100 ns.",
+  "reference_hardware": "",
+  "extra": {
+    "shape": "20arg",
+    "n_args": 20,
+    "iterations": 10000
+  }
+}

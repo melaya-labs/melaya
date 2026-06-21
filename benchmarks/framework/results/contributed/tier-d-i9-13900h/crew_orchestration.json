@@ -1,0 +1,34 @@
+{
+  "n": 2000,
+  "min_us": 0.8,
+  "p50_us": 1.2,
+  "p90_us": 1.9,
+  "p95_us": 2.0,
+  "p99_us": 2.1,
+  "p999_us": 2.6,
+  "max_us": 40.7,
+  "metric": "crew_orchestration",
+  "shim_call": "Crew.run (4-persona macro->technical->risk->execution hand-off)",
+  "bench_shape_version": "0.1.x-shape",
+  "headline_samples": 2000,
+  "run_at_unix_ms": 1781948888957,
+  "run_at_iso": "2026-06-20T09:48:08+00:00",
+  "env": {
+    "cpu_model": "13th Gen Intel(R) Core(TM) i9-13900H",
+    "logical_cores": 20,
+    "os_kernel": "Windows 11 (10.0.22631)",
+    "python_version": "3.12.4",
+    "cpu_governor": null,
+    "turbo_state": null,
+    "arch": "AMD64",
+    "os": "win32"
+  },
+  "what_this_is": "Per-run orchestration cost of a 4-persona crew handing context persona to persona, with the risk persona positioned to veto. Each persona is a zero-work mock, so this is pure runner orchestration overhead.",
+  "what_this_is_not": "Persona LLM-reasoning time (the dominant real cost, on model_wrapper) or real inter-process crew dispatch. Measures the hand-off loop.",
+  "reference_hardware": "",
+  "extra": {
+    "n_runs": 2000,
+    "personas": 4,
+    "risk_veto": "armed"
+  }
+}

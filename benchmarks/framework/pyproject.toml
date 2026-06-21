@@ -1,0 +1,100 @@
+# benchmarks/framework — reproducible micro-benchmarks for the Melaya
+# Python agentic framework (the pipeline runner, NOT the Rust trading
+# engine — that bench lives in ../engine/).
+#
+# === DESIGN NOTE: WHY THIS PACKAGE IS SELF-CONTAINED ===
+#
+# An earlier draft of this bench imported the production runtime directly
+# out of the melaya-platform repo. That breaks for every external user,
+# because:
+#
+#   1. `melaya-platform` is a PRIVATE repository (not on GitHub), so
+#      external clones can't import
+#      the production runtime.
+#   2. The full runtime pulls in heavy agent, HTTP, document, and ML
+#      sentence-transformers, redis, sqlx-equivalent ORMs, etc. — a
+#      5-15 minute cold install that buries a sub-5-minute microbench
+#      under dependency resolution.
+#   3. The runtime imports ~600 Python files at startup (registry walks
+#      every `the production tool modules`). That's intentional in prod but
+#      hostile to a "clone → pip install → pytest in two minutes" loop.
+#
+# So this package ships a **faithful microbenchmark of the same hot-path
+# shapes** the runtime exercises:
+#
+#   * `dispatch_tool` mirrors `the runtime's toolkit call path`
+#     for the steady-state same-name case — dict lookup, kwargs merge,
+#     async-callable invocation, ToolResponse accumulation.
+#   * `LinearPipeline` / `ParallelPipeline` mirror the production runtime's
+#     step-to-step transition cost — sequential `await`s and
+#     `asyncio.gather` over mock tool callables.
+#   * `Registry` mirrors `the production registry builder`'s walk
+#     of the tool source modules + per-tool docstring extraction +
+#     JSON-schema generation.
+#   * `RagIndex` mirrors `the production RAG retrieve path` —
+#     embed query → ANN search → chunk hydration. Synthetic
+#     embeddings only; no the production vector store, no remote vector DB.
+#   * `ModelWrapper` mirrors `the production model wrapper`
+#     — prompt-assembly + message-history pack + post-response routing,
+#     with the provider HTTP boundary monkey-patched to return a canned
+#     response in 0 ms (so we isolate runner overhead from network).
+#
+# The mapping (which runtime lines reproduce as which bench lines, and
+# which are deliberately elided as no-ops on the steady-state hot path)
+# is documented in `src/melaya_bench_framework/__init__.py`.
+#
+# When `melaya-runtime-core` ships as a public PyPI package, this file
+# switches the shim for a direct dependency and the file at
+# `src/melaya_bench_framework/__init__.py` shrinks to a 5-line re-export
+# — no other changes required.
+
+[build-system]
+requires      = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name            = "melaya-bench-framework"
+version         = "0.1.0"
+description     = "Reproducible micro-benchmarks for the Melaya Python agentic framework (tool dispatch, pipeline orchestration, registry boot, RAG retrieval, model wrapper)."
+readme          = "README.md"
+requires-python = ">=3.10"
+license         = { text = "Apache-2.0" }
+authors         = [{ name = "Melaya Labs", email = "labs@melaya.org" }]
+keywords        = ["benchmark", "agentic", "llm", "pipeline", "rag", "microbenchmark"]
+
+# Intentionally minimal — pytest-benchmark is the bench harness, numpy is
+# only used by the synthetic RAG bench for the brute-force search.
+# Everything else is stdlib.
+dependencies = [
+    "pytest>=7.4",
+    "pytest-benchmark>=4.0",
+    "pytest-asyncio>=0.21",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+# RAG bench can OPTIONALLY use sentence-transformers for a real embedder.
+# By default the bench uses a deterministic random-projection embedder —
+# fast, no model download, makes the bench runnable on air-gapped CI.
+# Pass `--use-real-embedder` to the RAG bench to switch to MiniLM.
+real-embedder = [
+    "sentence-transformers>=2.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/melaya-labs/melaya"
+Source   = "https://github.com/melaya-labs/melaya/tree/main/benchmarks/framework"
+Issues   = "https://github.com/melaya-labs/melaya/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+minversion       = "7.4"
+asyncio_mode     = "auto"
+# Each bench file is single-purpose and runs in <30 s; cap total wall
+# at 5 min so a user can `pytest` and be done before they switch tabs.
+addopts          = "-q --benchmark-min-rounds=3 --benchmark-warmup=on --benchmark-disable-gc"
+testpaths        = ["benches"]
+python_files     = ["bench_*.py"]
+python_functions = ["test_*", "bench_*"]

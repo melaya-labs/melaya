@@ -1,0 +1,34 @@
+{
+  "n": 2000,
+  "min_us": 3.16,
+  "p50_us": 3.3200000000000003,
+  "p90_us": 3.4899999999999998,
+  "p95_us": 3.6399999999999997,
+  "p99_us": 5.88,
+  "p999_us": 9.92,
+  "max_us": 69.22999999999999,
+  "metric": "pipeline_orchestration_parallel",
+  "shim_call": "ParallelPipeline.run (10 steps, per-step transition)",
+  "bench_shape_version": "0.1.x-shape",
+  "headline_samples": 2000,
+  "run_at_unix_ms": 1781948595707,
+  "run_at_iso": "2026-06-20T09:43:15+00:00",
+  "env": {
+    "cpu_model": "13th Gen Intel(R) Core(TM) i9-13900H",
+    "logical_cores": 20,
+    "os_kernel": "Windows 11 (10.0.22631)",
+    "python_version": "3.12.4",
+    "cpu_governor": null,
+    "turbo_state": null,
+    "arch": "AMD64",
+    "os": "win32"
+  },
+  "what_this_is": "Per-step transition cost in a parallel pipeline: total asyncio.gather time divided by N. At this N the gather's setup + scheduling overhead dominates, so it runs HIGHER than the linear chain \u2014 the amortisation only pays off once the steps block on real I/O (not modelled here).",
+  "what_this_is_not": "Real concurrency. Each mock step returns in ~50 ns of Python work, which the event loop runs serially. The scheduling-amortisation effect we capture here is real, but a real concurrency speedup requires the steps to block on I/O (which lives in the per-tool benches).",
+  "reference_hardware": "",
+  "extra": {
+    "n_steps": 10,
+    "n_runs": 2000,
+    "topology": "parallel"
+  }
+}

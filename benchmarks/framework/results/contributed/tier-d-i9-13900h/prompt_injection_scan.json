@@ -1,0 +1,34 @@
+{
+  "n": 10000,
+  "min_us": 9.7,
+  "p50_us": 17.4,
+  "p90_us": 24.7,
+  "p95_us": 26.4,
+  "p99_us": 30.5,
+  "p999_us": 321.4,
+  "max_us": 3484.2,
+  "metric": "prompt_injection_scan",
+  "shim_call": "InjectionGuard.scan (weighted pattern scan over untrusted input)",
+  "bench_shape_version": "0.1.x-shape",
+  "headline_samples": 10000,
+  "run_at_unix_ms": 1781950238968,
+  "run_at_iso": "2026-06-20T10:10:38+00:00",
+  "env": {
+    "cpu_model": "13th Gen Intel(R) Core(TM) i9-13900H",
+    "logical_cores": 20,
+    "os_kernel": "Windows 11 (10.0.22631)",
+    "python_version": "3.12.4",
+    "cpu_governor": null,
+    "turbo_state": null,
+    "arch": "AMD64",
+    "os": "win32"
+  },
+  "what_this_is": "Per-input cost of the prompt-injection scan run on untrusted content (RAG-retrieved docs, tool outputs) before it reaches the model: weighted pattern match against injection / jailbreak / exfiltration markers, then allow / flag / block. Reproduces the production input-safety guard.",
+  "what_this_is_not": "A full ML-based detector. The pattern set + block threshold are the production guard's first defense-in-depth layer, not a guarantee.",
+  "reference_hardware": "",
+  "extra": {
+    "iterations": 10000,
+    "patterns": 11,
+    "inputs": 5
+  }
+}
