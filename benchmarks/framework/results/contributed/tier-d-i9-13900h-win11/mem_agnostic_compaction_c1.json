@@ -1,0 +1,74 @@
+{
+  "schema": "memory",
+  "bench_shape_version": "0.1.0-mem-shape",
+  "scenario": "s16",
+  "scenario_slug": "mem_agnostic_compaction_c1",
+  "deployment_model": "isolated_container",
+  "llm_placement": "cloud",
+  "axes": {
+    "placement": "cloud",
+    "capability": "compaction",
+    "concurrency": 1
+  },
+  "os": "windows",
+  "mem_metric": "private_bytes",
+  "mem_metric_secondary": "working_set",
+  "unit": "MB",
+  "cross_os_comparable": false,
+  "across_runs": {
+    "n_runs": 3,
+    "idle_med_mb": 636.46,
+    "idle_iqr_mb": 0.06,
+    "steady_p50_med_mb": 639.4,
+    "steady_p50_iqr_mb": 0.28,
+    "peak_p95_mb": 639.82,
+    "peak_med_mb": 639.52,
+    "settle_med_mb": 639.52,
+    "leak_slope_mb_per_cycle": 0.0402,
+    "leak_ci95": 0.0238,
+    "leak_verdict": "flat",
+    "python_heap_slope_mb_per_cycle": -0.0002,
+    "rss_settle_slope_mb_per_cycle": 0.0402,
+    "n_cycles": 20,
+    "orphan_child_count": 0
+  },
+  "working_set": {
+    "idle_med_mb": 39.55,
+    "steady_p50_med_mb": 42.02,
+    "peak_med_mb": 42.18,
+    "note": "RAM-resident working set (RSS). On Windows this is <= private_bytes; for native-heavy children (sci-stack, torch) private_bytes overstates RAM use, so working_set is the faithful capacity number."
+  },
+  "components": {
+    "orchestration": 639.4,
+    "history_sawtooth": null
+  },
+  "model_server": null,
+  "fit": null,
+  "capacity_example": null,
+  "method": {
+    "sample_ms": 25,
+    "settle_def": "gc.collect x2 -> malloc_trim(0) -> sample",
+    "sampler": "self-thread + recursive children; model-server by port (Subject B)",
+    "attribution": "per-process private_bytes",
+    "isolation": "fresh subprocess per run"
+  },
+  "env": {
+    "cpu_model": "13th Gen Intel(R) Core(TM) i9-13900H",
+    "logical_cores": 20,
+    "arch": "AMD64",
+    "os": "windows",
+    "os_kernel": "Windows-11-10.0.22631-SP0",
+    "python_version": "3.12.4",
+    "total_ram_gb": 31.7,
+    "mem_metric": "private_bytes",
+    "allocator": "system",
+    "malloc_arena_max": null,
+    "malloc_trim_applied": false,
+    "glibc_version": null,
+    "cross_os_comparable": false
+  },
+  "run_at_unix_ms": 1782116858895,
+  "run_at_iso": "2026-06-22T08:27:38+00:00",
+  "what_this_is": "Long-context compaction - saw-tooth history grow/compact/drop; transient peak with steady reclaim proof.",
+  "what_this_is_not": "NOT the reasoning-LLM weights - the model is an external HTTP server (cloud/local/enterprise) and its weights are never in this process. NOT cross-OS comparable (this row is private_bytes). NOT a leak when RSS settle drifts while the python-heap slope is flat (that is glibc page retention)."
+}

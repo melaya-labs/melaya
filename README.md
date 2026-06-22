@@ -1,6 +1,6 @@
 # Melaya
 
-> **Melaya is an AI agentic orchestration platform with trading-grade discipline — and a flagship AI agentic trading crew.** Built by an operator, for operators: 1,200+ tools, 100+ specialized subagents, 20+ AI providers, secure connectors, per-workflow RAG, full audit trail, and a Rust-native engine with normalized market data across **70+ venues**.
+> **Melaya is an AI agentic orchestration platform with trading-grade discipline — and a flagship AI agentic trading crew.** Built by an operator, for operators: 1,370+ tools, 110+ specialized subagents, 20+ AI providers, secure connectors, per-workflow RAG, full audit trail, and a Rust-native engine with normalized market data across **70+ venues**.
 
 [Website](https://melaya.org) · [Docs](https://melaya.org/docs) · [Agentic trading](./docs/agentic-trading.md) · [API Reference](https://melaya.org/docs) · [Discord](https://discord.gg/2BBMUUdnkj)
 
@@ -21,7 +21,7 @@ Melaya is a standalone agentic platform that applies **trading-grade discipline*
 
 It's **three products that snap together**:
 
-1. **Agentic Framework** — the orchestration studio. Drag agents, tools, and models onto a canvas, wire them with arrows, and schedule / run / replay. 1,200+ scoped tools, 100+ subagents, 20+ model providers. *Anything an LLM can reason about, an agent runs alongside your team.*
+1. **Agentic Framework** — the orchestration studio. Drag agents, tools, and models onto a canvas, wire them with arrows, and schedule / run / replay. 1,370+ scoped tools, 110+ subagents, 20+ model providers. *Anything an LLM can reason about, an agent runs alongside your team.*
 2. **Trading Engine** — the Rust-native core under every signal: normalized market data and order routing across **70+ venues**, with sub-microsecond dispatch on the hot path. One unified REST + WebSocket API, regardless of venue.
 3. **Agentic Trading Crew** *(flagship)* — compose a **seven-persona trading crew** you actually own (Macro · TA · Quant · Sentiment · Risk · Portfolio · Execution). Each seat picks its model and its data; **Risk holds the veto**; ten safety rails watch the chain; and **every order waits for your signature**.
 
@@ -49,7 +49,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    F["🧩 Agentic Framework<br/>orchestration studio<br/>1,200+ tools · 100+ subagents · RAG · HITL"]
+    F["🧩 Agentic Framework<br/>orchestration studio<br/>1,370+ tools · 110+ subagents · RAG · HITL"]
     C["🤖 Agentic Trading Crew<br/>7 personas · Risk veto<br/>10 rails · every order signed"]
     E["⚙️ Trading Engine — THE CORE<br/>normalized data + order routing<br/>sub-µs dispatch"]
     V["🏦 70+ venues<br/>CEX · perps · prediction markets"]
@@ -62,8 +62,8 @@ flowchart LR
 ## Highlights
 
 - **Agentic trading crews** — multi-agent crews (Macro → TA → Risk → Execution) that trade with human-in-the-loop approval and server-managed exits, across 70+ venues. → [guide](./docs/agentic-trading.md)
-- **1,200+ agentic tools** across web, code, data, ops, trading, communication, files, cloud, social, RAG, and an MCP bridge.
-- **100+ specialized subagents** with prebuilt crews for research, analysis, execution, and review.
+- **1,370+ agentic tools** across web, code, data, ops, trading, communication, files, cloud, social, RAG, and an MCP bridge.
+- **110+ specialized subagents** with prebuilt crews for research, analysis, execution, and review.
 - **Bring-your-own model** — 20+ AI providers (Anthropic, OpenAI, Google, NVIDIA, Ollama, LM Studio, and more); no lock-in to one LLM vendor.
 - **Per-workflow RAG** — isolated vector stores, hybrid BM25 + dense retrieval.
 - **Secure connectors** — AES-256-GCM envelope encryption, per-user credential isolation, secrets managed in an encrypted vault.

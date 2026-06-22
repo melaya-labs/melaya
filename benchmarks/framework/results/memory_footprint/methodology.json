@@ -1,0 +1,26 @@
+{
+  "status": "methodology_only",
+  "schema": "memory",
+  "bench_shape_version": "0.1.0-mem-shape",
+  "north_star": "With R GB of RAM, running scenario S, how many pipelines can run simultaneously - per-OS, per-deployment, conservative.",
+  "reason": "Memory footprint + capacity is a heavy, opt-in suite (real Chromium/Qdrant model servers). Per-tier results land as contributors run `python -m melaya_bench_framework.memory`.",
+  "next_action": "Publish the first measured tier (S0 idle + S1 LLM-agnostic baseline) from the reference box, then the per-component ladder and the capacity N-sweep.",
+  "two_subjects": "Pipeline (LLM-agnostic: heap+browser+qdrant+buffers, never model weights) measured separately from the model server (Ollama/LM Studio, weights once, counted vs the box only when co-located).",
+  "scenarios_planned": [
+    "s0_idle",
+    "s1_baseline",
+    "s2_rag_qdrant",
+    "s2b_rag_100k",
+    "s3a_websearch_fast",
+    "s3b_websearch_browser",
+    "s_aiml",
+    "s11_wss",
+    "s12_coderepl",
+    "s13_render",
+    "s15_mcp",
+    "s16_compaction",
+    "s17_streaming",
+    "s18_tooloutput",
+    "s_conc"
+  ]
+}

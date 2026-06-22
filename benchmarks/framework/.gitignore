@@ -14,3 +14,7 @@ __pycache__/
 .pytest_cache/
 build/
 dist/
+
+# Memory bench per-run output (local). Committed: results/memory_footprint/
+# methodology.json + per-tier results/contributed/<tier>/mem_*.json only.
+results/memory/

@@ -81,6 +81,13 @@ real-embedder = [
     "sentence-transformers>=2.2",
 ]
 
+# Memory & capacity bench - HEAVY, opt-in. NEVER pulled by `pip install -e .`
+# or `pytest benches/`. P0 needs only psutil; P1+ adds the real heavy deps
+# (scrapling[fetchers], curl_cffi, qdrant-client) for the browser/RAG rows.
+memory = [
+    "psutil>=5.9",
+]
+
 [project.urls]
 Homepage = "https://github.com/melaya-labs/melaya"
 Source   = "https://github.com/melaya-labs/melaya/tree/main/benchmarks/framework"
