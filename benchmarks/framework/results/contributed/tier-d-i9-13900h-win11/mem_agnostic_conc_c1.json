@@ -1,0 +1,74 @@
+{
+  "schema": "memory",
+  "bench_shape_version": "0.1.0-mem-shape",
+  "scenario": "s_conc",
+  "scenario_slug": "mem_agnostic_conc_c1",
+  "deployment_model": "isolated_container",
+  "llm_placement": "cloud",
+  "axes": {
+    "placement": "cloud",
+    "capability": "conc",
+    "concurrency": 1
+  },
+  "os": "windows",
+  "mem_metric": "private_bytes",
+  "mem_metric_secondary": "working_set",
+  "unit": "MB",
+  "cross_os_comparable": false,
+  "across_runs": {
+    "n_runs": 2,
+    "idle_med_mb": 634.76,
+    "idle_iqr_mb": 0.07,
+    "steady_p50_med_mb": 2533.71,
+    "steady_p50_iqr_mb": 0.04,
+    "peak_p95_mb": 2533.91,
+    "peak_med_mb": 2533.86,
+    "settle_med_mb": 2533.86,
+    "leak_slope_mb_per_cycle": 0.0211,
+    "leak_ci95": 0.0188,
+    "leak_verdict": "flat",
+    "python_heap_slope_mb_per_cycle": 0.0036,
+    "rss_settle_slope_mb_per_cycle": 14.7626,
+    "n_cycles": 6,
+    "orphan_child_count": 3
+  },
+  "working_set": {
+    "idle_med_mb": 36.59,
+    "steady_p50_med_mb": 140.08,
+    "peak_med_mb": 140.3,
+    "note": "RAM-resident working set (RSS). On Windows this is <= private_bytes; for native-heavy children (sci-stack, torch) private_bytes overstates RAM use, so working_set is the faithful capacity number."
+  },
+  "components": {
+    "orchestration": 2533.71,
+    "concurrency_aggregate": null
+  },
+  "model_server": null,
+  "fit": null,
+  "capacity_example": null,
+  "method": {
+    "sample_ms": 30,
+    "settle_def": "gc.collect x2 -> malloc_trim(0) -> sample",
+    "sampler": "self-thread + recursive children; model-server by port (Subject B)",
+    "attribution": "per-process private_bytes",
+    "isolation": "fresh subprocess per run"
+  },
+  "env": {
+    "cpu_model": "13th Gen Intel(R) Core(TM) i9-13900H",
+    "logical_cores": 20,
+    "arch": "AMD64",
+    "os": "windows",
+    "os_kernel": "Windows-11-10.0.22631-SP0",
+    "python_version": "3.12.4",
+    "total_ram_gb": 31.7,
+    "mem_metric": "private_bytes",
+    "allocator": "system",
+    "malloc_arena_max": null,
+    "malloc_trim_applied": false,
+    "glibc_version": null,
+    "cross_os_comparable": false
+  },
+  "run_at_unix_ms": 1782130784481,
+  "run_at_iso": "2026-06-22T12:19:44+00:00",
+  "what_this_is": "Concurrency validation - N pipelines at once (MEL_MEM_CONC_N); aggregate footprint gates the linear capacity fit.",
+  "what_this_is_not": "NOT the reasoning-LLM weights - the model is an external HTTP server (cloud/local/enterprise) and its weights are never in this process. NOT cross-OS comparable (this row is private_bytes). NOT a leak when RSS settle drifts while the python-heap slope is flat (that is glibc page retention)."
+}
