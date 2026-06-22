@@ -374,6 +374,73 @@ async def _cycle_tooloutput(state: dict) -> None:
     state["n"] = len(payload)
 
 
+# ── S13: remotion video render - Node + esbuild + render-Chromium (peak) ─
+# Self-contained ONLY when a remotion composer dir is provided via
+# MEL_MEM_REMOTION_DIR; the OSS bench skips it otherwise (Node + a remotion
+# project are not Python-bench deps). The render runs as a child process
+# tree, so the sampler captures the Node + Chromium footprint as the peak.
+
+def _warm_render() -> None:
+    _warm_runtime()
+
+
+async def _cycle_render(state: dict) -> None:
+    import asyncio
+    from pathlib import Path
+    composer = os.environ.get("MEL_MEM_REMOTION_DIR")
+    if not composer or state.get("done"):
+        await asyncio.sleep(0.05)
+        return
+    demos = list(Path(composer, "public", "demo-props").glob("*.json"))
+    if not demos:
+        state["done"] = True
+        await asyncio.sleep(0.05)
+        return
+    npx = "npx.cmd" if os.name == "nt" else "npx"
+    out = os.path.join(tempfile.gettempdir(), "mem_render_probe.mp4")
+    try:
+        p = await asyncio.create_subprocess_exec(
+            npx, "remotion", "render", "src/index.tsx", "Explainer", out,
+            "--props", str(demos[0]), "--codec", "h264", "--frames", "0-20",
+            "--concurrency", "1",
+            cwd=composer, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
+        await p.wait()
+    except Exception as e:  # noqa: BLE001
+        print(f"[render] {type(e).__name__}: {e}", file=sys.stderr)
+    state["done"] = True
+
+
+# ── S_conc: concurrency validation - N pipelines at once (linearity) ─────
+# Spawns N-1 sibling baseline pipelines; the sampler measures self + the
+# children = N concurrent pipelines, so the aggregate footprint validates
+# that N pipelines cost ~N x a single one (the linear capacity fit). N is
+# set via MEL_MEM_CONC_N (default 4).
+
+_CONC_CHILD = (
+    "import melaya_bench_framework, time, os\n"
+    "from melaya_bench_framework import Toolkit, async_tool\n"
+    "tk = Toolkit(); tk.register_tool_function(async_tool, func_name='t')\n"
+    "time.sleep(float(os.environ.get('MEL_MEM_CONC_HOLD', '25')))\n"
+)
+
+
+def _warm_conc() -> None:
+    _warm_runtime()
+
+
+async def _cycle_conc(state: dict) -> None:
+    import asyncio
+    import time
+    if "procs" not in state:
+        n = max(1, int(os.environ.get("MEL_MEM_CONC_N", "4")))
+        os.environ["MEL_MEM_CONC_HOLD"] = "25"
+        state["procs"] = [_track(subprocess.Popen([sys.executable, "-c", _CONC_CHILD]))
+                          for _ in range(n - 1)]
+        state["n"] = n
+        time.sleep(3.0)  # let the siblings warm + load their baseline
+    await asyncio.sleep(0.05)
+
+
 SCENARIOS: dict[str, Scenario] = {
     "s0": Scenario(
         id="s0",
@@ -460,6 +527,18 @@ SCENARIOS: dict[str, Scenario] = {
         description="Huge tool output - multi-MB payload through the real dispatch path; transient peak, must not accumulate.",
         warm=_warm_tooloutput, cycle=_cycle_tooloutput, n_cycles=12,
         components=["orchestration", "tool_output_transient"],
+    ),
+    "s13": Scenario(
+        id="s13", capability="render", placement="agnostic",
+        description="remotion video render - Node + esbuild bundler + Rust compositor + render-Chromium tree (peak). Requires MEL_MEM_REMOTION_DIR.",
+        warm=_warm_render, cycle=_cycle_render, n_cycles=1,
+        components=["orchestration", "render_node_chromium"],
+    ),
+    "s_conc": Scenario(
+        id="s_conc", capability="conc", placement="agnostic",
+        description="Concurrency validation - N pipelines at once (MEL_MEM_CONC_N); aggregate footprint gates the linear capacity fit.",
+        warm=_warm_conc, cycle=_cycle_conc, n_cycles=10,
+        components=["orchestration", "concurrency_aggregate"],
     ),
 }
 
