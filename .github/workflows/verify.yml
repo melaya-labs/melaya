@@ -91,11 +91,12 @@ jobs:
         working-directory: packages/sdk-java
       - name: Reject bundled third-party classes
         run: |
-          if jar tf build/libs/melaya-sdk-*.jar | grep -Eq '^(com/fasterxml/jackson|org/java_websocket)/'; then
+          JAR=$(ls build/libs/melaya-sdk-*.jar | grep -vE -- '-(sources|javadoc)\.jar$')
+          if jar tf "$JAR" | grep -Eq '^(com/fasterxml/jackson|org/java_websocket)/'; then
             echo "Published Java library JAR contains unrelocated dependency classes" >&2
             exit 1
           fi
-          jar tf build/libs/melaya-sdk-*.jar | grep -q '^META-INF/LICENSE$'
+          jar tf "$JAR" | grep -q '^META-INF/LICENSE$'
         working-directory: packages/sdk-java
 
   kotlin:
@@ -111,7 +112,7 @@ jobs:
           gradle-version: "8.10.2"
       - run: gradle clean build generatePomFileForMavenPublication --no-daemon
         working-directory: packages/sdk-kotlin
-      - run: jar tf build/libs/melaya-sdk-kotlin-*.jar | grep -q '^META-INF/LICENSE$'
+      - run: jar tf "$(ls build/libs/melaya-sdk-kotlin-*.jar | grep -vE -- '-(sources|javadoc)\.jar$')" | grep -q '^META-INF/LICENSE$'
         working-directory: packages/sdk-kotlin
 
   csharp:
