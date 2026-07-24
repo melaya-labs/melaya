@@ -4,7 +4,7 @@ plugins {
     id 'org.jetbrains.kotlin.jvm' version '2.2.20'
     id 'java-library'
     id 'application'
-    id 'com.vanniktech.maven.publish' version '0.30.0'
+    id 'com.vanniktech.maven.publish' version '0.37.0'
 }
 group = 'org.melaya'
 version = '0.2.0'
