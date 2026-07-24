@@ -6,6 +6,7 @@ use crate::client::HttpClient;
 use crate::error::Result;
 
 /// Strategies API — launch, control, and inspect trading strategies.
+#[derive(Clone)]
 pub struct StrategiesAPI {
     http: HttpClient,
 }
@@ -40,21 +41,30 @@ impl StrategiesAPI {
     /// Pause a running strategy.
     pub async fn pause(&self, strategy_id: &str) -> Result<Value> {
         self.http
-            .post(&format!("/api/v1/strategies/{strategy_id}/pause"), &json!({}))
+            .post(
+                &format!("/api/v1/strategies/{strategy_id}/pause"),
+                &json!({}),
+            )
             .await
     }
 
     /// Resume a paused strategy.
     pub async fn resume(&self, strategy_id: &str) -> Result<Value> {
         self.http
-            .post(&format!("/api/v1/strategies/{strategy_id}/resume"), &json!({}))
+            .post(
+                &format!("/api/v1/strategies/{strategy_id}/resume"),
+                &json!({}),
+            )
             .await
     }
 
     /// Stop a strategy and tear down its runner.
     pub async fn stop(&self, strategy_id: &str) -> Result<Value> {
         self.http
-            .post(&format!("/api/v1/strategies/{strategy_id}/stop"), &json!({}))
+            .post(
+                &format!("/api/v1/strategies/{strategy_id}/stop"),
+                &json!({}),
+            )
             .await
     }
 
@@ -171,9 +181,24 @@ impl StrategiesAPI {
     pub async fn ai_opt_runs(&self, strategy_id: &str) -> Result<Value> {
         let q = HashMap::new();
         self.http
-            .get(
-                &format!("/api/v1/strategies/{strategy_id}/ai-opt/runs"),
-                &q,
+            .get(&format!("/api/v1/strategies/{strategy_id}/ai-opt/runs"), &q)
+            .await
+    }
+
+    // ── restRoutes.ts strategies endpoints ──────────────────────────────────────
+
+    /// List strategies visible to the caller's team project.
+    pub async fn list_team(&self) -> Result<Value> {
+        let q = HashMap::new();
+        self.http.get("/api/v1/private/strategies/team", &q).await
+    }
+
+    /// Bulk-fetch lightweight summaries for a list of strategy IDs.
+    pub async fn summaries_bulk(&self, strategy_ids: &[&str]) -> Result<Value> {
+        self.http
+            .post(
+                "/api/v1/private/strategies/summaries/bulk",
+                &serde_json::json!({ "strategyIds": strategy_ids }),
             )
             .await
     }

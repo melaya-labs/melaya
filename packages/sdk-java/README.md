@@ -1,6 +1,8 @@
 # Melaya Java SDK
 
-Official Java SDK for the [Melaya](https://melaya.org) unified trading API — market data, paper trading, strategies, backtesting, and real-time WebSocket streaming across 70+ venues.
+> **Current production scope:** Agent Builder and Mobile Device Control are available now. Melaya Trading namespaces are preview-only and not generally available; do not use them with real funds.
+
+Official SDK for the **[Melaya](https://melaya.org)** Agent Builder and flagship Mobile Device Control APIs. Trading namespaces are included only as a preview of a later product.
 
 ## Installation
 
@@ -8,7 +10,7 @@ Official Java SDK for the [Melaya](https://melaya.org) unified trading API — m
 
 ```groovy
 dependencies {
-    implementation 'org.melaya:melaya-sdk:1.0.0'
+    implementation 'org.melaya:melaya-sdk:0.2.0'
 }
 ```
 
@@ -18,7 +20,7 @@ dependencies {
 <dependency>
     <groupId>org.melaya</groupId>
     <artifactId>melaya-sdk</artifactId>
-    <version>1.0.0</version>
+    <version>0.2.0</version>
 </dependency>
 ```
 
@@ -26,7 +28,7 @@ dependencies {
 
 Create an API key at [melaya.org → Settings → API Keys](https://melaya.org). Keys are prefixed `mk_`.
 
-The SDK sends the key as both a query parameter (`?apiKey=mk_...`) and an `Authorization: Bearer mk_...` header on every request.
+REST requests send the key only as an `Authorization: Bearer mk_...` header — never in the URL query string. Public WebSocket streams pass `?apiKey=` in the `wss://` URL (server protocol); private WebSocket streams use a short-lived `?wsTicket=` minted per connection.
 
 **Never hardcode your API key.** Read it from an environment variable:
 
@@ -35,7 +37,63 @@ String apiKey = System.getenv("MELAYA_API_KEY");
 Melaya melaya = new Melaya(apiKey);
 ```
 
-## Quick Start
+## Quick Start: Agent Builder & Device Control
+
+Pair an Android phone, then let an authorized agent operate approved apps through the visible interface. The tool registry exposes 1,500+ scoped tools and 100+ specialized subagents across 20+ model providers (`melaya.agents().pipelines().tools()` / `.subagents()`).
+
+```java
+import org.melaya.Melaya;
+import com.fasterxml.jackson.databind.JsonNode;
+import java.util.List;
+import java.util.Map;
+
+Melaya melaya = new Melaya(System.getenv("MELAYA_API_KEY"));
+
+// Pair a phone — enter the code in the Melaya APK
+JsonNode pair = melaya.agents().phone().pair();
+System.out.println("pairing code: " + pair.get("code").asText());
+
+JsonNode devices = melaya.agents().phone().listDevices();
+JsonNode apps    = melaya.agents().phone().listApps();
+
+// Give agents the smallest practical app allowlist
+melaya.agents().phone().setAllowedApps(List.of("com.android.chrome"));
+```
+
+Create and run an agent pipeline. Configure provider credentials through Melaya Connectors first — never include a provider key in pipeline configuration or per-run overrides.
+
+```java
+melaya.agents().pipelines().create(Map.of(
+    "name",           "mobile-review",
+    "project",        "Operations",
+    "model_provider", "anthropic",
+    "model_name",     "claude-sonnet-4-6",
+    "agents", List.of(Map.of(
+        "name",        "mobile-operator",
+        "role",        "Careful mobile operator",
+        "instruction", "Read before acting. Never send, publish, or delete.",
+        "agent_tools", List.of(
+            "phone_get_screen_tree", "phone_current_app", "phone_open_app",
+            "phone_click_text", "phone_back", "phone_wait"))),
+    "steps", List.of(Map.of(
+        "kind",  "agent",
+        "agent", Map.of("name", "mobile-operator"))),
+    "maxCostUsd", 1.00));
+
+JsonNode run = melaya.agents().pipelines().run("mobile-review",
+        Map.of("project", "Operations"));
+String runId = run.get("run_id").asText();
+
+melaya.agents().phone().registerActiveRun(runId);
+
+JsonNode status = melaya.agents().pipelines().runStatus("mobile-review", runId);
+
+// Live run events over Socket.IO — the connection opens lazily on first subscription
+melaya.platform().events().onRunUpdate(runId, frame ->
+        System.out.println(frame.get("event_type").asText()));
+```
+
+## Quick Start: Trading (preview — paper only)
 
 ```java
 import org.melaya.Melaya;
@@ -114,15 +172,34 @@ try (MelayaStream s = melaya.stream().strategies()) {
 }
 ```
 
-## TLS
-
-The SDK verifies TLS certificates by default. To disable verification in dev/proxy environments only, set:
-
-```
-MELAYA_INSECURE_TLS=1
-```
-
 ## Method Reference
+
+### GA namespaces — Agent Builder, Device Control, platform
+
+Reachable through `melaya.agents()`, `melaya.platform()`, or the equivalent flat accessors (`melaya.pipelines()`, `melaya.phone()`, …).
+
+| Namespace | Access | Methods |
+|---|---|---|
+| `auth` | `melaya.platform().auth()` | `login`, `verifyMfa`, `register`, `verifySignup`, `resendVerification`, `forgotPassword`, `resetPassword`, `changePassword`, `me`, `check`, `myPermissions`, `refresh`, `createMobileHandoff`, `version` |
+| `projects` | `melaya.platform().projects()` | `list`, `create`, `rename`, `getRunnerProjects` |
+| `connectors` | `melaya.platform().connectors()` | `connectedServices`, `set`, `delete`, `getEnvHandle`, `googleOAuthStart` |
+| `credentials` | `melaya.platform().credentials()` | `list`, `connectedServices`, `get`, `set`, `delete`, `test`, `getOperatorProfile`, `setOperatorProfile`, `listModels`, `melayaAccounts`, plus RAG (`ragIngestStart/Status`, `ragRetrieveStart/Status`, `pickFolderStart/Status`) and OAuth connect helpers (Google, LinkedIn, Luma, NotebookLM, Telegram, CLI) |
+| `pipelines` | `melaya.agents().pipelines()` | `listPipelines`, `create`, `get`, `update`, `delete`, `run`, `runIds`, `runStatus`, `cancelRun`, `outputs`, `output`, `previewCode`, `tools`, `subagents`, `instantiateTemplate`, `buildWithAI`, `traces`, `trace`, `traceStats`, `deleteTraces`, `listSchedules`, `getSchedule`, `upsertSchedule`, `pauseSchedule`, `resumeSchedule` |
+| `templates` | `melaya.platform().templates()` | `list`, `save`, `update`, `duplicate`, `delete`, `share`, `listAssignments`, `assign(templateId, target)` — `target` holds exactly one of `userId` / `projectId` (JSON body), `unassign(templateId, target)` — `userId` / `projectId` sent as query params, `shareTargets`, `listGlobal`, `listValidated` |
+| `phone` | `melaya.agents().phone()` | `pair`, `listDevices`, `revokeDevice`, `screenTree`, `listApps`, `setAllowedApps`, `registerActiveRun` |
+| `hitl` | `melaya.agents().hitl()` | `pending`, `history`, `approve`, `reject`, `bulkDecide`, `runToolStats`, `runToolStatsByAgent`, `runToolCalls`, `runMessages` |
+| `evals` | `melaya.agents().evals()` | `listRuns`, `summary`, `runDetail`, `compare`, `memoryGraph`, `runMemory`, `crewMemory`, `benchmarks` |
+| `events` | `melaya.platform().events()` | `onRunUpdate`, `onInitPhase`, `onProjectEvent`, `onHitlApproval`, `onPipelineCreated`, `onPipelineUpdated`, `onPipelineDeleted`, `leaveRun`, `leaveProject`, `close` — Socket.IO; connects lazily on first subscription |
+| `billing` | `melaya.platform().billing()` | `subscription`, `createCheckout`, `createPortal`, `plans` |
+| `accounts` | `melaya.platform().accounts()` | `exportMyData`, `removeKey`, `updateProfile`, `credits`, `aiCredits`, `portfolioIdeasCredits`, `riskMonitoringCredits` |
+| `runner` | `melaya.platform().runner()` | `createToken`, `listTokens`, `revokeToken` |
+| `team` | `melaya.platform().team()` | `listMembers`, `invite`, `createInviteLink`, `acceptInvite`, `updateMemberRole`, `removeMember`, `getPipelineVisibility`, `setPipelineVisibility` |
+| `mfa` | `melaya.platform().mfa()` | `status`, `setup`, `confirmSetup` |
+| `assistant` | `melaya.agents().assistant()` | `getProfile`, `setProfile` |
+| `bugs` | `melaya.platform().bugs()` | `create`, `listMine`, `get`, `addComment`, `listNotifications`, `markNotificationsRead` |
+| `overview` | `melaya.platform().overview()` | `get`, `usageSummary`, `modelPrices`, `chartData`, `costBreakdown`, `pipelineCount`, `pipelineList`, `recentPipelines` |
+
+### Trading namespaces (preview — not generally available)
 
 ### `market`
 
@@ -226,7 +303,7 @@ MELAYA_INSECURE_TLS=1
 
 ```
 cd packages/sdk-java
-MK=mk_yourkey MELAYA_INSECURE_TLS=1 ./gradlew run
+MK=mk_yourkey gradle run
 ```
 
-The smoke test exercises every category and prints `PASS`/`FAIL` per check with a final tally.
+The smoke test exercises the trading-plane surface (market, account, sim, strategies, backtest, stream) and prints `PASS`/`FAIL` per check with a final tally. GA namespaces are not covered by this smoke test.

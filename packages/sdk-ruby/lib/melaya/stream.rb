@@ -42,8 +42,9 @@ module Melaya
     end
 
     def initialize(url, verify_ssl: true)
+      raise ArgumentError, "Melaya: TLS certificate verification cannot be disabled." unless verify_ssl
       @uri        = URI.parse(url)
-      @verify_ssl = verify_ssl
+      @verify_ssl = true
       @socket     = nil
       @closed     = false
       @buf        = String.new("", encoding: "BINARY")
@@ -54,7 +55,7 @@ module Melaya
 
       @socket = if @uri.scheme == "wss"
         ctx = OpenSSL::SSL::SSLContext.new
-        ctx.verify_mode = @verify_ssl ? OpenSSL::SSL::VERIFY_PEER : OpenSSL::SSL::VERIFY_NONE
+        ctx.verify_mode = OpenSSL::SSL::VERIFY_PEER
         ssl = OpenSSL::SSL::SSLSocket.new(tcp, ctx)
         ssl.hostname = @uri.host
         ssl.connect
@@ -259,10 +260,11 @@ module Melaya
     DEFAULT_WS_URL = "wss://wss.melaya.org"
 
     def initialize(api_key, ws_url, http, verify_ssl: true)
+      raise ArgumentError, "Melaya: TLS certificate verification cannot be disabled." unless verify_ssl
       @api_key    = api_key
       @ws_url     = ws_url.to_s.chomp("/")
       @http       = http
-      @verify_ssl = verify_ssl
+      @verify_ssl = true
     end
 
     # Live ticker frames.

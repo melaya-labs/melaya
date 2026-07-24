@@ -131,8 +131,35 @@ export class MarketAPI {
     return (await this.http.post<{ markets: unknown[] }>("/api/v1/market/pm-markets", body)).markets;
   }
 
-  /** Live platform catalog counts (agentic tools, subagents, by category). Public. */
+  /**
+   * @deprecated Use `melaya.agents.pipelines.catalogCounts()` instead.
+   * Catalog counts belong on the agents/pipelines plane, not the trading/market plane.
+   */
   async catalogCounts(): Promise<{ tools: number; subagents: number; byCategory?: unknown }> {
     return await this.http.get<{ tools: number; subagents: number; byCategory?: unknown }>("/api/v1/public/catalog-counts");
+  }
+
+  async cexLiquidations(body: Record<string, unknown> = {}): Promise<unknown> {
+    return this.http.post("/api/v1/private/market/liquidations", body);
+  }
+
+  async mddPairs(): Promise<unknown> {
+    return this.http.get("/api/v1/market/mdd-pairs");
+  }
+
+  async onchainYields(): Promise<unknown> {
+    return this.http.get("/api/v1/private/market/onchain-yields");
+  }
+
+  async onchainLiquidity(): Promise<unknown> {
+    return this.http.get("/api/v1/private/market/onchain-liquidity");
+  }
+
+  async banner(): Promise<unknown> {
+    return this.http.get("/api/v1/market/banner");
+  }
+
+  async priceHistory(params: Record<string, string | number | boolean | undefined> = {}): Promise<unknown> {
+    return this.http.get("/api/v1/market/price-history", params);
   }
 }

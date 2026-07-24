@@ -35,8 +35,8 @@
 # histogram is therefore tight; see `src/lib.rs` for the line-by-line
 # mapping and README.md for the broader caveats.
 #
-# Anyone with platform access can verify by running the engine's
-# in-process histogram (`GET /api/v1/internal/engine/ingest-metrics`)
+# Anyone with platform access can verify by running the in-process
+# ingest-latency histogram exposed by the engine
 # alongside this bench on the same hardware and comparing the
 # `state_ticker_ns.p50_ns` field. Bench and engine should agree within
 # ~10-15% (the engine's `recv_wall_ns` formatting overhead, mirrored

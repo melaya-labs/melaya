@@ -1,6 +1,10 @@
+> **Part of the Melaya Labs trading vertical (rolling out).** Melaya's core is the [agent builder + Device Control](./concepts.md) - build, run, and orchestrate multi-agent pipelines that operate software and devices. This vertical applies that same infrastructure to financial markets. See [concepts.md](./concepts.md) for the base platform.
+
+> **Preview status:** Melaya Trading is planned for a later public release. This document describes preview surface that may change or remain unavailable; it is not a production-readiness statement and must not be used to operate real funds.
+
 # AI agentic trading
 
-**AI agentic trading** on Melaya means autonomous, multi-agent **trading crews** — teams of specialized AI agents that research the market, find setups, size risk, and execute orders, with a human in the loop on every trade and trading-desk safety rails throughout. It is the flagship of the Melaya [agentic orchestration platform](./concepts.md), wired directly into the [unified engine across 70+ venues](./exchanges.md).
+**AI agentic trading** is one vertical under Melaya Labs - built on top of Melaya's agent-builder platform and rolling out now. It means autonomous, multi-agent **trading crews** - teams of specialized AI agents that research the market, find setups, size risk, and execute orders, with a human in the loop on every trade and trading-desk safety rails throughout. Wired directly into the [unified engine across 70+ venues](./exchanges.md).
 
 This page describes the capability end to end at a product level: what a crew is, how you build one, how a cycle runs, how it stays safe, and where it runs. The strategy logic, agent prompts, and engine internals are proprietary and not published here.
 
@@ -167,7 +171,7 @@ When the crew proposes several orders at once, they're **coalesced into a single
 
 Every decision, and every fill it leads to, is recorded in a complete audit trail (the request, who decided, what they changed, and the resulting execution), so any cycle can be reconstructed as "what did this crew do, by whose authority?"
 
-> **Today vs. roadmap.** Approval on every order is currently **always-on** for live crews, and approvals are actioned in the Studio approval queue. A **programmatic approvals API** (receive an approval request, then approve / edit / reject in code) and the option to **selectively disable HITL** for fully-autonomous live crews are both on the roadmap, arriving with the broader agent API in v2.
+> **Today vs. roadmap.** Approval on every order is currently **always-on** for live crews, and approvals are actioned in the Studio approval queue. A **programmatic trading-approvals API** (receive an approval request, then approve / edit / reject in code) and the option to **selectively disable HITL** for fully-autonomous live crews are both on the roadmap. The broader agent-builder API (arbitrary pipelines, RAG, connectors, HITL approvals) is already live today - see the [Agent Builder](./agent-builder.md); this note is specific to the upcoming trading vertical.
 
 ---
 

@@ -19,8 +19,8 @@
 # IDE
 .idea/
 .vscode/
-# package locks we don't ship from staging
-**/go.sum
+.claude/
+# Dependency locks/checksums are committed for reproducible SDK builds.
 **/*.exe
 
 # secrets (belt-and-suspenders)

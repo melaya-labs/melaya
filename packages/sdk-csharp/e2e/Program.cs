@@ -3,7 +3,6 @@
  *
  * Usage:
  *   set MK=mk_...
- *   set MELAYA_INSECURE_TLS=1   (dev box with TLS intercept)
  *   dotnet run
  *
  * SAFETY: PAPER/SIM ONLY. Never places live orders. Always stop+deletes

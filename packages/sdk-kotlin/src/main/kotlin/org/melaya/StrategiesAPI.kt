@@ -17,7 +17,7 @@ class StrategiesAPI internal constructor(private val http: HttpClient) {
 
     /** A single strategy by id. */
     fun get(strategyId: String): JSONObject {
-        return http.get("/api/v1/strategies/$strategyId")
+        return http.get("/api/v1/strategies/${enc(strategyId)}")
             .asObject().getObject("strategy")
     }
 
@@ -57,55 +57,55 @@ class StrategiesAPI internal constructor(private val http: HttpClient) {
 
     /** Pause a running strategy. */
     fun pause(strategyId: String): JSONObject {
-        return http.post("/api/v1/strategies/$strategyId/pause").asObject()
+        return http.post("/api/v1/strategies/${enc(strategyId)}/pause").asObject()
     }
 
     /** Resume a paused strategy. */
     fun resume(strategyId: String): JSONObject {
-        return http.post("/api/v1/strategies/$strategyId/resume").asObject()
+        return http.post("/api/v1/strategies/${enc(strategyId)}/resume").asObject()
     }
 
     /** Stop a strategy and tear down its runner. */
     fun stop(strategyId: String): JSONObject {
-        return http.post("/api/v1/strategies/$strategyId/stop").asObject()
+        return http.post("/api/v1/strategies/${enc(strategyId)}/stop").asObject()
     }
 
     /** Soft-delete a strategy. */
     fun delete(strategyId: String): JSONObject {
-        return http.delete("/api/v1/strategies/$strategyId").asObject()
+        return http.delete("/api/v1/strategies/${enc(strategyId)}").asObject()
     }
 
     /** Update a running strategy's params. */
     fun updateParams(strategyId: String, params: Map<String, Any?>): JSONObject {
-        return http.post("/api/v1/strategies/$strategyId/update-params", params).asObject()
+        return http.post("/api/v1/strategies/${enc(strategyId)}/update-params", params).asObject()
     }
 
     /** Live runtime status of a strategy's runner. */
     fun status(strategyId: String): JSONObject {
-        return http.get("/api/v1/strategies/$strategyId/status").asObject()
+        return http.get("/api/v1/strategies/${enc(strategyId)}/status").asObject()
     }
 
     /** Performance series for a strategy (equity, PnL over time). */
     fun performance(strategyId: String): List<JSONObject> {
-        return http.get("/api/v1/strategies/$strategyId/performance")
+        return http.get("/api/v1/strategies/${enc(strategyId)}/performance")
             .asObject().getArray("rows").toJsonObjects()
     }
 
     /** Execution (order) rows for a strategy. */
     fun executions(strategyId: String): List<JSONObject> {
-        return http.get("/api/v1/strategies/$strategyId/executions")
+        return http.get("/api/v1/strategies/${enc(strategyId)}/executions")
             .asObject().getArray("rows").toJsonObjects()
     }
 
     /** Trade (fill) rows for a strategy. */
     fun trades(strategyId: String): List<JSONObject> {
-        return http.get("/api/v1/strategies/$strategyId/trades")
+        return http.get("/api/v1/strategies/${enc(strategyId)}/trades")
             .asObject().getArray("rows").toJsonObjects()
     }
 
     /** Log rows for a strategy (cycle markers, persona messages, errors). */
     fun logs(strategyId: String): List<JSONObject> {
-        return http.get("/api/v1/strategies/$strategyId/logs")
+        return http.get("/api/v1/strategies/${enc(strategyId)}/logs")
             .asObject().getArray("rows").toJsonObjects()
     }
 
@@ -128,26 +128,61 @@ class StrategiesAPI internal constructor(private val http: HttpClient) {
             if (maxIterations != null) put("maxIterations", maxIterations)
             if (requireApproval != null) put("requireApproval", requireApproval)
         }
-        return http.post("/api/v1/strategies/$strategyId/ai-opt/start", body).asObject()
+        return http.post("/api/v1/strategies/${enc(strategyId)}/ai-opt/start", body).asObject()
     }
 
     /** Current optimization status for a strategy. */
     fun aiOptStatus(strategyId: String): JSONObject {
-        return http.get("/api/v1/strategies/$strategyId/ai-opt/status").asObject()
+        return http.get("/api/v1/strategies/${enc(strategyId)}/ai-opt/status").asObject()
     }
 
     /** Approve and apply the optimizer's proposed params. */
     fun aiOptApprove(strategyId: String, body: Map<String, Any?> = emptyMap()): JSONObject {
-        return http.post("/api/v1/strategies/$strategyId/ai-opt/approve", body).asObject()
+        return http.post("/api/v1/strategies/${enc(strategyId)}/ai-opt/approve", body).asObject()
     }
 
     /** Stop an in-progress optimization. */
     fun aiOptStop(strategyId: String): JSONObject {
-        return http.post("/api/v1/strategies/$strategyId/ai-opt/stop").asObject()
+        return http.post("/api/v1/strategies/${enc(strategyId)}/ai-opt/stop").asObject()
     }
 
     /** Past optimization runs for a strategy. */
     fun aiOptRuns(strategyId: String): Any? {
-        return http.get("/api/v1/strategies/$strategyId/ai-opt/runs")
+        return http.get("/api/v1/strategies/${enc(strategyId)}/ai-opt/runs")
     }
+
+    // ── Team / project-scoped strategies ─────────────────────────────────────
+
+    /**
+     * List strategies visible to the caller's team project.
+     * Maps to `GET /api/v1/private/strategies/team`.
+     */
+    fun listTeam(): List<JSONObject> {
+        val r = http.get("/api/v1/private/strategies/team")
+        return when (r) {
+            is org.json.JSONArray -> r.toJsonObjects()
+            is JSONObject -> r.optJSONArray("strategies")?.toJsonObjects() ?: emptyList()
+            else -> emptyList()
+        }
+    }
+
+    /**
+     * Bulk-fetch lightweight summaries for a list of strategy IDs.
+     * Maps to `POST /api/v1/private/strategies/summaries/bulk`.
+     *
+     * @param strategyIds List of strategy IDs to fetch summaries for.
+     */
+    fun summariesBulk(strategyIds: List<String>): List<JSONObject> {
+        val r = http.post(
+            "/api/v1/private/strategies/summaries/bulk",
+            mapOf("strategyIds" to strategyIds)
+        )
+        return when (r) {
+            is org.json.JSONArray -> r.toJsonObjects()
+            is JSONObject -> r.optJSONArray("summaries")?.toJsonObjects() ?: emptyList()
+            else -> emptyList()
+        }
+    }
+
+    private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8")
 }

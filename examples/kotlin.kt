@@ -39,7 +39,7 @@ fun main() {
         strategyType = "custom",                 // custom Rhai definition
         exchange = "binanceusdm", symbol = "BTC/USDT:USDT", market = "FUTURES",
         dryRun = true,                            // dryRun:false + apiKeyId => REAL orders
-        params = mapOf("language" to "rhai", "definition" to "fn evaluate() { emit_long(param("qty")); }", "qty" to 0.001),
+        params = mapOf("language" to "rhai", "definition" to "fn evaluate() { emit_long(param(\"qty\")); }", "qty" to 0.001),
     )
     val sid = created.getString("strategyId")
     println("launched paper strategy $sid")
@@ -52,7 +52,7 @@ fun main() {
     // 7. Backtest on the Rust engine
     val bt = m.backtest.start(
         strategyType = "custom", exchange = "binance", symbol = "BTC/USDT", timeframe = "1h",
-        language = "rhai", definition = "fn evaluate() { emit_long(param("qty")); }", params = mapOf("qty" to 0.001),
+        language = "rhai", definition = "fn evaluate() { emit_long(param(\"qty\")); }", params = mapOf("qty" to 0.001),
     )
     println("backtest job ${bt.opt("job_id")} started")
     println("done")

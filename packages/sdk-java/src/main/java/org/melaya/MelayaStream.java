@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 
-import javax.net.ssl.SSLContext;
 import java.net.URI;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -32,10 +31,12 @@ public class MelayaStream implements AutoCloseable {
     private final BlockingQueue<JsonNode> queue = new LinkedBlockingQueue<>();
     private final List<Consumer<JsonNode>> messageListeners = new ArrayList<>();
     private volatile boolean closed = false;
+    /** Last WebSocket error, rethrown by the next {@link #nextFrame} call. */
+    private volatile Exception pendingError = null;
 
     private final WebSocketClient ws;
 
-    MelayaStream(String url, SSLContext sslContext) {
+    MelayaStream(String url) {
         WebSocketClient client;
         try {
             client = new WebSocketClient(new URI(url)) {
@@ -67,18 +68,28 @@ public class MelayaStream implements AutoCloseable {
 
                 @Override
                 public void onError(Exception ex) {
-                    // surface as a RuntimeException on the next nextFrame() call
+                    // stored and rethrown by the next nextFrame() call
+                    pendingError = ex;
                 }
             };
 
-            if (sslContext != null) {
-                client.setSocketFactory(sslContext.getSocketFactory());
+            boolean connected = client.connectBlocking(10, TimeUnit.SECONDS);
+            if (!connected) {
+                throw new RuntimeException(
+                        "Failed to open WebSocket (not connected within 10 s): " + sanitize(url));
             }
-            client.connectBlocking(10, TimeUnit.SECONDS);
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException("Failed to open WebSocket: " + url, e);
+            throw new RuntimeException("Failed to open WebSocket: " + sanitize(url), e);
         }
         this.ws = client;
+    }
+
+    /** Strip the query string (which may carry {@code apiKey}/{@code wsTicket}) from URLs used in messages. */
+    private static String sanitize(String url) {
+        int q = url.indexOf('?');
+        return q == -1 ? url : url.substring(0, q);
     }
 
     /**
@@ -86,11 +97,25 @@ public class MelayaStream implements AutoCloseable {
      *
      * @return the next frame, or {@code null} on timeout
      * @throws InterruptedException if the thread is interrupted
+     * @throws RuntimeException     if the WebSocket reported an error since the
+     *                              last call — the underlying exception is the cause
      */
     public JsonNode nextFrame(long timeout, TimeUnit unit) throws InterruptedException {
+        throwPendingError();
         JsonNode frame = queue.poll(timeout, unit);
-        if (frame == null || frame == POISON) return null;
+        if (frame == null || frame == POISON) {
+            throwPendingError();
+            return null;
+        }
         return frame;
+    }
+
+    private void throwPendingError() {
+        Exception err = pendingError;
+        if (err != null) {
+            pendingError = null;
+            throw new RuntimeException("WebSocket error: " + err.getMessage(), err);
+        }
     }
 
     /** Register a listener that is called on every incoming frame. */

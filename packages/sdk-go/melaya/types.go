@@ -89,27 +89,27 @@ type ExchangeStatus struct {
 
 // ExchangeInfo describes a Melaya-supported exchange.
 type ExchangeInfo struct {
-	ID                     string  `json:"id"`
-	Display                string  `json:"display,omitempty"`
-	Market                 string  `json:"market,omitempty"`
-	Subtype                string  `json:"subtype,omitempty"`
-	Parent                 *string `json:"parent,omitempty"`
-	RequiresPassphrase     bool    `json:"requiresPassphrase,omitempty"`
-	RequiresApplicationID  bool    `json:"requiresApplicationId,omitempty"`
+	ID                    string  `json:"id"`
+	Display               string  `json:"display,omitempty"`
+	Market                string  `json:"market,omitempty"`
+	Subtype               string  `json:"subtype,omitempty"`
+	Parent                *string `json:"parent,omitempty"`
+	RequiresPassphrase    bool    `json:"requiresPassphrase,omitempty"`
+	RequiresApplicationID bool    `json:"requiresApplicationId,omitempty"`
 }
 
 // ── Trading plane (authenticated) ─────────────────────────────────────────────
 
 // ConnectedKey is an exchange API key connected to the Melaya account.
 type ConnectedKey struct {
-	ID         string `json:"id"`
-	APIKeyID   string `json:"apiKeyId"`
-	APIKey     string `json:"apiKey,omitempty"`
-	Exchange   string `json:"exchange"`
-	Label      string `json:"label,omitempty"`
-	Market     string `json:"market,omitempty"`
+	ID         string   `json:"id"`
+	APIKeyID   string   `json:"apiKeyId"`
+	APIKey     string   `json:"apiKey,omitempty"`
+	Exchange   string   `json:"exchange"`
+	Label      string   `json:"label,omitempty"`
+	Market     string   `json:"market,omitempty"`
 	Privileges []string `json:"privileges,omitempty"`
-	IPMode     string `json:"ipMode,omitempty"`
+	IPMode     string   `json:"ipMode,omitempty"`
 }
 
 // UsageMetric is one usage/limit metric.
@@ -132,29 +132,29 @@ type UsageSummary struct {
 
 // SimBalance is a virtual paper-wallet balance for a strategy.
 type SimBalance struct {
-	Asset           string  `json:"asset"`
-	StartingEquity  float64 `json:"starting_equity"`
-	RealizedPnL     float64 `json:"realized_pnl"`
-	UnrealizedPnL   float64 `json:"unrealized_pnl"`
-	Used            float64 `json:"used"`
-	Free            float64 `json:"free"`
-	Total           float64 `json:"total"`
-	StrategyID      string  `json:"strategy_id"`
-	Sim             bool    `json:"sim"`
+	Asset          string  `json:"asset"`
+	StartingEquity float64 `json:"starting_equity"`
+	RealizedPnL    float64 `json:"realized_pnl"`
+	UnrealizedPnL  float64 `json:"unrealized_pnl"`
+	Used           float64 `json:"used"`
+	Free           float64 `json:"free"`
+	Total          float64 `json:"total"`
+	StrategyID     string  `json:"strategy_id"`
+	Sim            bool    `json:"sim"`
 }
 
 // SimOrderResult is the result of placing a paper order.
 type SimOrderResult struct {
-	Ok             bool    `json:"ok"`
-	Sim            bool    `json:"sim"`
-	OrderID        string  `json:"order_id"`
-	ClientOrderID  string  `json:"client_order_id,omitempty"`
-	Symbol         string  `json:"symbol"`
-	Side           string  `json:"side"`
-	Amount         float64 `json:"amount"`
-	FillPrice      *float64 `json:"fill_price,omitempty"`
-	NotionalUSD    *float64 `json:"notional_usd,omitempty"`
-	StrategyID     string  `json:"strategy_id,omitempty"`
+	Ok            bool     `json:"ok"`
+	Sim           bool     `json:"sim"`
+	OrderID       string   `json:"order_id"`
+	ClientOrderID string   `json:"client_order_id,omitempty"`
+	Symbol        string   `json:"symbol"`
+	Side          string   `json:"side"`
+	Amount        float64  `json:"amount"`
+	FillPrice     *float64 `json:"fill_price,omitempty"`
+	NotionalUSD   *float64 `json:"notional_usd,omitempty"`
+	StrategyID    string   `json:"strategy_id,omitempty"`
 }
 
 // SimCreateOrder is the body for placing a paper order.
@@ -201,7 +201,7 @@ type StrategyCreate struct {
 	DryRun       bool                   `json:"dryRun,omitempty"`
 	KeyBindings  map[string]interface{} `json:"keyBindings,omitempty"`
 	// Extra fields (e.g. language/definition for custom strategies).
-	Extra        map[string]interface{} `json:"-"`
+	Extra map[string]interface{} `json:"-"`
 }
 
 // StrategyCreateResult is returned by strategies.Create.

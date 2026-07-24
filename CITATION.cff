@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-title: "Melaya: Agentic platform for trading, research, and automation"
+title: "Melaya: Visual builder for high-trust AI agents, with Device Control as the flagship"
 message: "If you reference Melaya, please cite it using this metadata."
 type: software
 authors:
@@ -7,21 +7,27 @@ authors:
     family-names: Roche
     affiliation: Melaya
 abstract: >-
-  Melaya is an agentic platform that applies trading-grade discipline to
-  general automation: scoped tools, permissions, secure connectors, RAG,
-  cost tracking, audit logs, and human-in-the-loop approval. It includes a
-  unified REST and WebSocket API for normalized market data and trading
-  across 70+ venues, backed by an in-house Rust engine.
+  Melaya is a visual builder for high-trust AI agents. Its flagship is Device
+  Control: the AI you already pay for (Claude, GPT, Gemini, or a local model)
+  operating your real phone apps, no app API required, with human approval on
+  every sensitive action. The platform provides scoped tools, explicit
+  permissions, secure connectors, per-workflow RAG, cost tracking, audit logs,
+  and human-in-the-loop approval. SDKs cover three planes: melaya.agents.*,
+  melaya.platform.*, and melaya.trading.* (trading via Melaya Labs, coming
+  later).
 url: "https://melaya.org"
 repository-code: "https://github.com/melaya-labs/melaya"
+version: 0.2.0
+date-released: "2026-07-23"
 keywords:
   - agentic-ai
   - ai-agents
-  - automation
-  - trading
-  - crypto-trading
-  - agentic-trading
-  - market-data
+  - visual-builder
+  - device-control
+  - mobile-agents
+  - computer-use
   - human-in-the-loop
+  - automation
   - rag
+  - trading
 license: Apache-2.0

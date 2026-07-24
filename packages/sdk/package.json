@@ -1,7 +1,7 @@
 {
   "name": "@melaya/sdk",
-  "version": "0.1.4",
-  "description": "Official TypeScript/JavaScript SDK for the Melaya unified market-data & streaming API across 70+ venues.",
+  "version": "0.2.0",
+  "description": "Official SDK for Melaya Agent Builder and Mobile Device Control. Includes preview Melaya Trading namespaces that are not yet generally available.",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
@@ -15,7 +15,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc",
@@ -26,16 +27,16 @@
   },
   "keywords": [
     "melaya",
-    "trading",
-    "crypto",
-    "market-data",
-    "exchange",
-    "websocket",
-    "orderbook",
-    "ohlcv",
-    "ticker",
+    "ai-agents",
+    "device-control",
+    "agent-builder",
     "agentic-ai",
-    "sdk"
+    "mobile-agents",
+    "human-in-the-loop",
+    "sdk",
+    "trading",
+    "market-data",
+    "websocket"
   ],
   "homepage": "https://melaya.org",
   "repository": {

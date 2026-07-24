@@ -2,18 +2,27 @@ import com.vanniktech.maven.publish.SonatypeHost
 
 plugins {
     id 'org.jetbrains.kotlin.jvm' version '2.2.20'
+    id 'java-library'
     id 'application'
     id 'com.vanniktech.maven.publish' version '0.30.0'
 }
 group = 'org.melaya'
-version = '0.1.4'
+version = '0.2.0'
 repositories { mavenCentral() }
 dependencies {
-    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
-    implementation 'org.json:json:20240303'
+    // 'api' (not 'implementation'): both appear in public signatures —
+    // JSONObject/JSONArray return types and OkHttpClient in the MelayaStream constructor.
+    api 'com.squareup.okhttp3:okhttp:4.12.0'
+    api 'org.json:json:20240303'
 }
 application { mainClass = 'org.melaya.E2EKt' }
 kotlin { jvmToolchain(21) }
+
+tasks.named('jar') {
+    from('LICENSE') {
+        into 'META-INF'
+    }
+}
 
 // e2e smoke lives under e2e/ (separate source set; uses the main library output + deps)
 sourceSets {
@@ -24,7 +33,7 @@ sourceSets {
 }
 kotlin.sourceSets.e2e.kotlin.srcDirs = ['e2e']
 configurations {
-    e2eImplementation.extendsFrom implementation
+    e2eImplementation.extendsFrom implementation, api
     e2eRuntimeOnly.extendsFrom runtimeOnly
 }
 tasks.named('run', JavaExec) {
@@ -35,11 +44,11 @@ tasks.named('run', JavaExec) {
 mavenPublishing {
     publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, true)
     signAllPublications()
-    coordinates('org.melaya', 'melaya-sdk-kotlin', '0.1.4')
+    coordinates('org.melaya', 'melaya-sdk-kotlin', version)
     pom {
-        name = 'Melaya Kotlin'
-        description = 'Official Kotlin SDK for the Melaya trading platform — market data, paper + live trading, backtesting, and streaming.'
-        url = 'https://github.com/melaya-labs/melaya'
+        name = 'Melaya Kotlin SDK'
+        description = 'Official SDK for Melaya Agent Builder and Mobile Device Control. Includes preview Melaya Trading namespaces that are not yet generally available.'
+        url = 'https://melaya.org'
         licenses { license { name = 'Apache-2.0'; url = 'https://www.apache.org/licenses/LICENSE-2.0' } }
         developers { developer { id = 'melaya-labs'; name = 'Melaya'; email = 'info@melaya.org' } }
         scm {

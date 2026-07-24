@@ -176,4 +176,64 @@ class MarketAPI
     {
         return $this->http->get('/api/v1/public/catalog-counts');
     }
+
+    // ── restRoutes.ts market endpoints ───────────────────────────────────────
+
+    /**
+     * Get aggregated CEX liquidation data.
+     * Maps to POST /api/v1/private/market/liquidations.
+     *
+     * @param array $body ['exchange' => '...', 'symbol' => '...', ...]
+     */
+    public function cexLiquidations(array $body = []): array
+    {
+        return $this->http->post('/api/v1/private/market/liquidations', $body ?: null);
+    }
+
+    /**
+     * Get max-drawdown pairs list (public screener data).
+     * Maps to GET /api/v1/market/mdd-pairs.
+     */
+    public function mddPairs(array $params = []): array
+    {
+        return $this->http->get('/api/v1/market/mdd-pairs', $params);
+    }
+
+    /**
+     * Get on-chain yield data (Forge+ tier).
+     * Maps to GET /api/v1/private/market/onchain-yields.
+     */
+    public function onchainYields(array $params = []): array
+    {
+        return $this->http->get('/api/v1/private/market/onchain-yields', $params);
+    }
+
+    /**
+     * Get on-chain liquidity data (Forge+ tier).
+     * Maps to GET /api/v1/private/market/onchain-liquidity.
+     */
+    public function onchainLiquidity(array $params = []): array
+    {
+        return $this->http->get('/api/v1/private/market/onchain-liquidity', $params);
+    }
+
+    /**
+     * Get marketing/notification banner content (public).
+     * Maps to GET /api/v1/market/banner.
+     */
+    public function banner(): array
+    {
+        return $this->http->get('/api/v1/market/banner');
+    }
+
+    /**
+     * Get price history for chart display (public).
+     * Maps to GET /api/v1/market/price-history.
+     *
+     * @param array $params ['symbol' => '...', 'timeframe' => '...', ...]
+     */
+    public function priceHistory(array $params = []): array
+    {
+        return $this->http->get('/api/v1/market/price-history', $params);
+    }
 }

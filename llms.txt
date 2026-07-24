@@ -1,48 +1,72 @@
 # Melaya
 
-> Melaya is an AI agentic orchestration platform with trading-grade discipline — and a flagship AI agentic trading product. Built by an operator, for operators. 1,370+ tools, 110+ specialized subagents, 20+ AI providers, secure connectors, per-workflow RAG with isolated vector stores, full audit trail, and a Rust-native engine with normalized market data across 70+ venues. One studio for building, running, and operating AI agents and multi-agent crews across any workflow — including autonomous trading crews — plus a unified REST + WebSocket API for multi-exchange market data and trading.
+> Melaya is a visual builder for high-trust AI agents, with Device Control as its flagship. Build, run, and orchestrate multi-agent pipelines (agents with scoped tools, per-agent model and prompt, RAG, static context, memory, evaluations, human-in-the-loop, scheduling/triggers, templates, and sub-agents), and put those agents in control of real mobile devices. Built by an operator, for operators. 1,500+ tools, 100+ specialized subagents, 20+ AI providers, secure connectors, per-workflow RAG with isolated vector stores, and a full audit trail. Trading (via Melaya Labs) is one upcoming vertical built on the same agent infrastructure, paired with a Rust-native engine over 70+ venues.
 
 Melaya is a standalone agentic platform headquartered in the United Arab Emirates, solo-built by Antoine Roche, who spent the previous decade shipping production trading systems at BNP Paribas CIB (EQD eCommerce, 2018-2022), SingularityDAO (product manager, DeFi yield vaults and on-chain analytics, 2021-2025), and Singularity Venture Hub (head of trading operations, HFT market making and execution tooling, 2025-2026).
 
-Design philosophy: agents should not be loose chatbots with unlimited powers. They need scoped tools, clear permissions, secure credentials, cost tracking, audit logs, data-quality monitoring, and human approval where risk is high. Melaya applies trading-grade discipline to a general automation platform.
+Design philosophy: agents should not be loose chatbots with unlimited powers. They need scoped tools, clear permissions, secure credentials, cost tracking, audit logs, data-quality monitoring, and human approval where risk is high. Melaya applies operational discipline to every agent workflow.
 
 ## The three products
 
-- Agentic Framework — the orchestration studio. Drag agents, tools, and models onto a canvas, wire them, and schedule/run/replay. 1,370+ scoped tools, 110+ subagents, 20+ model providers. Anything an LLM can reason about, an agent runs alongside your team.
-- Trading Engine ("THE CORE") — the Rust-native core under every signal: normalized market data and order routing across 70+ venues with sub-microsecond dispatch on the hot path, exposed as one unified REST + WebSocket API.
-- Agentic Trading Crew (flagship) — compose a seven-persona trading crew (Macro Analyst, TA Analyst, Quant Analyst, Sentiment Analyst, Risk Manager, Portfolio Manager, Execution Trader) you own. Each seat picks its model and data; Risk holds the veto; ten safety rails watch the chain; every order waits for your signature.
+- Agent Builder (live today) - the orchestration studio and the base platform. Drag agents, tools, and models onto a canvas, wire them, and schedule/run/replay multi-agent pipelines. Scoped tools, sub-agents, per-agent model and prompt, RAG, static context, memory, evaluations (loopPolicy), human-in-the-loop, and templates. 1,500+ scoped tools, 100+ subagents, 20+ model providers. Anything an LLM can reason about, an agent runs alongside your team.
+- Device Control (flagship, live today) - AI agents that operate a real Android phone the way a person does: read the screen via the accessibility tree, then tap, type, swipe, and navigate between apps. No per-app integration and no vendor API, driven by the same agent infrastructure (scoped tools, memory, HITL, scheduling), with human approval on every sensitive action.
+- Trading (Melaya Labs vertical, upcoming) - one application built on the agent infrastructure: multi-agent trading crews paired with a Rust-native engine that normalizes market data and order routing across 70+ venues, exposed as one unified REST + WebSocket API. Every order waits for your approval.
 
 ## Core capabilities
 
-- 1,370+ agentic tools across web, code, data, ops, trading, communication, files, cloud, social, RAG, and MCP bridge.
-- 110+ specialized subagents with prebuilt crews for research, analysis, execution, and review.
-- Bring-your-own model across 20+ AI providers: Anthropic Claude, OpenAI, Google Gemini, NVIDIA, Mistral, DeepSeek, xAI Grok, Moonshot Kimi, Zhipu, Qwen, Cerebras, Groq, SambaNova, Upstage, Reka, MiniMax, and OpenRouter — plus local models via Ollama and LM Studio.
+- 1,500+ agentic tools across web, code, data, ops, communication, files, cloud, social, RAG, device actions, an MCP bridge, and (for the trading vertical) market data and order placement.
+- 100+ specialized subagents with prebuilt crews for research, analysis, execution, and review.
+- Bring-your-own model across 20+ AI providers: Anthropic Claude, OpenAI, Google Gemini, NVIDIA, Mistral, DeepSeek, xAI Grok, Moonshot Kimi, Zhipu, Qwen, Cerebras, Groq, SambaNova, Upstage, Reka, MiniMax, and OpenRouter, plus local models via Ollama and LM Studio.
 - Per-workflow RAG: isolated vector stores with hybrid BM25 + dense retrieval.
 - Secure connectors: AES-256-GCM envelope encryption, managed-vault secrets, per-user credential isolation.
 - Full observability: pipeline run logs, tool-call traces, model invocation cost and token tracking, error reasons.
 - Human-in-the-loop: per-tool approval gates, approval queue, scoped permissions and roles.
 - Multi-tenant: project-scoped RBAC, per-project credential vaults, isolated execution environments.
 
-## AI agentic trading (flagship)
+## Agent Builder (the base platform, live today)
 
-- Autonomous, multi-agent trading crews — specialized personas (Macro Analyst, TA Analyst, Risk Manager, Execution Trader, and more) running in sequence or parallel.
-- Human-in-the-loop approval on every order: only the execution persona can place trades, and it pauses for operator approval; every decision is audited.
-- Server-managed stop-loss / take-profit: the engine watches the live tape and fires exits when price crosses your level (spot and perpetuals).
-- Cadence: time schedules, market-event triggers (e.g. price-drop or liquidation cascade), or hybrid (timer plus event preemption; sub-minute cadences use an event-mode cooldown floor).
-- Safety rails: scoped permissions per persona, per-cycle write cap, per-tier daily order quota, daily LLM cost cap, position/exposure limits, drawdown and consecutive-loss circuit breakers, egress + tool allowlists, dry-run mode end to end, full audit trail.
-- Reactive sidecars: four real-time watchers run beside the crew — Drawdown Sentinel and Macro Blackout (blockers that reject writes before approval) plus Funding Flip and Liquidation Cascade (triggers that wake the crew early).
-- Paper or live: the same crew definition backs a simulated-broker paper launch or a connected-exchange live launch.
-- Launchable via API: crews launch through POST /api/v1/strategies as strategyType "agent_crew" (paper or live), the persona pipeline + per-persona tools + cadence + safety riding in params. Order approvals are actioned in the Studio approval queue today; a programmatic approvals API and the broader agent-builder API (arbitrary non-trading agents, pipelines, RAG, connectors) arrive in v2. HITL is currently always-on; opt-out for fully-autonomous live crews is on the roadmap.
+- Pipeline-as-config: define a multi-agent pipeline as one JSON config, then create, run, track, and collect its outputs through the SDK or REST. The server regenerates the runnable pipeline deterministically from the structured config.
+- Steps: agent, parallel (fan-out then merge), condition (branch on prior output), and loop (iterate until a stop condition or cap).
+- Per-agent configuration: model/provider, system prompt override, scoped toolkit, human-approval tools, RAG opt-in, static-context opt-in, per-agent loopPolicy and cost cap.
+- Sub-agents (crews): an agent can delegate to a nested agent exposed as a callable tool, or be built from a registered crew factory.
+- Knowledge: vector RAG (isolated store), static context (whole documents pinned into the prompt), and persistent cross-session memory. Local-only residency keeps documents on your runner.
+- Evaluations: a loopPolicy (off / observe_only / enforce) judges an agent's output and decides whether to continue, retry, or stop.
+- Cost caps, scheduling and triggers, build-with-AI (the architect drafts and self-corrects a config), and reusable templates.
+- Execution target: cloud or your own runner; force_local_runner pins the whole pipeline to your runner even for cloud models.
 
-## Unified market & trading API
+## Device Control (flagship, live today)
+
+- AI agents operate a real Android phone like a human: ORIENT (read the screen tree), then act (tap, type, swipe, navigate), act-and-observe on every step.
+- Flat async tool set: reading tools (phone_get_screen_tree, phone_screenshot, phone_current_app, phone_list_apps, phone_app_playbook) and acting tools (phone_click_text, phone_click_id, phone_tap, phone_swipe, phone_input_text, phone_open_app, phone_batch, and global navigation).
+- Works with apps that have no public API, using the accessibility tree (or a screenshot for canvas/OpenGL screens).
+- Pairing mints a durable, revocable device token; a paired phone long-polls a per-user queue and executes actions through an Android AccessibilityService.
+- On-device app allowlisting: an agent can only touch apps the user explicitly authorized, enforced on the device itself.
+- Human-in-the-loop on publishing: posting a comment or creating a post is HITL-gated on the device, with a universal per-user STOP kill flag.
+- Server-side app playbooks: per-app navigation knowledge injected into the tool response so agents act like they already know the app.
+- Operates a sleeping phone (Doze): the command path is heartbeat-aware so scheduled runs drive an idle phone unattended.
+
+## Trading vertical (Melaya Labs, upcoming)
+
+- One application built on the agent infrastructure above: autonomous, multi-agent trading crews of specialized personas (Macro, TA, Quant, Sentiment, Risk, Portfolio, Execution) that research, size risk, and execute.
+- Human-in-the-loop approval on every order; only the execution persona places trades, and it pauses for operator approval. Every decision is audited.
+- Server-managed stop-loss / take-profit, cadence (time schedules, market-event triggers, or hybrid), and reactive sidecars (drawdown, macro blackout, funding flip, liquidation cascade).
+- Three ways to trade: paper (sim broker), managed strategies (a custom Rhai script or a full agent_crew), and direct live trading.
+- Native backtesting on the same Rust engine that runs the strategy live, including grid sweep and random sample, plus AI parameter optimization with a human gate.
+- Launchable via API: crews launch through POST /api/v1/strategies as strategyType "agent_crew" (paper or live). HITL is currently always-on for trading crews.
+
+## Unified market & trading API (Melaya Labs vertical)
 
 - One normalized REST + WebSocket interface over 70+ venues, powered by an in-house Rust engine.
-- REST base: https://api.melaya.org — WebSocket base: wss://wss.melaya.org
+- REST base: https://api.melaya.org - WebSocket base: wss://wss.melaya.org
 - Market data: ticker, order book, OHLCV, public trades, exchange status/time, markets, currencies.
 - Derivatives: funding rates, funding-rate history, open interest, open-interest history, instrument constraints.
 - Streaming: live ticker, order book, OHLCV, public trades, and cross-exchange liquidations.
 - Trading: account balances, orders, positions, fills, live order placement (create/cancel/amend/close, leverage & margin controls), agent-driven strategies, paper (sim-broker) trading, and native backtesting on the Rust engine. Reads, paper, and backtests need only the `mk_` key; live order placement also requires a connected exchange key.
-- Authentication: API keys prefixed `mk_`, passed as `?apiKey=mk_...` or `Authorization: Bearer mk_...`.
+
+## SDKs
+
+- One `mk_` platform key unlocks the full surface across three planes: agents (pipelines, sub-agents, tools, RAG, memory, evaluations, HITL, scheduling, templates), device control (pair, drive on-screen actions, run device crews), and platform (projects, credentials/connectors, teams, observability), plus the upcoming trading vertical (market data, paper + live trading, strategies, backtesting, streaming).
+- Authentication: API keys prefixed `mk_`, sent as `Authorization: Bearer mk_...` on every REST request. Public WebSocket streams instead take `?apiKey=mk_...` on the wss URL; private WebSocket streams use a short-lived `?wsTicket=`.
 - Official SDKs in 9 languages (TypeScript/JavaScript, Python, Go, Rust, Java, Kotlin, C#/.NET, Ruby, PHP) wrap the full surface with one identical API each.
 
 ## Links
@@ -54,9 +78,13 @@ Design philosophy: agents should not be loose chatbots with unlimited powers. Th
 - Python SDK (PyPI): https://pypi.org/project/melaya/
 - Rust SDK (crates.io): https://crates.io/crates/melaya
 - Ruby SDK (RubyGems): https://rubygems.org/gems/melaya
-- Go SDK (module): github.com/melaya-labs/melaya/packages/sdk-go/melaya
+- Go SDK (module): https://pkg.go.dev/github.com/melaya-labs/melaya/packages/sdk-go/melaya
+- Java SDK (Maven Central): https://central.sonatype.com/artifact/org.melaya/melaya-sdk
+- Kotlin SDK (Maven Central): https://central.sonatype.com/artifact/org.melaya/melaya-sdk-kotlin
+- C#/.NET SDK (NuGet): https://www.nuget.org/packages/Melaya.SDK
+- PHP SDK (Packagist): https://packagist.org/packages/melaya/sdk
 - Discord: https://discord.gg/2BBMUUdnkj
 
 ## Keywords
 
-AI agentic orchestration platform, AI agentic trading, agentic AI, AI agents, autonomous agents, multi-agent crews, agentic trading crews, multi-agent trading, human-in-the-loop trading, human-in-the-loop automation, agentic trading, autonomous trading, AI trading bot, crypto trading API, unified exchange API, multi-exchange market data, normalized market data, WebSocket market data, RAG, retrieval-augmented generation, bring your own model, AI automation platform, trading automation, Rust trading engine.
+AI agent builder, visual agent builder, high-trust AI agents, AI agents, autonomous agents, multi-agent pipelines, multi-agent crews, agentic AI, AI agent orchestration, device control, mobile agents, AI operating phone apps, computer use, human-in-the-loop automation, scoped tools, per-workflow RAG, retrieval-augmented generation, agent memory, agent evaluations, bring your own model, AI automation platform, AI agentic trading, agentic trading crews, unified exchange API, multi-exchange market data, normalized market data, WebSocket market data, Rust trading engine.

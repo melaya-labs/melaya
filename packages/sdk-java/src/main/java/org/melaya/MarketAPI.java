@@ -131,6 +131,62 @@ public class MarketAPI {
         return http.get("/api/v1/public/catalog-counts", null);
     }
 
+    // ── restRoutes additions ─────────────────────────────────────────────────
+
+    /**
+     * Get aggregated CEX liquidation data (POST).
+     * Maps to {@code POST /api/v1/private/market/liquidations} (requireAuth).
+     *
+     * @param body request parameters (e.g. exchange, symbol, side)
+     */
+    public JsonNode cexLiquidations(Map<String, Object> body) {
+        return http.post("/api/v1/private/market/liquidations", body);
+    }
+
+    /**
+     * Get max-drawdown pairs list (public screener data).
+     * Maps to {@code GET /api/v1/market/mdd-pairs} (public).
+     */
+    public JsonNode mddPairs() {
+        return http.get("/api/v1/market/mdd-pairs", null);
+    }
+
+    /**
+     * Get on-chain yield data. Requires Forge+ tier.
+     * Maps to {@code GET /api/v1/private/market/onchain-yields} (requireAuth).
+     */
+    public JsonNode onchainYields() {
+        return http.get("/api/v1/private/market/onchain-yields", null);
+    }
+
+    /**
+     * Get on-chain liquidity data. Requires Forge+ tier.
+     * Maps to {@code GET /api/v1/private/market/onchain-liquidity} (requireAuth).
+     */
+    public JsonNode onchainLiquidity() {
+        return http.get("/api/v1/private/market/onchain-liquidity", null);
+    }
+
+    /**
+     * Get marketing/notification banner content (public).
+     * Maps to {@code GET /api/v1/market/banner} (public).
+     */
+    public JsonNode banner() {
+        return http.get("/api/v1/market/banner", null);
+    }
+
+    /**
+     * Get price history for chart display (public).
+     * Maps to {@code GET /api/v1/market/price-history} (public).
+     *
+     * @param symbol    optional symbol filter; may be {@code null}
+     * @param timeframe optional timeframe filter; may be {@code null}
+     */
+    public JsonNode priceHistory(String symbol, String timeframe) {
+        Map<String, Object> q = params("symbol", symbol, "timeframe", timeframe);
+        return http.get("/api/v1/market/price-history", q.isEmpty() ? null : q);
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     /** Build a nullable-safe param map from alternating key/value pairs. */

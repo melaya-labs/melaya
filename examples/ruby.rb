@@ -39,7 +39,7 @@ created = m.strategies.create(
   strategy_type: "custom",                 # custom Rhai definition
   exchange: "binanceusdm", symbol: "BTC/USDT:USDT", market: "FUTURES",
   dry_run: true,                           # dry_run:false + api_key_id => REAL orders
-  params: { "language" => "rhai", "definition" => "fn evaluate() { emit_long(param("qty")); }", "qty" => 0.001 },
+  params: { "language" => "rhai", "definition" => 'fn evaluate() { emit_long(param("qty")); }', "qty" => 0.001 },
 )
 sid = created["strategyId"]
 puts "launched paper strategy #{sid}"
@@ -53,7 +53,7 @@ m.strategies.stop(sid)
 # 7. Backtest on the Rust engine
 bt = m.backtest.start(
   "strategyType" => "custom", "exchange" => "binance", "symbol" => "BTC/USDT", "timeframe" => "1h",
-  "language" => "rhai", "definition" => "fn evaluate() { emit_long(param("qty")); }", "params" => { "qty" => 0.001 },
+  "language" => "rhai", "definition" => 'fn evaluate() { emit_long(param("qty")); }', "params" => { "qty" => 0.001 },
 )
 puts "backtest job #{bt['job_id']} started"
 puts "done"

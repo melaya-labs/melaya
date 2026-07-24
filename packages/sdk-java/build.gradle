@@ -1,13 +1,13 @@
 import com.vanniktech.maven.publish.SonatypeHost
 
 plugins {
-    id 'java'
+    id 'java-library'
     id 'application'
     id 'com.vanniktech.maven.publish' version '0.30.0'
 }
 
 group = 'org.melaya'
-version = '0.1.4'
+version = '0.2.0'
 
 java {
     toolchain {
@@ -20,7 +20,9 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.1'
+    // JsonNode appears in every public SDK signature → api (compile) scope
+    api 'com.fasterxml.jackson.core:jackson-databind:2.17.1'
+    // WebSocketClient is only used in private fields → implementation is correct
     implementation 'org.java-websocket:Java-WebSocket:1.5.6'
 }
 
@@ -29,13 +31,9 @@ application {
 }
 
 jar {
-    manifest {
-        attributes 'Main-Class': 'org.melaya.E2E'
+    from('LICENSE') {
+        into 'META-INF'
     }
-    from {
-        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
-    }
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 // e2e smoke lives under e2e/ (separate source set; uses the main library output + deps)
@@ -58,11 +56,11 @@ tasks.named('run', JavaExec) {
 mavenPublishing {
     publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, true)
     signAllPublications()
-    coordinates('org.melaya', 'melaya-sdk', '0.1.4')
+    coordinates('org.melaya', 'melaya-sdk', version)
     pom {
         name = 'Melaya Java'
-        description = 'Official Java SDK for the Melaya trading platform — market data, paper + live trading, backtesting, and streaming.'
-        url = 'https://github.com/melaya-labs/melaya'
+        description = 'Official SDK for Melaya Agent Builder and Mobile Device Control. Includes preview Melaya Trading namespaces that are not yet generally available.'
+        url = 'https://melaya.org'
         licenses { license { name = 'Apache-2.0'; url = 'https://www.apache.org/licenses/LICENSE-2.0' } }
         developers { developer { id = 'melaya-labs'; name = 'Melaya'; email = 'info@melaya.org' } }
         scm {

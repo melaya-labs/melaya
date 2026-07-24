@@ -178,4 +178,3 @@ func (s *SimAPI) CancelOrder(ctx context.Context, strategyID, orderID, symbol, e
 	}
 	return v, nil
 }
-

@@ -6,6 +6,7 @@ use crate::client::HttpClient;
 use crate::error::Result;
 
 /// Backtest API — run strategies against historical data on the Rust engine.
+#[derive(Clone)]
 pub struct BacktestAPI {
     http: HttpClient,
 }
@@ -66,10 +67,7 @@ impl BacktestAPI {
         q.insert("objective", objective.map(str::to_owned));
         q.insert("limit", limit.map(|v| v.to_string()));
         self.http
-            .get(
-                &format!("/api/v1/private/backtest/sweep/{parent_id}"),
-                &q,
-            )
+            .get(&format!("/api/v1/private/backtest/sweep/{parent_id}"), &q)
             .await
     }
 
@@ -128,5 +126,51 @@ impl BacktestAPI {
     pub async fn delete_all(&self) -> Result<Value> {
         let q = HashMap::new();
         self.http.delete("/api/v1/private/backtest", &q).await
+    }
+
+    // ── restRoutes.ts backtests/optimize endpoints ───────────────────────────────
+
+    /// Start a parameter sweep optimization (genetic/grid) over a strategy config.
+    pub async fn optimize(&self, body: &Value) -> Result<Value> {
+        self.http
+            .post("/api/v1/private/backtest/optimize", body)
+            .await
+    }
+
+    /// List optimization sweep runs.
+    pub async fn optimize_list(&self) -> Result<Value> {
+        let q = HashMap::new();
+        self.http.get("/api/v1/private/backtest/optimize", &q).await
+    }
+
+    /// Get the status/progress of an optimization sweep run.
+    pub async fn optimize_status(&self, opt_run_id: &str) -> Result<Value> {
+        let q = HashMap::new();
+        self.http
+            .get(
+                &format!("/api/v1/private/backtest/optimize/{opt_run_id}/status"),
+                &q,
+            )
+            .await
+    }
+
+    /// Cancel an in-progress optimization sweep.
+    pub async fn optimize_cancel(&self, opt_run_id: &str) -> Result<Value> {
+        self.http
+            .post(
+                &format!("/api/v1/private/backtest/optimize/{opt_run_id}/cancel"),
+                &json!({}),
+            )
+            .await
+    }
+
+    /// Apply best params from a completed optimization sweep to a strategy.
+    pub async fn optimize_apply(&self, opt_run_id: &str, body: &Value) -> Result<Value> {
+        self.http
+            .post(
+                &format!("/api/v1/private/backtest/optimize/{opt_run_id}/apply"),
+                body,
+            )
+            .await
     }
 }

@@ -97,5 +97,43 @@ module Melaya
     def delete_all
       @http.delete("/api/v1/private/backtest")
     end
+
+    # ── Parameter sweep optimizer (restRoutes.ts /api/v1/private/backtest/optimize) ──
+
+    # POST /api/v1/private/backtest/optimize
+    # Start a parameter sweep optimization (genetic/grid) over a strategy config.
+    # @param body [Hash] strategy config + param ranges + objective
+    def optimize_start(body)
+      @http.post("/api/v1/private/backtest/optimize", body)
+    end
+
+    # GET /api/v1/private/backtest/optimize
+    # List optimization sweep runs.
+    # @param params [Hash]
+    def optimize_list(params = {})
+      @http.get("/api/v1/private/backtest/optimize", params)
+    end
+
+    # GET /api/v1/private/backtest/optimize/:optRunId/status
+    # Get the status/progress of an optimization sweep run.
+    # @param opt_run_id [String]
+    def optimize_status(opt_run_id)
+      @http.get("/api/v1/private/backtest/optimize/#{URI.encode_www_form_component(opt_run_id.to_s)}/status")
+    end
+
+    # POST /api/v1/private/backtest/optimize/:optRunId/cancel
+    # Cancel an in-progress optimization sweep.
+    # @param opt_run_id [String]
+    def optimize_cancel(opt_run_id)
+      @http.post("/api/v1/private/backtest/optimize/#{URI.encode_www_form_component(opt_run_id.to_s)}/cancel")
+    end
+
+    # POST /api/v1/private/backtest/optimize/:optRunId/apply
+    # Apply best params from a completed optimization sweep to a strategy.
+    # @param opt_run_id [String]
+    # @param body [Hash]
+    def optimize_apply(opt_run_id, body = {})
+      @http.post("/api/v1/private/backtest/optimize/#{URI.encode_www_form_component(opt_run_id.to_s)}/apply", body)
+    end
   end
 end

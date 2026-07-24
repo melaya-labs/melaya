@@ -120,3 +120,14 @@ class StrategiesAPI:
     def ai_opt_runs(self, strategy_id: str) -> Any:
         """Past optimization runs for a strategy."""
         return self._request("GET", f"/api/v1/strategies/{strategy_id}/ai-opt/runs")
+
+    # ── Team / bulk (from restRoutes.ts) ─────────────────────────────────────
+
+    def list_team(self) -> List[Dict[str, Any]]:
+        """List strategies visible to the caller's team project."""
+        return self._request("GET", "/api/v1/private/strategies/team")
+
+    def summaries_bulk(self, strategy_ids: List[str]) -> List[Dict[str, Any]]:
+        """Bulk-fetch lightweight summaries for a list of strategy IDs."""
+        return self._request("POST", "/api/v1/private/strategies/summaries/bulk",
+                             json={"strategyIds": strategy_ids})

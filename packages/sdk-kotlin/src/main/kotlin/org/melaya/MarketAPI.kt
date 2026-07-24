@@ -188,4 +188,54 @@ class MarketAPI internal constructor(private val http: HttpClient) {
     fun catalogCounts(): JSONObject {
         return http.get("/api/v1/public/catalog-counts").asObject()
     }
+
+    // ── Private market endpoints ─────────────────────────────────────────────
+
+    /**
+     * Get aggregated CEX liquidation data (authenticated).
+     * Maps to `POST /api/v1/private/market/liquidations`.
+     */
+    fun cexLiquidations(body: Map<String, Any?> = emptyMap()): JSONObject {
+        return http.post("/api/v1/private/market/liquidations", body).asObject()
+    }
+
+    /**
+     * Get max-drawdown pairs list (public screener data).
+     * Maps to `GET /api/v1/market/mdd-pairs`.
+     */
+    fun mddPairs(): JSONObject {
+        return http.get("/api/v1/market/mdd-pairs").asObject()
+    }
+
+    /**
+     * Get on-chain yield data (Forge+ tier).
+     * Maps to `GET /api/v1/private/market/onchain-yields`.
+     */
+    fun onchainYields(): JSONObject {
+        return http.get("/api/v1/private/market/onchain-yields").asObject()
+    }
+
+    /**
+     * Get on-chain liquidity data (Forge+ tier).
+     * Maps to `GET /api/v1/private/market/onchain-liquidity`.
+     */
+    fun onchainLiquidity(): JSONObject {
+        return http.get("/api/v1/private/market/onchain-liquidity").asObject()
+    }
+
+    /**
+     * Get the marketing/notification banner content.
+     * Maps to `GET /api/v1/market/banner`.
+     */
+    fun banner(): JSONObject {
+        return http.get("/api/v1/market/banner").asObject()
+    }
+
+    /**
+     * Get price history for chart display.
+     * Maps to `GET /api/v1/market/price-history`.
+     */
+    fun priceHistory(query: Map<String, Any?> = emptyMap()): JSONObject {
+        return http.get("/api/v1/market/price-history", query).asObject()
+    }
 }

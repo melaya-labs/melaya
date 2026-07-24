@@ -51,25 +51,25 @@ class BacktestAPI internal constructor(private val http: HttpClient) {
 
     /** Job status + progress (`status`, `progress_pct`, ...). */
     fun job(jobId: String): JSONObject {
-        return http.get("/api/v1/private/backtest/jobs/$jobId").asObject()
+        return http.get("/api/v1/private/backtest/jobs/${enc(jobId)}").asObject()
     }
 
     /** Metrics, equity curve, and OHLCV for a completed job. */
     fun results(jobId: String): JSONObject {
-        return http.get("/api/v1/private/backtest/results/$jobId")
+        return http.get("/api/v1/private/backtest/results/${enc(jobId)}")
             .asObject().getObject("result")
     }
 
     /** The trade list for a completed job (default 500, max 5000 per call). */
     fun trades(jobId: String, limit: Int? = null, offset: Int? = null): List<JSONObject> {
-        return http.get("/api/v1/private/backtest/trades/$jobId", mapOf(
+        return http.get("/api/v1/private/backtest/trades/${enc(jobId)}", mapOf(
             "limit" to limit, "offset" to offset
         )).asObject().getArray("trades").toJsonObjects()
     }
 
     /** Ranked children of a sweep parent (default objective: sharpe DESC). */
     fun sweep(parentId: String, objective: String? = null, limit: Int? = null): JSONObject {
-        return http.get("/api/v1/private/backtest/sweep/$parentId", mapOf(
+        return http.get("/api/v1/private/backtest/sweep/${enc(parentId)}", mapOf(
             "objective" to objective, "limit" to limit
         )).asObject()
     }
@@ -98,16 +98,66 @@ class BacktestAPI internal constructor(private val http: HttpClient) {
 
     /** Cancel an in-flight job. */
     fun cancel(jobId: String): JSONObject {
-        return http.post("/api/v1/private/backtest/$jobId/cancel").asObject()
+        return http.post("/api/v1/private/backtest/${enc(jobId)}/cancel").asObject()
     }
 
     /** Soft-delete a single job. */
     fun delete(jobId: String): JSONObject {
-        return http.delete("/api/v1/private/backtest/$jobId").asObject()
+        return http.delete("/api/v1/private/backtest/${enc(jobId)}").asObject()
     }
 
     /** Soft-delete every non-favorited job. Returns the count deleted. */
     fun deleteAll(): JSONObject {
         return http.delete("/api/v1/private/backtest").asObject()
     }
+
+    // ── Parameter sweep optimization (Forge+) ───────────────────────────────
+
+    /**
+     * Start a parameter sweep optimization (genetic or grid) over a strategy config.
+     * Maps to `POST /api/v1/private/backtest/optimize`.
+     * Returns an object containing `optRunId`.
+     */
+    fun optimizeStart(body: Map<String, Any?>): JSONObject {
+        return http.post("/api/v1/private/backtest/optimize", body).asObject()
+    }
+
+    /**
+     * List optimization sweep runs.
+     * Maps to `GET /api/v1/private/backtest/optimize`.
+     */
+    fun optimizeList(): List<JSONObject> {
+        val r = http.get("/api/v1/private/backtest/optimize")
+        return when (r) {
+            is org.json.JSONArray -> r.toJsonObjects()
+            is JSONObject -> r.optJSONArray("runs")?.toJsonObjects() ?: emptyList()
+            else -> emptyList()
+        }
+    }
+
+    /**
+     * Get the status/progress of an optimization sweep run.
+     * Maps to `GET /api/v1/private/backtest/optimize/:optRunId/status`.
+     */
+    fun optimizeStatus(optRunId: String): JSONObject {
+        return http.get("/api/v1/private/backtest/optimize/${enc(optRunId)}/status").asObject()
+    }
+
+    /**
+     * Cancel an in-progress optimization sweep.
+     * Maps to `POST /api/v1/private/backtest/optimize/:optRunId/cancel`.
+     */
+    fun optimizeCancel(optRunId: String): JSONObject {
+        return http.post("/api/v1/private/backtest/optimize/${enc(optRunId)}/cancel").asObject()
+    }
+
+    /**
+     * Apply best params from a completed optimization sweep to a strategy.
+     * Maps to `POST /api/v1/private/backtest/optimize/:optRunId/apply`.
+     */
+    fun optimizeApply(optRunId: String, body: Map<String, Any?> = emptyMap()): JSONObject {
+        return http.post("/api/v1/private/backtest/optimize/${enc(optRunId)}/apply", body).asObject()
+    }
+
+    private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8")
 }

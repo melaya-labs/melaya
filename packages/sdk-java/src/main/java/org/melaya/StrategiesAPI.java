@@ -112,4 +112,24 @@ public class StrategiesAPI {
     public JsonNode aiOptRuns(String strategyId) {
         return http.get("/api/v1/strategies/" + strategyId + "/ai-opt/runs", null);
     }
+
+    // ── Team / overview additions ─────────────────────────────────────────────
+
+    /**
+     * List strategies visible to the caller's team project.
+     * Maps to {@code GET /api/v1/private/strategies/team} (requireAuth).
+     */
+    public JsonNode listTeam() {
+        return http.get("/api/v1/private/strategies/team", null);
+    }
+
+    /**
+     * Bulk-fetch lightweight summaries for a list of strategy IDs.
+     * Maps to {@code POST /api/v1/private/strategies/summaries/bulk} (requireAuth).
+     *
+     * @param body map containing {@code strategyIds} (List&lt;String&gt;)
+     */
+    public JsonNode summariesBulk(Map<String, Object> body) {
+        return http.post("/api/v1/private/strategies/summaries/bulk", body);
+    }
 }

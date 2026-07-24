@@ -1,11 +1,13 @@
 # @melaya/sdk
 
-Official TypeScript/JavaScript SDK for the **[Melaya](https://melaya.org)** trading platform — normalized market data, paper + live trading, backtesting, and an AI agentic trading crew across **70+ venues**, powered by an in-house Rust engine.
+> **Current production scope:** Agent Builder and Mobile Device Control are available now. Melaya Trading namespaces are preview-only and not generally available; do not use them with real funds.
+
+Official SDK for the **[Melaya](https://melaya.org)** Agent Builder and flagship Mobile Device Control APIs. Build agents from 1,500+ scoped tools, 100+ specialized subagents, and 20+ model providers; pair an Android phone and let an authorized agent operate approved apps through the visible interface. Trading namespaces are included only as a preview of a later product.
 
 - Zero runtime dependencies (uses the platform `fetch` + `WebSocket`).
 - Isomorphic: works in Node 18+ and the browser.
-- Fully typed, normalized responses across every venue.
-- Public market data + the full authenticated trading surface from one client.
+- Fully typed, from pipeline configs to real-time run events.
+- Agent Builder, Device Control, and platform management from one client — plus preview trading namespaces.
 
 ## Install
 
@@ -13,13 +15,107 @@ Official TypeScript/JavaScript SDK for the **[Melaya](https://melaya.org)** trad
 npm install @melaya/sdk
 ```
 
-## Quick start
+## Quick start: pair a phone
 
 ```ts
 import { Melaya } from "@melaya/sdk";
 
 const melaya = new Melaya({ apiKey: process.env.MELAYA_API_KEY! }); // keys are prefixed `mk_`
 
+const { code, expiresInSeconds } = await melaya.agents.phone.pair();
+console.log({ code, expiresInSeconds });
+
+const devices = await melaya.agents.phone.listDevices();
+const apps = await melaya.agents.phone.listApps();
+
+await melaya.agents.phone.setAllowedApps(["com.android.chrome"]);
+```
+
+A Melaya platform key is required. "No app API required" means Device Control operates the target app through its user interface; it does not mean the Melaya SDK is unauthenticated.
+
+## Quick start: run an agent pipeline
+
+Configure provider credentials through Melaya Connectors first. Never include a provider key in pipeline configuration or per-run overrides.
+
+```ts
+await melaya.agents.pipelines.create({
+  name: "mobile-review",
+  project: "Operations",
+  model_provider: "anthropic",
+  model_name: "claude-sonnet-4-6",
+  agents: [{
+    name: "mobile-operator",
+    role: "Careful mobile operator",
+    instruction: "Read before acting. Never send, publish, or delete.",
+    agent_tools: [
+      "phone_get_screen_tree",
+      "phone_current_app",
+      "phone_open_app",
+      "phone_click_text",
+      "phone_back",
+      "phone_wait"
+    ]
+  }],
+  steps: [{ kind: "agent", agent: { name: "mobile-operator" } }],
+  maxCostUsd: 1.00
+});
+
+const { run_id } = await melaya.agents.pipelines.run("mobile-review", { project: "Operations" });
+
+await melaya.agents.phone.registerActiveRun(run_id);
+
+const status = await melaya.agents.pipelines.runStatus("mobile-review", run_id);
+
+// Real-time run progress + HITL notifications over Socket.IO
+melaya.platform.events.onRunUpdate(run_id, (e) => console.log(e.event_type, e.status));
+melaya.platform.events.onHitlApproval((e) => console.log("HITL:", e.type, e.requestId));
+```
+
+## API surface (generally available)
+
+Namespaced access is the primary API (`melaya.agents.*`, `melaya.platform.*`); flat aliases (`melaya.pipelines`, `melaya.hitl`, ...) remain for backwards compatibility.
+
+| Area | Methods |
+|---|---|
+| Auth | `platform.auth.login`, `verifyMfa`, `register`, `verifySignup`, `resendVerification`, `forgotPassword`, `resetPassword`, `changePassword`, `me`, `check`, `refresh`, `myPermissions`, `createMobileHandoff` |
+| MFA | `platform.mfa.status`, `setup`, `confirm` |
+| Accounts | `platform.accounts.exportMyData`, `updateProfile`, `removeKey`, `credits`, `aiCredits`, `portfolioIdeasCredits`, `riskMonitoringCredits` |
+| Projects | `platform.projects.list`, `create`, `rename`, `runnerProjects` |
+| Connectors | `platform.connectors.connectedServices`, `set`, `delete`, `envHandle`, `googleOAuthStart` |
+| Credentials | `platform.credentials.list`, `connectedServices`, `get`, `set`, `delete`, `test`, `getOperatorProfile`, `setOperatorProfile`, `listModels`, RAG + connect flows (`ragIngestStart`, `ragRetrieveStart`, `linkedinConnectStart`, `telegramAuthStart`, ...) |
+| Pipelines | `agents.pipelines.listPipelines`, `create`, `get`, `update`, `remove`, `run`, `runIds`, `runStatus`, `cancelRun`, `outputs`, `output`, `previewCode`, `tools`, `subagents`, `catalogCounts`, `instantiateTemplate`, `buildWithAI`, `overview`, `count`, `list`, `recent`, `traces`, `trace`, `traceStats`, `deleteTraces`, `listSchedules`, `getSchedule`, `upsertSchedule`, `pauseSchedule`, `resumeSchedule` |
+| Templates | `platform.templates.list`, `listGlobal`, `listValidated`, `save`, `update`, `duplicate`, `delete`, `share`, `shareTargets`, `listAssignments`, `assign(templateId, { userId \| projectId })`, `unassign(templateId, { userId \| projectId })` |
+| Phone (Device Control) | `agents.phone.pair`, `listDevices`, `revokeDevice`, `screenTree`, `listApps`, `setAllowedApps`, `registerActiveRun` |
+| HITL | `agents.hitl.pending`, `history`, `approve`, `reject`, `bulkDecide`, `runToolStats`, `runToolStatsByAgent`, `runMessages`, `runToolCalls` |
+| Evals | `agents.evals.listRuns`, `summary`, `runDetail`, `compare`, `benchmarks` |
+| Memory | `agents.memory.graph`, `runMemory`, `crew` |
+| Models | `agents.models.listModels` |
+| Assistant | `agents.assistant.getProfile`, `setProfile` |
+| Events (real-time) | `platform.events.onRunUpdate`, `onInitPhase`, `onProjectEvent`, `onHitlApproval`, `onPipelineCreated`, `onPipelineUpdated`, `onPipelineDeleted`, `leaveRun`, `leaveProject`, `close` |
+| Billing | `platform.billing.subscription`, `plans`, `createCheckout`, `createPortal` |
+| Runner | `platform.runner.createToken`, `listTokens`, `revokeToken` |
+| Team | `platform.team.listMembers`, `invite`, `createInviteLink`, `acceptInvite`, `updateMemberRole`, `removeMember`, `getPipelineVisibility`, `setPipelineVisibility` |
+| Bugs | `platform.bugs.create`, `listMine`, `get`, `addComment`, `listNotifications`, `markNotificationsRead` |
+
+## Authentication
+
+Create an API key in the dashboard (**melaya.org → Settings → API Keys**). Keys are prefixed `mk_`. On the wire:
+
+- **REST** — the key is sent only as an `Authorization: Bearer mk_...` header, never in the URL.
+- **Public WebSocket streams** (preview market data) — the key rides as `?apiKey=` in the `wss://` URL (server protocol; redact it from proxy/APM/WebSocket query logs).
+- **Private WebSocket streams** — the SDK first mints a short-lived ticket over REST, and only `?wsTicket=` appears in the URL; the API key itself is never in a private stream URL.
+
+Alternatively, pass a `sessionToken` from `platform.auth.login()` instead of an API key.
+
+---
+
+## Trading (preview — not generally available)
+
+> Everything below this line belongs to the Melaya Trading preview. It is not a production commitment and must not be used with real funds.
+
+### Market data
+
+```ts
 // REST — normalized ticker from any of 70+ venues
 const ticker = await melaya.market.ticker({ exchange: "binance", symbol: "BTC/USDT", market: "spot" });
 console.log(ticker.last, ticker.bid, ticker.ask);
@@ -31,7 +127,7 @@ const book = await melaya.market.orderbook({ exchange: "bybit", symbol: "BTC/USD
 const candles = await melaya.market.ohlcv({ exchange: "okx", symbol: "ETH/USDT", timeframe: "1h", limit: 200 });
 ```
 
-## Streaming
+### Streaming
 
 ```ts
 // Live ticker
@@ -47,9 +143,9 @@ liq.on("close", () => console.log("stream closed"));
 // liq.close();
 ```
 
-## Trading
+### Trading
 
-The same client covers the authenticated surface: your account, paper trading, live strategies, and backtests. Reads need only your `mk_` key; live order placement needs a connected exchange key (`melaya.account.keys()`).
+The same client covers the preview authenticated surface: your account, paper trading, strategies, and backtests. Reads need only your `mk_` key; live order placement needs a connected exchange key (`melaya.account.keys()`).
 
 ```ts
 // Account: connected keys, tier limits, usage
@@ -97,22 +193,7 @@ const events = await melaya.stream.strategies();
 for await (const ev of events) console.log(ev.type, ev.strategyId);
 ```
 
-## Authentication
-
-Create an API key in the dashboard (**melaya.org → Settings → API Keys**). Keys are prefixed `mk_`; the SDK sends it automatically on every REST call and WebSocket connection. Public market-data and account/strategy reads work with the key alone. **Live** order placement and live strategy launches additionally require a connected exchange key — connect one in **Settings → Connectors**, then reference it by `apiKeyId`. Paper trading and backtesting never touch a venue and need no exchange credentials.
-
-## Older runtimes
-
-```ts
-// Node < 18 (no global fetch) and/or Node < 22 (no global WebSocket):
-import { Melaya } from "@melaya/sdk";
-import fetch from "node-fetch";
-import WebSocket from "ws";
-
-const melaya = new Melaya({ apiKey: "mk_...", fetch: fetch as any, WebSocket: WebSocket as any });
-```
-
-## API surface
+### Trading API surface (preview)
 
 | Area | Methods |
 |---|---|
@@ -128,6 +209,19 @@ const melaya = new Melaya({ apiKey: "mk_...", fetch: fetch as any, WebSocket: We
 | Public streaming | `stream.ticker`, `orderbook`, `ohlcv`, `trades`, `liquidations` |
 | Private streaming | `stream.strategies`, `stream.private` |
 | Live trading | `trade.balance`, `positions`, `openOrders`, `orders`, `closedOrders`, `myTrades`, `myTradesHistory`, `planOrders`, `positionsHistory`, `leverage`, `leverageTiers`, `createOrder`, `cancelOrder`, `amendOrder`, `cancelAllOrders`, `cancelPlanOrders`, `closePosition`, `setLeverage`, `setMarginMode`, `setPositionMode` |
+
+---
+
+## Older runtimes
+
+```ts
+// Node < 18 (no global fetch) and/or Node < 22 (no global WebSocket):
+import { Melaya } from "@melaya/sdk";
+import fetch from "node-fetch";
+import WebSocket from "ws";
+
+const melaya = new Melaya({ apiKey: "mk_...", fetch: fetch as any, WebSocket: WebSocket as any });
+```
 
 Full docs: **[melaya.org/docs](https://melaya.org/docs)**.
 

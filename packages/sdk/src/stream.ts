@@ -5,6 +5,15 @@
  * (`for await (const frame of stream)`) and an event emitter
  * (`stream.on("message", cb)`). Uses the global `WebSocket` by default;
  * inject one (e.g. the `ws` package) for Node < 22.
+ *
+ * SECURITY / auth wire format: REST calls send the API key ONLY as an
+ * `Authorization: Bearer mk_...` header (see `client.ts`). WebSocket
+ * connections cannot carry custom headers from browsers, so the server
+ * protocol differs per plane:
+ *   - PUBLIC market-data streams authenticate with `?apiKey=` in the `wss://`
+ *     URL (server protocol — redact it from proxy/APM/WebSocket query logs).
+ *   - PRIVATE streams never expose the API key: a short-lived `wsTicket` is
+ *     minted over REST first, and only `?wsTicket=` appears in the URL.
  */
 import type { HttpClient } from "./client.js";
 import type {
@@ -31,6 +40,10 @@ type StreamEvent = "message" | "open" | "close" | "error";
 /**
  * A live stream of normalized frames. Iterate it, or attach listeners.
  *
+ * Frames are buffered for the async-iterator only once iteration has started
+ * (and the buffer is bounded), so listener-only consumers
+ * (`stream.on("message", cb)`) never accumulate frames in memory.
+ *
  * @example
  * ```ts
  * const s = melaya.stream.ticker({ exchange: "binance", symbol: "BTC/USDT", market: "spot" });
@@ -38,10 +51,15 @@ type StreamEvent = "message" | "open" | "close" | "error";
  * ```
  */
 export class MelayaStream<T> implements AsyncIterable<T> {
+  /** Max frames buffered for a slow async-iterator before oldest are dropped. */
+  private static readonly MAX_BUFFER = 10_000;
+
   private ws: WebSocketLike;
   private buffer: T[] = [];
   private waiting: ((r: IteratorResult<T>) => void) | null = null;
   private closed = false;
+  /** True once `[Symbol.asyncIterator]()` has been called — gates buffering. */
+  private iterating = false;
   private listeners: Record<StreamEvent, Array<(arg: unknown) => void>> = {
     message: [], open: [], close: [], error: [],
   };
@@ -65,8 +83,11 @@ export class MelayaStream<T> implements AsyncIterable<T> {
         const w = this.waiting;
         this.waiting = null;
         w({ value: frame, done: false });
-      } else {
+      } else if (this.iterating) {
+        // Only buffer for the async-iterator once iteration has started, so
+        // listener-only consumers don't grow memory unboundedly.
         this.buffer.push(frame);
+        if (this.buffer.length > MelayaStream.MAX_BUFFER) this.buffer.shift();
       }
     });
   }
@@ -103,6 +124,7 @@ export class MelayaStream<T> implements AsyncIterable<T> {
   }
 
   [Symbol.asyncIterator](): AsyncIterator<T> {
+    this.iterating = true;
     return {
       next: (): Promise<IteratorResult<T>> => {
         if (this.buffer.length > 0) {
@@ -202,10 +224,15 @@ export class StreamAPI {
   }
 
   private open<T>(path: string, params: Record<string, string | number | undefined>): MelayaStream<T> {
+    if (!this.apiKey) {
+      throw new Error("Melaya: public market streams require an `apiKey`; session-token clients can use platform events.");
+    }
     if (!this.WebSocketImpl) {
       throw new Error("Melaya: no global `WebSocket` found. Pass `WebSocket` in options (Node < 22, e.g. the `ws` package).");
     }
     const u = new URL(path.replace(/^\//, ""), this.wsUrl.endsWith("/") ? this.wsUrl : this.wsUrl + "/");
+    // Public-stream server protocol: the key rides as `?apiKey=` on the wss
+    // URL (WebSocket clients cannot set headers). REST never does this.
     u.searchParams.set("apiKey", this.apiKey);
     for (const [k, v] of Object.entries(params)) {
       if (v !== undefined && v !== null) u.searchParams.set(k, String(v));

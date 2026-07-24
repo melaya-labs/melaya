@@ -5,9 +5,13 @@ Keywords: unified crypto market data API, normalized ticker, order book, OHLCV,
 funding rate API, open interest, liquidations stream, WebSocket crypto data.
 -->
 
+> **Preview status:** Melaya Trading is planned for a later public release. This document describes preview surface that may change or remain unavailable; it is not a production-readiness statement and must not be used to operate real funds.
+
+> **Part of the Melaya Labs trading vertical (rolling out).** Melaya's core is the [agent builder + Device Control](./concepts.md) - build, run, and orchestrate multi-agent pipelines that operate software and devices. This market-data API is part of the unified engine that powers the trading vertical. See [concepts.md](./concepts.md) for the base platform.
+
 # Market data & streaming
 
-Normalized **REST reads** and **public WebSocket streams** across all [70+ venues](./exchanges.md): CEX, perpetuals, and prediction markets, one schema. For account, trading, backtesting, and strategy/crew launch, see [Trading & strategies](./trading.md).
+Normalized **REST reads** and **public WebSocket streams** across all [70+ venues](./exchanges.md): CEX, perpetuals, and prediction markets, one schema. Part of the Melaya Labs trading vertical. For account, trading, backtesting, and strategy/crew launch, see [Trading & strategies](./trading.md).
 
 - **REST base:** `https://api.melaya.org`
 - **WebSocket base:** `wss://wss.melaya.org`
@@ -71,7 +75,7 @@ const book = await m.market.orderbook({ exchange: "bybit", symbol: "BTC/USDT", m
 
 // Derivatives — cross-venue funding in one call
 const funding = await m.market.fundingRateHistoryMulti({
-  exchanges: ["binanceusdm", "bybit", "okx"], symbols: ["BTCUSDT"], hours: 72,
+  exchanges: ["binanceusdm", "bybit", "okx"], symbol: "BTCUSDT", hours: 72,
 });
 
 // WebSocket — live order book stream

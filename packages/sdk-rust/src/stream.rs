@@ -4,11 +4,7 @@ use std::sync::Arc;
 use futures_util::StreamExt;
 use serde_json::Value;
 use tokio::sync::mpsc;
-use tokio_tungstenite::{
-    connect_async_tls_with_config,
-    tungstenite::Message,
-    Connector,
-};
+use tokio_tungstenite::{connect_async_tls_with_config, tungstenite::Message, Connector};
 use url::Url;
 
 use crate::client::HttpClient;
@@ -36,16 +32,6 @@ fn ensure_crypto_provider() {
     let _ = rustls::crypto::ring::default_provider().install_default();
 }
 
-/// Build a rustls `ClientConfig` that skips all certificate verification.
-fn insecure_rustls_config() -> Arc<rustls::ClientConfig> {
-    ensure_crypto_provider();
-    let config = rustls::ClientConfig::builder()
-        .dangerous()
-        .with_custom_certificate_verifier(Arc::new(NoVerifier))
-        .with_no_client_auth();
-    Arc::new(config)
-}
-
 /// Build a normal rustls `ClientConfig` using webpki roots.
 fn secure_rustls_config() -> Arc<rustls::ClientConfig> {
     ensure_crypto_provider();
@@ -57,24 +43,14 @@ fn secure_rustls_config() -> Arc<rustls::ClientConfig> {
     Arc::new(config)
 }
 
-/// Open a WebSocket, optionally skipping TLS verification, and pump JSON frames
-/// into an unbounded channel.
-async fn open_ws(url: &str, insecure_tls: bool) -> Result<MelayaStream> {
+/// Open a verified WebSocket and pump JSON frames into an unbounded channel.
+async fn open_ws(url: &str) -> Result<MelayaStream> {
     let parsed = Url::parse(url)?;
 
-    let connector = if insecure_tls {
-        Connector::Rustls(insecure_rustls_config())
-    } else {
-        Connector::Rustls(secure_rustls_config())
-    };
+    let connector = Connector::Rustls(secure_rustls_config());
 
-    let (ws_stream, _resp) = connect_async_tls_with_config(
-        parsed.as_str(),
-        None,
-        false,
-        Some(connector),
-    )
-    .await?;
+    let (ws_stream, _resp) =
+        connect_async_tls_with_config(parsed.as_str(), None, false, Some(connector)).await?;
 
     let (tx, rx) = mpsc::unbounded_channel::<Value>();
 
@@ -109,81 +85,21 @@ async fn open_ws(url: &str, insecure_tls: bool) -> Result<MelayaStream> {
     Ok(MelayaStream { rx })
 }
 
-// ── custom rustls verifier that accepts any certificate ─────────────────────
-
-#[derive(Debug)]
-struct NoVerifier;
-
-impl rustls::client::danger::ServerCertVerifier for NoVerifier {
-    fn verify_server_cert(
-        &self,
-        _end_entity: &rustls::pki_types::CertificateDer<'_>,
-        _intermediates: &[rustls::pki_types::CertificateDer<'_>],
-        _server_name: &rustls::pki_types::ServerName<'_>,
-        _ocsp_response: &[u8],
-        _now: rustls::pki_types::UnixTime,
-    ) -> std::result::Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
-        Ok(rustls::client::danger::ServerCertVerified::assertion())
-    }
-
-    fn verify_tls12_signature(
-        &self,
-        _message: &[u8],
-        _cert: &rustls::pki_types::CertificateDer<'_>,
-        _dss: &rustls::DigitallySignedStruct,
-    ) -> std::result::Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
-        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
-    }
-
-    fn verify_tls13_signature(
-        &self,
-        _message: &[u8],
-        _cert: &rustls::pki_types::CertificateDer<'_>,
-        _dss: &rustls::DigitallySignedStruct,
-    ) -> std::result::Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
-        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
-    }
-
-    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
-        vec![
-            rustls::SignatureScheme::RSA_PKCS1_SHA1,
-            rustls::SignatureScheme::ECDSA_SHA1_Legacy,
-            rustls::SignatureScheme::RSA_PKCS1_SHA256,
-            rustls::SignatureScheme::ECDSA_NISTP256_SHA256,
-            rustls::SignatureScheme::RSA_PKCS1_SHA384,
-            rustls::SignatureScheme::ECDSA_NISTP384_SHA384,
-            rustls::SignatureScheme::RSA_PKCS1_SHA512,
-            rustls::SignatureScheme::ECDSA_NISTP521_SHA512,
-            rustls::SignatureScheme::RSA_PSS_SHA256,
-            rustls::SignatureScheme::RSA_PSS_SHA384,
-            rustls::SignatureScheme::RSA_PSS_SHA512,
-            rustls::SignatureScheme::ED25519,
-            rustls::SignatureScheme::ED448,
-        ]
-    }
-}
-
 // ── StreamAPI ────────────────────────────────────────────────────────────────
 
 /// WebSocket streaming API.
+#[derive(Clone)]
 pub struct StreamAPI {
     api_key: String,
     ws_url: String,
-    insecure_tls: bool,
     http: HttpClient,
 }
 
 impl StreamAPI {
-    pub(crate) fn new(
-        api_key: String,
-        ws_url: String,
-        insecure_tls: bool,
-        http: HttpClient,
-    ) -> Self {
+    pub(crate) fn new(api_key: String, ws_url: String, http: HttpClient) -> Self {
         Self {
             api_key,
             ws_url,
-            insecure_tls,
             http,
         }
     }
@@ -214,7 +130,7 @@ impl StreamAPI {
         params: HashMap<&str, Option<String>>,
     ) -> Result<MelayaStream> {
         let url = self.build_public_url(path, &params)?;
-        open_ws(&url, self.insecure_tls).await
+        open_ws(&url).await
     }
 
     async fn open_private(
@@ -235,15 +151,13 @@ impl StreamAPI {
             .await?;
         let ticket = ticket_resp["wsTicket"]
             .as_str()
-            .ok_or_else(|| {
-                MelayaError::Config("private-ticket response missing wsTicket".into())
-            })?
+            .ok_or_else(|| MelayaError::Config("private-ticket response missing wsTicket".into()))?
             .to_owned();
 
         let base = format!("{}{}", self.ws_base(), ws_path);
         let mut url = Url::parse(&base)?;
         url.query_pairs_mut().append_pair("wsTicket", &ticket);
-        open_ws(url.as_str(), self.insecure_tls).await
+        open_ws(url.as_str()).await
     }
 
     // ── Public streams ───────────────────────────────────────────────────────

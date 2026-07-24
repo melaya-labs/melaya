@@ -16,17 +16,6 @@ KEY = os.environ.get("MK")
 if not KEY:
     print("set MK=mk_..."); sys.exit(2)
 m = Melaya(api_key=KEY)
-# Local dev box does TLS interception; disable cert verification for the test
-# (mirrors NODE_TLS_REJECT_UNAUTHORIZED=0 used by the Node smoke). Not an SDK concern.
-import warnings as _w  # noqa: E402
-import httpx as _httpx  # noqa: E402
-_w.filterwarnings("ignore")
-m._http = _httpx.Client(base_url="https://api.melaya.org", timeout=30.0,
-                        headers={"Authorization": f"Bearer {KEY}"}, verify=False)
-import ssl as _ssl  # noqa: E402
-_NOVERIFY = _ssl.create_default_context()
-_NOVERIFY.check_hostname = False
-_NOVERIFY.verify_mode = _ssl.CERT_NONE
 SPOT = dict(exchange="binance", symbol="BTC/USDT", market="spot")
 PERP = dict(exchange="binanceusdm", symbol="BTC/USDT:USDT")
 R = []

@@ -64,7 +64,7 @@ func main() {
 		Name: "SDK example (paper)", StrategyType: "custom", // custom Rhai definition
 		Exchange: "binanceusdm", Symbol: "BTC/USDT:USDT", Market: "FUTURES",
 		DryRun: true, // DryRun:false + APIKeyID would place REAL orders
-		Params: map[string]interface{}{"language": "rhai", "definition": ` + "`" + RHAI + "`" + r`, "qty": 0.001},
+		Params: map[string]interface{}{"language": "rhai", "definition": `fn evaluate() { emit_long(param("qty")); }`, "qty": 0.001},
 	})
 	sid := created.StrategyID
 	fmt.Printf("launched paper strategy %s\n", sid)

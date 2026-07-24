@@ -3,7 +3,6 @@ package melaya
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -33,18 +32,9 @@ func (s *Stream) Close() {
 
 // StreamAPI manages WebSocket connections to Melaya.
 type StreamAPI struct {
-	apiKey      string
-	wsURL       string
-	h           *httpClient
-	insecureTLS bool
-}
-
-func (s *StreamAPI) dialer() *websocket.Dialer {
-	d := *websocket.DefaultDialer
-	if s.insecureTLS {
-		d.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec
-	}
-	return &d
+	apiKey string
+	wsURL  string
+	h      *httpClient
 }
 
 func (s *StreamAPI) open(path string, params map[string]string) (*Stream, error) {
@@ -61,7 +51,7 @@ func (s *StreamAPI) open(path string, params map[string]string) (*Stream, error)
 	}
 	u.RawQuery = q.Encode()
 
-	conn, _, err := s.dialer().Dial(u.String(), http.Header{"Authorization": []string{"Bearer " + s.apiKey}})
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), http.Header{"Authorization": []string{"Bearer " + s.apiKey}})
 	if err != nil {
 		return nil, fmt.Errorf("melaya stream: dial %s: %w", path, err)
 	}
@@ -99,7 +89,7 @@ func (s *StreamAPI) openWithTicket(path, stream string, extra map[string]interfa
 	q.Set("wsTicket", env.WsTicket)
 	u.RawQuery = q.Encode()
 
-	conn, _, err := s.dialer().Dial(u.String(), nil)
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("melaya stream: dial %s: %w", path, err)
 	}

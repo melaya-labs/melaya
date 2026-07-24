@@ -22,6 +22,10 @@ class AccountAPI:
         """Tier, plan limits, and live usage counters."""
         return self._request("GET", "/api/v1/private/usage")
 
+    def usage_summary(self) -> Dict[str, Any]:
+        """Dashboard usage summary (pipeline count, RAG usage, plan limits)."""
+        return self._request("GET", "/api/v1/private/overview/usage")
+
     def api_key_status(self) -> Dict[str, Any]:
         """Status of your platform API key (tier, max concurrent connections)."""
         return self._request("GET", "/api/v1/private/api-key")

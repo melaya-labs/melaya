@@ -133,4 +133,28 @@ class StrategiesAPI
     {
         return $this->http->get("/api/v1/strategies/{$strategyId}/ai-opt/runs");
     }
+
+    // ── Team/project-scoped endpoints (restRoutes.ts) ─────────────────────────
+
+    /**
+     * List strategies visible to the caller's team project.
+     * Maps to GET /api/v1/private/strategies/team.
+     */
+    public function listTeam(): array
+    {
+        return $this->http->get('/api/v1/private/strategies/team');
+    }
+
+    /**
+     * Bulk-fetch lightweight summaries for a list of strategy IDs.
+     * Maps to POST /api/v1/private/strategies/summaries/bulk.
+     *
+     * @param string[] $strategyIds List of strategy IDs
+     */
+    public function summariesBulk(array $strategyIds): array
+    {
+        return $this->http->post('/api/v1/private/strategies/summaries/bulk', [
+            'strategyIds' => $strategyIds,
+        ]);
+    }
 }

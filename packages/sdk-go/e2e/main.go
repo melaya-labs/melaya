@@ -1,16 +1,18 @@
 // e2e smoke test — Melaya Go SDK — full endpoint coverage (~70 checks).
 // Safety: PAPER/SIM ONLY. Never places a live order or launches a live strategy.
 //   - aiOptStart, aiOptApprove, backtest.deleteAll are WIRED (not invoked).
+//
 // Run:
-//   MK=mk_... MELAYA_INSECURE_TLS=1 go run ./e2e
+//
+//	MK=mk_... go run ./e2e
 package main
 
 import (
-	"reflect"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -277,7 +279,9 @@ func main() {
 		arrMin(1), true)
 
 	chk("market", "status",
-		func() (interface{}, error) { return wrap(m.Market.Status(ctx, melaya.ExchangeQuery{Exchange: spotExch})) },
+		func() (interface{}, error) {
+			return wrap(m.Market.Status(ctx, melaya.ExchangeQuery{Exchange: spotExch}))
+		},
 		isObj, false)
 
 	chk("market", "time",

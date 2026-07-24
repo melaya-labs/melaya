@@ -1,0 +1,46 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: npm
+    directory: "/packages/sdk"
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: pip
+    directory: "/packages/sdk-python"
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: gomod
+    directory: "/packages/sdk-go"
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: cargo
+    directory: "/packages/sdk-rust"
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: gradle
+    directory: "/packages/sdk-java"
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: gradle
+    directory: "/packages/sdk-kotlin"
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: nuget
+    directory: "/packages/sdk-csharp"
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: bundler
+    directory: "/packages/sdk-ruby"
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: composer
+    directory: "/"
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: composer
+    directory: "/packages/sdk-php"
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5

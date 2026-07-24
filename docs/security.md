@@ -8,13 +8,13 @@ isolation. Internal control IDs, file paths, and hostnames are intentionally omi
 
 # Security & trust
 
-Melaya runs autonomous agents that can touch money, credentials, and production systems, so security is the product, not an afterthought. This page is the public overview of how Melaya protects your data and bounds what agents can do. It is organized by control domain (mapped internally to the SOC 2 Trust Service Criteria).
+Melaya runs autonomous agents that can touch devices, credentials, and production systems - and, through the Melaya Labs trading vertical, money - so security is the product, not an afterthought. This page is the public overview of how Melaya protects your data and bounds what agents can do. It covers all surfaces: agent pipelines, Device Control (AI operating Android apps), connectors, and the trading vertical. It is organized by control domain (mapped internally to the SOC 2 Trust Service Criteria).
 
 > **Reporting a vulnerability:** see [`SECURITY.md`](../SECURITY.md). Email **info@melaya.org** or use GitHub [private vulnerability reporting](https://github.com/melaya-labs/melaya/security/advisories/new). We aim to acknowledge within 72 hours.
 
 ## Data protection & encryption
 
-- **Secrets at rest** — exchange keys, model keys, and connector credentials are encrypted with **AES-256-GCM envelope encryption** and stored in an encrypted vault, never in plaintext.
+- **Secrets at rest** — exchange keys, model keys, connector credentials, and device credentials are encrypted with **AES-256-GCM envelope encryption** and stored in an encrypted vault, never in plaintext.
 - **In transit** — TLS 1.2+ everywhere.
 - **Agents never see raw secrets** — the runtime resolves a credential at call time inside the sandbox and references it by id (`apiKeyId`), so a prompt, a log, or a tool output never carries the secret value.
 
@@ -33,9 +33,9 @@ Melaya runs autonomous agents that can touch money, credentials, and production 
 
 ## Human-in-the-loop & autonomy bounds
 
-- **Approval gates** — any risky tool can require human approval; the run pauses and surfaces the exact arguments to an operator who approves, edits, or rejects. For trading crews, **every order** is gated (always-on today; selective opt-out for fully-autonomous live crews is on the roadmap).
-- **Trading safety rails** — per-cycle write caps, per-tier daily order quotas, daily LLM cost caps, drawdown and consecutive-loss circuit breakers, and dry-run mode so any crew can validate end to end on live market data before going live. See the [AI agentic trading guide](./agentic-trading.md#11-safety-rails-trading-grade-discipline).
-- **Egress & tool allowlists** — a trading crew can't reach exchanges or arbitrary URLs directly; all order flow goes through Melaya's engine, and a server-enforced tool allowlist bounds what any crew can invoke — defense-in-depth against prompt injection.
+- **Approval gates** — any risky tool can require human approval; the run pauses and surfaces the exact arguments to an operator who approves, edits, or rejects. This applies to agent pipelines, Device Control actions, and trading orders. For trading crews, **every order** is gated (always-on today; selective opt-out for fully-autonomous live crews is on the roadmap).
+- **Trading safety rails (Melaya Labs vertical)** — per-cycle write caps, per-tier daily order quotas, daily LLM cost caps, drawdown and consecutive-loss circuit breakers, and dry-run mode so any crew can validate end to end on live market data before going live. See the [AI agentic trading guide](./agentic-trading.md#11-safety-rails-trading-grade-discipline).
+- **Egress & tool allowlists** — agents can only call the tools they are granted; trading crews additionally cannot reach exchanges or arbitrary URLs directly (all order flow goes through Melaya's engine). A server-enforced tool allowlist bounds what any agent or crew can invoke - defense-in-depth against prompt injection.
 
 ## Observability & audit
 
@@ -67,5 +67,5 @@ Melaya is **building toward SOC 2 Type II**, with an internal, continuously-main
 ## See also
 
 - [Concepts](./concepts.md) — connectors, HITL, and the security model in context.
-- [AI agentic trading](./agentic-trading.md) — the full safety-rail and reactive-sidecar design.
+- [AI agentic trading](./agentic-trading.md) — the full safety-rail and reactive-sidecar design for the Melaya Labs trading vertical.
 - [`SECURITY.md`](../SECURITY.md) — vulnerability reporting and API-key handling.

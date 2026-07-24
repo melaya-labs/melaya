@@ -1,6 +1,8 @@
 # melaya-go
 
-Official Go SDK for the [Melaya](https://melaya.org) unified market-data and trading API.
+> **Current production scope:** Agent Builder and Mobile Device Control are available now. Melaya Trading namespaces are preview-only and not generally available; do not use them with real funds.
+
+Official SDK for the **[Melaya](https://melaya.org)** Agent Builder and flagship Mobile Device Control APIs. Trading namespaces are included only as a preview of a later product.
 
 ## Install
 
@@ -10,7 +12,89 @@ go get github.com/melaya-labs/melaya/packages/sdk-go
 
 Requires Go 1.22+. The only external dependency is `github.com/gorilla/websocket` for WebSocket streaming.
 
-## Quick start
+## Quick start — Agent Builder & Device Control
+
+Pair an Android phone, restrict which apps an agent may operate, then create
+and run an agent pipeline. Configure provider credentials through Melaya
+Connectors first — never include a provider key in pipeline configuration or
+per-run overrides.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "os"
+
+    melaya "github.com/melaya-labs/melaya/packages/sdk-go/melaya"
+)
+
+func main() {
+    m, err := melaya.New(os.Getenv("MELAYA_API_KEY"))
+    if err != nil { log.Fatal(err) }
+
+    ctx := context.Background()
+
+    // Pair an Android phone (Device Control)
+    pair, err := m.Phone.Pair(ctx)
+    if err != nil { log.Fatal(err) }
+    fmt.Printf("pair code %s (expires in %ds)\n", pair.Code, pair.ExpiresInSeconds)
+
+    devices, _ := m.Phone.ListDevices(ctx)
+    apps, _ := m.Phone.ListApps(ctx)
+    fmt.Printf("%d devices, %d apps\n", len(devices), len(apps))
+
+    _, _ = m.Phone.SetAllowedApps(ctx, []string{"com.android.chrome"})
+
+    // Create an agent pipeline
+    _, err = m.Pipelines.Create(ctx, melaya.PipelineConfig{
+        "name":           "mobile-review",
+        "project":        "Operations",
+        "model_provider": "anthropic",
+        "model_name":     "claude-sonnet-4-6",
+        "agents": []map[string]interface{}{{
+            "name":        "mobile-operator",
+            "role":        "Careful mobile operator",
+            "instruction": "Read before acting. Never send, publish, or delete.",
+            "agent_tools": []string{
+                "phone_get_screen_tree",
+                "phone_current_app",
+                "phone_open_app",
+                "phone_click_text",
+                "phone_back",
+                "phone_wait",
+            },
+        }},
+        "steps": []map[string]interface{}{{
+            "kind":  "agent",
+            "agent": map[string]interface{}{"name": "mobile-operator"},
+        }},
+        "maxCostUsd": 1.00,
+    })
+    if err != nil { log.Fatal(err) }
+
+    // Run it and hand the run to the phone
+    run, err := m.Pipelines.Run(ctx, "mobile-review", &melaya.PipelineRunOptions{Project: "Operations"})
+    if err != nil { log.Fatal(err) }
+
+    _, _ = m.Phone.RegisterActiveRun(ctx, run.RunID)
+
+    status, err := m.Pipelines.RunStatus(ctx, "mobile-review", run.RunID)
+    if err != nil { log.Fatal(err) }
+    fmt.Println(status.Status)
+
+    // Live run events (Socket.IO) — connects lazily on first subscription
+    unsub := m.Events.OnRunUpdate(run.RunID, func(e melaya.RunPushEvent) {
+        fmt.Println(e.EventType, e.Status)
+    })
+    defer unsub()
+    defer m.Events.Close()
+}
+```
+
+## Quick start — Trading (preview)
 
 ```go
 package main
@@ -80,9 +164,11 @@ func main() {
 
 API keys are created at **melaya.org → Settings → API Keys**. Keys must be prefixed `mk_`.
 
-Pass the key to `melaya.New(...)` — the SDK injects it as both:
-- Query param: `?apiKey=mk_...`
-- Header: `Authorization: Bearer mk_...`
+Pass the key to `melaya.New(...)`. On the wire:
+
+- **REST** sends the key **only** as an `Authorization: Bearer mk_...` header — never in the query string.
+- **Public WebSocket streams** (`m.Stream.Ticker`, `Orderbook`, …) authenticate with `?apiKey=` in the `wss://` URL (server protocol).
+- **Private WebSocket streams** (`m.Stream.Strategies`, `Private`) first mint a short-lived ticket over REST and connect with `?wsTicket=` — the API key itself never rides a private stream URL.
 
 Never hard-code keys in source files. Use environment variables:
 
@@ -90,11 +176,34 @@ Never hard-code keys in source files. Use environment variables:
 m, _ := melaya.New(os.Getenv("MELAYA_API_KEY"))
 ```
 
-## TLS (dev boxes)
+## API surface — Agent Builder & platform (GA)
 
-Set `MELAYA_INSECURE_TLS=1` to disable certificate verification. The SDK is secure by default; only enable this for local dev/test environments where TLS is intercepted.
+Flat accessors shown; the same pointers are grouped under `m.Agents.*` and
+`m.Platform.*` domain namespaces (`m.Platform.Accounts` is an alias of
+`m.Auth`).
 
-## Method table
+| Namespace | Methods |
+|---|---|
+| `m.Auth` | `Login`, `VerifyMFA`, `Register`, `VerifySignup`, `ResendVerification`, `Me`, `Check`, `ChangePassword`, `ForgotPassword`, `ResetPassword`, `CreateMobileHandoff`, `MyPermissions`, `Refresh`, `MFAStatus`, `MFASetup`, `MFAConfirm`, `ExportMyData`, `RemoveKey`, `UpdateProfile`, `Credits`, `AICredits`, `PortfolioIdeasCredits`, `RiskMonitoringCredits`, `Version` |
+| `m.Projects` | `List`, `Create`, `Rename`, `RunnerProjects` |
+| `m.Connectors` | `ConnectedServices`, `Set`, `Delete`, `EnvHandle`, `GoogleOAuthStart` |
+| `m.Credentials` | `List`, `ConnectedServices`, `Get`, `Set`, `Delete`, `Test`, `GetOperatorProfile`, `SetOperatorProfile`, `ListModels`, `MelayaAccounts`, plus connector auth flows (`RagIngest*`, `RagRetrieve*`, `PickFolder*`, `LinkedInConnect*`, `LumaConnect*`, `GoogleOAuthStart`, `CliAuthStart`, `NotebookLM*`, `TelegramAuth*`) |
+| `m.Pipelines` | `ListPipelines`, `Create`, `Get`, `Update`, `Delete`, `Run`, `RunIDs`, `RunStatus`, `CancelRun`, `Outputs`, `Output`, `PreviewCode`, `Tools`, `Subagents`, `InstantiateTemplate`, `BuildWithAI`, `Overview`, `Count`, `List`, `Recent`, `Traces`, `Trace`, `TraceStats`, `DeleteTraces`, `ListSchedules`, `GetSchedule`, `UpsertSchedule`, `PauseSchedule`, `ResumeSchedule` |
+| `m.Templates` | `List`, `ListGlobal`, `ListValidated`, `Save`, `Update`, `Duplicate`, `Delete`, `Share`, `ListAssignments`, `Assign`, `Unassign`, `ShareTargets` — `Assign`/`Unassign` take a `TemplateAssignBody` with exactly one of `UserID` or `ProjectID` set (both UUIDs) |
+| `m.Phone` | `Pair`, `ListDevices`, `RevokeDevice`, `ScreenTree`, `ListApps`, `SetAllowedApps`, `RegisterActiveRun` |
+| `m.Hitl` | `Pending`, `History`, `Approve`, `Reject`, `BulkDecide`, `RunToolStats`, `RunToolStatsByAgent`, `RunMessages`, `RunToolCalls` |
+| `m.Evals` | `ListRuns`, `Summary`, `RunDetail`, `Compare`, `MemoryGraph`, `RunMemory`, `CrewMemory`, `Benchmarks` |
+| `m.Events` | `OnRunUpdate`, `OnInitPhase`, `OnProjectEvent`, `OnHitlApproval`, `OnPipelineCreated`, `OnPipelineUpdated`, `OnPipelineDeleted`, `LeaveRun`, `LeaveProject`, `Close` — connects lazily on first subscription; nothing is opened at client construction |
+| `m.Billing` | `Subscription`, `CreateCheckout`, `CreatePortal`, `Plans` |
+| `m.Runner` | `CreateToken`, `ListTokens`, `RevokeToken` |
+| `m.Team` | `ListMembers`, `Invite`, `CreateInviteLink`, `AcceptInvite`, `UpdateMemberRole`, `RemoveMember`, `GetPipelineVisibility`, `SetPipelineVisibility` |
+| `m.Assistant` | `GetProfile`, `SetProfile` |
+| `m.Bugs` | `Create`, `ListMine`, `Get`, `AddComment`, `ListNotifications`, `MarkNotificationsRead` |
+| `m.Overview` | `ModelPrices`, `ChartData`, `UsageSummary`, `CostBreakdown` |
+
+## Method table — Trading (preview)
+
+> Preview surface only — not generally available. Do not use with real funds.
 
 ### Market (`m.Market.*`)
 
@@ -207,4 +316,4 @@ for frame := range s.Ch {
 
 ## License
 
-MIT
+Apache-2.0 — see [LICENSE](./LICENSE).

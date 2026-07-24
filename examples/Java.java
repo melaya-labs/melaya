@@ -46,7 +46,7 @@ public class Java {
         body.put("symbol", "BTC/USDT:USDT");
         body.put("market", "FUTURES");
         body.put("dryRun", true);                // dryRun:false + apiKeyId => REAL orders
-        body.put("params", Map.of("language", "rhai", "definition", "fn evaluate() { emit_long(param("qty")); }", "qty", 0.001));
+        body.put("params", Map.of("language", "rhai", "definition", "fn evaluate() { emit_long(param(\"qty\")); }", "qty", 0.001));
         String sid = m.strategies().create(body).get("strategyId").asText();
         System.out.println("launched paper strategy " + sid);
         JsonNode fill = m.sim().createOrder(sid, "binanceusdm", "BTC/USDT:USDT",
@@ -62,7 +62,7 @@ public class Java {
         bt.put("symbol", "BTC/USDT");
         bt.put("timeframe", "1h");
         bt.put("language", "rhai");
-        bt.put("definition", "fn evaluate() { emit_long(param("qty")); }");
+        bt.put("definition", "fn evaluate() { emit_long(param(\"qty\")); }");
         bt.put("params", Map.of("qty", 0.001));
         System.out.println("backtest job " + m.backtest().start(bt).get("job_id") + " started");
         System.out.println("done");

@@ -164,6 +164,83 @@ func (b *BacktestAPI) DeleteAll(ctx context.Context) (map[string]interface{}, er
 	return v, nil
 }
 
+// ── Parameter sweep optimization (restRoutes) ──────────────────────────────────
+
+// OptimizeStart starts a parameter sweep optimization (genetic/grid) over a strategy config.
+//
+// POST /api/v1/private/backtest/optimize
+func (b *BacktestAPI) OptimizeStart(ctx context.Context, body map[string]interface{}) (map[string]interface{}, error) {
+	data, err := b.h.post(ctx, "/api/v1/private/backtest/optimize", body)
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// OptimizeList lists optimization sweep runs.
+//
+// GET /api/v1/private/backtest/optimize
+func (b *BacktestAPI) OptimizeList(ctx context.Context) ([]interface{}, error) {
+	data, err := b.h.get(ctx, "/api/v1/private/backtest/optimize", nil)
+	if err != nil {
+		return nil, err
+	}
+	var v []interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// OptimizeStatus returns the status/progress of an optimization sweep run.
+//
+// GET /api/v1/private/backtest/optimize/:optRunId/status
+func (b *BacktestAPI) OptimizeStatus(ctx context.Context, optRunID string) (map[string]interface{}, error) {
+	data, err := b.h.get(ctx, fmt.Sprintf("/api/v1/private/backtest/optimize/%s/status", optRunID), nil)
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// OptimizeCancel cancels an in-progress optimization sweep.
+//
+// POST /api/v1/private/backtest/optimize/:optRunId/cancel
+func (b *BacktestAPI) OptimizeCancel(ctx context.Context, optRunID string) (map[string]interface{}, error) {
+	data, err := b.h.post(ctx, fmt.Sprintf("/api/v1/private/backtest/optimize/%s/cancel", optRunID), nil)
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// OptimizeApply applies the best params from a completed optimization sweep to a strategy.
+//
+// POST /api/v1/private/backtest/optimize/:optRunId/apply
+func (b *BacktestAPI) OptimizeApply(ctx context.Context, optRunID string, body map[string]interface{}) (map[string]interface{}, error) {
+	data, err := b.h.post(ctx, fmt.Sprintf("/api/v1/private/backtest/optimize/%s/apply", optRunID), body)
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 func (b *BacktestAPI) jobList(ctx context.Context, path string, limit, offset int) ([]interface{}, error) {

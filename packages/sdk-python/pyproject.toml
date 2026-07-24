@@ -4,24 +4,27 @@ build-backend = "hatchling.build"
 
 [project]
 name = "melaya"
-version = "0.1.4"
-description = "Official Python SDK for the Melaya unified market-data & streaming API across 70+ venues."
+version = "0.2.0"
+description = "Official SDK for Melaya Agent Builder and Mobile Device Control. Includes preview Melaya Trading namespaces that are not yet generally available."
 readme = "README.md"
 requires-python = ">=3.9"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "Melaya" }]
 keywords = [
     "melaya",
-    "trading",
-    "crypto",
-    "market-data",
-    "exchange",
-    "websocket",
-    "orderbook",
-    "ohlcv",
-    "ticker",
+    "ai-agents",
+    "device-control",
+    "agent-builder",
     "agentic-ai",
+    "mobile-agents",
+    "hitl",
+    "pipelines",
+    "agents",
     "sdk",
+    "trading",
+    "market-data",
+    "websocket",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -35,6 +38,7 @@ dependencies = ["httpx>=0.27"]
 
 [project.optional-dependencies]
 stream = ["websockets>=12"]
+dev = ["mypy>=1.8", "ruff>=0.4", "pytest>=8", "pytest-asyncio>=0.23"]
 
 [project.urls]
 Homepage = "https://melaya.org"
@@ -44,3 +48,12 @@ Issues = "https://github.com/melaya-labs/melaya/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/melaya"]
+
+[tool.mypy]
+python_version = "3.9"
+strict = false
+ignore_missing_imports = true
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120

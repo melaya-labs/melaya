@@ -10,7 +10,7 @@ import org.json.JSONObject
  * Safety: PAPER/SIM only (dryRun = true). Never places live orders.
  *
  * Usage:
- *   MK=mk_... MELAYA_INSECURE_TLS=1 java -jar build/libs/melaya-sdk-kotlin-0.1.0-all.jar
+ *   MK=mk_... gradle run
  *
  * Status values: PASS | FAIL | WIRED (not invoked) | SKIP (dependency failed)
  */

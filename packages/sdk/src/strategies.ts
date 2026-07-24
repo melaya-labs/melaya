@@ -112,4 +112,12 @@ export class StrategiesAPI {
   async aiOptRuns(strategyId: string): Promise<unknown> {
     return await this.http.get<unknown>(`/api/v1/strategies/${strategyId}/ai-opt/runs`);
   }
+
+  async listTeam(): Promise<Strategy[]> {
+    return this.http.get("/api/v1/private/strategies/team");
+  }
+
+  async summariesBulk(strategyIds: string[]): Promise<unknown[]> {
+    return this.http.post("/api/v1/private/strategies/summaries/bulk", { strategyIds });
+  }
 }

@@ -76,10 +76,15 @@ cd packages/sdk-php && composer install   # or rely on the bundled autoload.php
 MK=mk_... php e2e/smoke.php
 ```
 
-All nine SDKs expose the same surface (market data, account, paper + live
-trading, backtesting, and public + private streaming) and are validated by their
-e2e smoke. Live order-placement methods (`trade.createOrder`, `cancelOrder`, …)
-move real funds, so test with the paper `sim` broker or a `dryRun` strategy.
+All nine SDKs expose the same agents-first surface: authentication, projects,
+Connectors, credentials, pipelines, templates, Agent Builder tools, Device
+Control management, HITL, evaluations, events, billing, account operations,
+runner management, team management, MFA, the assistant, bug reports, and the
+memory graph — plus the trading plane (market data, streaming, strategies,
+backtesting, simulation, and live trading), which is **preview**. Each SDK is
+validated by its e2e smoke. Live order-placement methods (`trade.createOrder`,
+`cancelOrder`, …) move real funds, so test with the paper `sim` broker or a
+`dryRun` strategy.
 
 ## Pull requests
 

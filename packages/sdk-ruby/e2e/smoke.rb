@@ -7,7 +7,6 @@
 #   MK=mk_... ruby e2e/smoke.rb
 #
 # Reads the API key from ENV["MK"].
-# TLS verification is disabled via MELAYA_INSECURE_TLS=1 for dev-box interception.
 # PAPER/SIM ONLY — never places live orders, always cleans up created resources.
 #
 # WIRED (not invoked — intentionally skipped):
@@ -19,7 +18,6 @@ $LOAD_PATH.unshift(File.join(__dir__, "../lib"))
 require "melaya"
 require "timeout"
 
-ENV["MELAYA_INSECURE_TLS"] = "1"
 
 api_key = ENV["MK"]
 if api_key.nil? || api_key.empty?

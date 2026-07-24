@@ -14,15 +14,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 1. How many venues are live?
     let exchanges = m.market.list_exchanges().await?;
-    println!("exchanges: {}", exchanges.len());
+    println!("exchanges: {}", exchanges.as_array().map_or(0, |a| a.len()));
 
     // 2. Normalized REST ticker
     let t = m.market.ticker("binance", "BTC/USDT", Some("spot")).await?;
-    println!("BTC/USDT last={:?} bid={:?} ask={:?}", t.last, t.bid, t.ask);
+    println!("BTC/USDT last={} bid={} ask={}", t["last"], t["bid"], t["ask"]);
 
     // 3. Order book
     let book = m.market.orderbook("bybit", "BTC/USDT", Some("spot"), Some(5)).await?;
-    println!("top bid: {:?}  top ask: {:?}", book.bids.first(), book.asks.first());
+    println!("top bid: {}  top ask: {}", book["bids"][0], book["asks"][0]);
 
     // 4. Live stream -- print up to 3 ticker frames then stop
     let mut s = m.stream.ticker("binance", "BTC/USDT", Some("spot")).await?;
@@ -35,7 +35,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 5. Account -- connected keys + tier usage
     let keys = m.account.keys().await?;
-    println!("connected keys: {}", keys.len());
+    println!("connected keys: {}", keys.as_array().map_or(0, |a| a.len()));
     let usage = m.account.usage().await?;
     println!("tier: {}", usage["tier"]);
 
@@ -46,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "strategyType": "custom",            // custom Rhai definition
         "exchange": "binanceusdm", "symbol": "BTC/USDT:USDT", "market": "FUTURES",
         "dryRun": true,                       // dryRun:false + apiKeyId => REAL orders
-        "params": { "language": "rhai", "definition": "fn evaluate() { emit_long(param("qty")); }", "qty": 0.001 }
+        "params": { "language": "rhai", "definition": r#"fn evaluate() { emit_long(param("qty")); }"#, "qty": 0.001 }
     })).await?;
     let sid = created["strategyId"].as_str().unwrap();
     println!("launched paper strategy {sid}");
@@ -59,7 +59,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 7. Backtest on the Rust engine
     let bt = m.backtest.start(&json!({
         "strategyType": "custom", "exchange": "binance", "symbol": "BTC/USDT", "timeframe": "1h",
-        "language": "rhai", "definition": "fn evaluate() { emit_long(param("qty")); }", "params": { "qty": 0.001 }
+        "language": "rhai", "definition": r#"fn evaluate() { emit_long(param("qty")); }"#, "params": { "qty": 0.001 }
     })).await?;
     println!("backtest job {} started", bt["job_id"]);
     println!("done");

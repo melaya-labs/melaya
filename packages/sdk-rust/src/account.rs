@@ -6,6 +6,7 @@ use crate::client::HttpClient;
 use crate::error::Result;
 
 /// Account API — authenticated reads about your Melaya account.
+#[derive(Clone)]
 pub struct AccountAPI {
     http: HttpClient,
 }

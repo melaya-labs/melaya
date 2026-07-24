@@ -6,9 +6,13 @@ Keywords: crypto trading API, paper trading API, backtesting API, launch trading
 bot API, AI trading crew, agent_crew, human-in-the-loop trading, unified order API.
 -->
 
+> **Preview status:** Melaya Trading is planned for a later public release. This document describes preview surface that may change or remain unavailable; it is not a production-readiness statement and must not be used to operate real funds.
+
+> **Part of the Melaya Labs trading vertical (rolling out).** Melaya's core is the [agent builder + Device Control](./concepts.md) - build, run, and orchestrate multi-agent pipelines that operate software and devices. This page covers the trading-specific API surface built on that shared infrastructure. See [concepts.md](./concepts.md) for the base platform.
+
 # Trading & strategies
 
-The authenticated plane: **account, paper (sim) trading, live trading, backtesting, and launching strategies**, including [AI agentic trading crews](./agentic-trading.md). For market data and public streams, see [Market data & streaming](./market-data.md); for the venue catalog and schema, see [Exchanges](./exchanges.md).
+The authenticated plane for the Melaya Labs trading vertical: **account, paper (sim) trading, live trading, backtesting, and launching strategies**, including [AI agentic trading crews](./agentic-trading.md). For market data and public streams, see [Market data & streaming](./market-data.md); for the venue catalog and schema, see [Exchanges](./exchanges.md).
 
 The same `mk_` key (sent as `Authorization: Bearer mk_...`) unlocks this plane. **Reads, paper trading, and backtesting need only the key; live order placement and live strategy/crew launches additionally require a connected exchange key** (referenced by `apiKeyId`; see `account.keys()`). Connect exchange keys in the dashboard → **Settings → Connectors**.
 
@@ -30,9 +34,9 @@ Launch = create; paper or live.
 Two launchable `strategyType`s:
 
 - **`custom`** — a Rhai `evaluate()` script (deterministic, per-bar). The lightweight path for rule-based bots.
-- **`agent_crew`** — an autonomous multi-agent **trading crew** (Macro / TA / Quant / Sentiment / Risk / Portfolio / Execution personas). The full config rides in `params` (see [Launching a trading crew](#launching-a-trading-crew)). This is the flagship [AI agentic trading](./agentic-trading.md) capability, launchable straight from the API.
+- **`agent_crew`** — an autonomous multi-agent **trading crew** (Macro / TA / Quant / Sentiment / Risk / Portfolio / Execution personas). The full config rides in `params` (see [Launching a trading crew](#launching-a-trading-crew)). This is the [AI agentic trading](./agentic-trading.md) capability of the Melaya Labs vertical, launchable straight from the API.
 
-> **Approvals & HITL.** A live `agent_crew` gates **every order** through human-in-the-loop approval. Today those approvals are actioned in the Studio approval queue; a programmatic approvals API (receive request → approve / edit / reject) ships with the full agent API in **v2**. HITL is currently always-on for crews; opt-out for fully-autonomous live crews is on the roadmap.
+> **Approvals & HITL.** A live `agent_crew` gates **every order** through human-in-the-loop approval. Today those approvals are actioned in the Studio approval queue; a programmatic trading-approvals API (receive request → approve / edit / reject) is on the roadmap for this vertical. HITL is currently always-on for crews; opt-out for fully-autonomous live crews is on the roadmap.
 
 ## Backtesting
 
@@ -191,7 +195,7 @@ for await (const ev of await m.stream.strategies()) console.log(ev.type);
 - **Persona factories:** `make_macro_analyst`, `make_ta_analyst`, `make_quant`, `make_sentiment_analyst`, `make_risk_manager`, `make_portfolio_manager`, `make_execution_trader`.
 - **Validation (server-side):** `tools` must be on the trading allowlist, any local-model persona forces `runtimeMode: "local_runner"`, and `eventTriggers` expressions are sandboxed.
 
-The broader **agent-builder API** (arbitrary non-trading agents, pipelines, RAG, connectors) arrives in **v2**; today the public API launches `custom` and `agent_crew` strategies.
+The broader **agent-builder API** (arbitrary non-trading agents, pipelines, RAG, connectors, HITL) is live today - see the [Agent Builder](./agent-builder.md). This trading plane is where those same agents launch as `custom` and `agent_crew` strategies.
 
 ## Where next
 

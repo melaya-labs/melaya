@@ -2,7 +2,7 @@
 // Safety: paper/sim only. NEVER places a live order or launches a live strategy.
 //   - destructive/billable endpoints (backtest.deleteAll, strategies.aiOptStart,
 //     aiOptApprove) are WIRED-checked, not invoked, to avoid data loss / spend.
-// Run: MK=mk_... NODE_TLS_REJECT_UNAUTHORIZED=0 node smoke.mjs
+// Run: MK=mk_... node smoke.mjs
 import { pathToFileURL } from "node:url";
 const { Melaya, MelayaError } = await import(new URL("../dist/index.js", import.meta.url).href);
 

@@ -2,7 +2,6 @@ package org.melaya;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-import javax.net.ssl.SSLContext;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
@@ -14,23 +13,19 @@ import java.util.Map;
  * <p>Public streams authenticate with {@code ?apiKey=mk_...}. Private streams first
  * mint a short-lived ticket via {@code POST /api/v1/private/private-ticket}, then
  * open the socket with {@code ?wsTicket=...}.
- *
- * <p>TLS verification is disabled when {@code MELAYA_INSECURE_TLS=1}.
+ * TLS certificate and hostname verification always use the JVM trust store.
  */
 public class StreamAPI {
 
     private final String apiKey;
     private final String wsUrl;
     private final HttpClient http;
-    private final SSLContext sslContext;
 
     StreamAPI(String apiKey, String wsUrl, HttpClient http) {
         this.apiKey = apiKey;
         this.wsUrl = wsUrl.endsWith("/") ? wsUrl.substring(0, wsUrl.length() - 1) : wsUrl;
         this.http = http;
 
-        boolean insecure = "1".equals(System.getenv("MELAYA_INSECURE_TLS"));
-        this.sslContext = insecure ? HttpClient.trustAllSslContext() : null;
     }
 
     /** Live ticker frames. */
@@ -93,7 +88,7 @@ public class StreamAPI {
                 sb.append("&").append(encode(e.getKey())).append("=").append(encode(e.getValue()));
             }
         }
-        return new MelayaStream(sb.toString(), sslContext);
+        return new MelayaStream(sb.toString());
     }
 
     private MelayaStream openPrivate(String path, String stream, Map<String, Object> extra) {
@@ -103,7 +98,7 @@ public class StreamAPI {
         JsonNode resp = http.post("/api/v1/private/private-ticket", body);
         String ticket = resp.get("wsTicket").asText();
         String url = wsUrl + path + "?wsTicket=" + encode(ticket);
-        return new MelayaStream(url, sslContext);
+        return new MelayaStream(url);
     }
 
     private static Map<String, String> buildParams(String... kv) {

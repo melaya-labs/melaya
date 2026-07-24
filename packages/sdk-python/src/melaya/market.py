@@ -132,3 +132,29 @@ class MarketAPI:
     def catalog_counts(self) -> Dict[str, Any]:
         """Live platform catalog counts (agentic tools, subagents, by category). Public."""
         return self._request("GET", "/api/v1/public/catalog-counts")
+
+    # ── Market extras (from restRoutes.ts) ──────────────────────────────────
+
+    def cex_liquidations(self, **body: Any) -> Any:
+        """Get aggregated CEX liquidation data (POST /api/v1/private/market/liquidations)."""
+        return self._request("POST", "/api/v1/private/market/liquidations", json=body)
+
+    def mdd_pairs(self) -> Any:
+        """Get max-drawdown pairs list (public screener data). Public."""
+        return self._request("GET", "/api/v1/market/mdd-pairs")
+
+    def onchain_yields(self) -> Any:
+        """Get on-chain yield data (Forge+ tier)."""
+        return self._request("GET", "/api/v1/private/market/onchain-yields")
+
+    def onchain_liquidity(self) -> Any:
+        """Get on-chain liquidity data (Forge+ tier)."""
+        return self._request("GET", "/api/v1/private/market/onchain-liquidity")
+
+    def banner(self) -> Any:
+        """Get marketing/notification banner content. Public."""
+        return self._request("GET", "/api/v1/market/banner")
+
+    def price_history(self, **params: Any) -> Any:
+        """Get price history for chart display. Public."""
+        return self._request("GET", "/api/v1/market/price-history", params=params if params else None)

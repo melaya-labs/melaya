@@ -8,7 +8,7 @@ namespace Melaya;
  * Minimal synchronous RFC 6455 WebSocket client over a TLS stream socket.
  *
  * No external dependencies — uses stream_socket_client() with an ssl:// context.
- * TLS verification is disabled when MELAYA_INSECURE_TLS=1.
+ * TLS certificate and hostname verification are always enabled.
  *
  * Usage:
  *   $ws = new WsClient('wss://wss.melaya.org/ws/ticker?apiKey=mk_...');
@@ -80,12 +80,10 @@ class WsClient
 
     private function connect(): void
     {
-        $insecure = (getenv('MELAYA_INSECURE_TLS') === '1');
-
         $ctx = stream_context_create([
             'ssl' => [
-                'verify_peer'      => !$insecure,
-                'verify_peer_name' => !$insecure,
+                'verify_peer'      => true,
+                'verify_peer_name' => true,
             ],
         ]);
 

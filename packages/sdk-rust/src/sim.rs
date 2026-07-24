@@ -9,6 +9,7 @@ use crate::error::Result;
 ///
 /// Scoped to a strategy created with `dryRun: true`. No venue-side state
 /// ever changes; fills are synthesised from the live ticker tape.
+#[derive(Clone)]
 pub struct SimAPI {
     http: HttpClient,
 }
@@ -21,7 +22,10 @@ impl SimAPI {
     /// Paper accounts (one virtual wallet per paper strategy).
     pub async fn list_accounts(&self) -> Result<Value> {
         let q = HashMap::new();
-        let r = self.http.get("/api/v1/private/sim/list-accounts", &q).await?;
+        let r = self
+            .http
+            .get("/api/v1/private/sim/list-accounts", &q)
+            .await?;
         // May be a bare array or { accounts: [...] }
         if r.is_array() {
             Ok(r)
@@ -125,7 +129,9 @@ impl SimAPI {
             body["client_order_id"] = json!(v);
             body["clientOrderId"] = json!(v);
         }
-        self.http.post("/api/v1/private/sim/create-order", &body).await
+        self.http
+            .post("/api/v1/private/sim/create-order", &body)
+            .await
     }
 
     /// Cancel a resting paper order.
@@ -147,6 +153,8 @@ impl SimAPI {
         if let Some(v) = exchange {
             body["exchange"] = json!(v);
         }
-        self.http.post("/api/v1/private/sim/cancel-order", &body).await
+        self.http
+            .post("/api/v1/private/sim/cancel-order", &body)
+            .await
     }
 }

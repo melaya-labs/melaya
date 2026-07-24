@@ -180,7 +180,7 @@ func (m *MarketAPI) Tickers(ctx context.Context, body map[string]interface{}) (m
 	return env.Tickers, nil
 }
 
-// FundingRates returns the latest funding rates for perpetuals (keyed by symbol).
+// FundingRates returns the latest funding rates for perpetuals.
 func (m *MarketAPI) FundingRates(ctx context.Context, body map[string]interface{}) (map[string]interface{}, error) {
 	data, err := m.h.post(ctx, "/api/v1/market/funding-rates", body)
 	if err != nil {
@@ -210,7 +210,7 @@ func (m *MarketAPI) FundingRateHistory(ctx context.Context, body map[string]inte
 	return env.History, nil
 }
 
-// OpenInterest returns open interest for one or more perpetuals (keyed by symbol).
+// OpenInterest returns open interest for one or more perpetuals.
 func (m *MarketAPI) OpenInterest(ctx context.Context, body map[string]interface{}) (map[string]interface{}, error) {
 	data, err := m.h.post(ctx, "/api/v1/market/open-interest", body)
 	if err != nil {
@@ -268,8 +268,7 @@ func (m *MarketAPI) LiquidationEvents(ctx context.Context, body map[string]inter
 	return env.Events, nil
 }
 
-// OhlcvMulti returns multi-symbol OHLCV in one call (keyed by symbol). Each
-// value is a per-symbol object ({ ok, candles: [...] }), so it is kept flexible.
+// OhlcvMulti returns multi-symbol OHLCV in one call.
 func (m *MarketAPI) OhlcvMulti(ctx context.Context, body map[string]interface{}) (map[string]interface{}, error) {
 	data, err := m.h.post(ctx, "/api/v1/market/ohlcv-multi", body)
 	if err != nil {
@@ -299,7 +298,7 @@ func (m *MarketAPI) MarketConstraints(ctx context.Context, body map[string]inter
 	return env.Constraints, nil
 }
 
-// FundingRateHistoryMulti returns funding-rate history across venues (keyed by exchange).
+// FundingRateHistoryMulti returns funding-rate history across venues.
 func (m *MarketAPI) FundingRateHistoryMulti(ctx context.Context, body map[string]interface{}) (map[string]interface{}, error) {
 	data, err := m.h.post(ctx, "/api/v1/market/funding-rate-history-multi", body)
 	if err != nil {
@@ -314,7 +313,7 @@ func (m *MarketAPI) FundingRateHistoryMulti(ctx context.Context, body map[string
 	return env.PerExchange, nil
 }
 
-// OpenInterestHistoryMulti returns open-interest history across venues (keyed by exchange).
+// OpenInterestHistoryMulti returns open-interest history across venues.
 func (m *MarketAPI) OpenInterestHistoryMulti(ctx context.Context, body map[string]interface{}) (map[string]interface{}, error) {
 	data, err := m.h.post(ctx, "/api/v1/market/open-interest-history-multi", body)
 	if err != nil {
@@ -360,3 +359,94 @@ func (m *MarketAPI) CatalogCounts(ctx context.Context) (*CatalogCounts, error) {
 	return &v, nil
 }
 
+// Liquidations returns aggregated CEX liquidation data.
+//
+// POST /api/v1/private/market/liquidations
+func (m *MarketAPI) Liquidations(ctx context.Context, body map[string]interface{}) ([]Liquidation, error) {
+	data, err := m.h.post(ctx, "/api/v1/private/market/liquidations", body)
+	if err != nil {
+		return nil, err
+	}
+	var env struct {
+		Liquidations []Liquidation `json:"liquidations"`
+	}
+	if err := unmarshal(data, &env); err != nil {
+		return nil, err
+	}
+	return env.Liquidations, nil
+}
+
+// MddPairs returns the max-drawdown pairs list (public screener data).
+//
+// GET /api/v1/market/mdd-pairs (public)
+func (m *MarketAPI) MddPairs(ctx context.Context) ([]interface{}, error) {
+	data, err := m.h.get(ctx, "/api/v1/market/mdd-pairs", nil)
+	if err != nil {
+		return nil, err
+	}
+	var v []interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// OnchainYields returns on-chain yield data (Forge+ tier).
+//
+// GET /api/v1/private/market/onchain-yields
+func (m *MarketAPI) OnchainYields(ctx context.Context) ([]interface{}, error) {
+	data, err := m.h.get(ctx, "/api/v1/private/market/onchain-yields", nil)
+	if err != nil {
+		return nil, err
+	}
+	var v []interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// OnchainLiquidity returns on-chain liquidity data (Forge+ tier).
+//
+// GET /api/v1/private/market/onchain-liquidity
+func (m *MarketAPI) OnchainLiquidity(ctx context.Context) ([]interface{}, error) {
+	data, err := m.h.get(ctx, "/api/v1/private/market/onchain-liquidity", nil)
+	if err != nil {
+		return nil, err
+	}
+	var v []interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// Banner returns marketing/notification banner content.
+//
+// GET /api/v1/market/banner (public)
+func (m *MarketAPI) Banner(ctx context.Context) (map[string]interface{}, error) {
+	data, err := m.h.get(ctx, "/api/v1/market/banner", nil)
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// PriceHistory returns price history for chart display.
+//
+// GET /api/v1/market/price-history (public)
+func (m *MarketAPI) PriceHistory(ctx context.Context, q map[string]string) ([]interface{}, error) {
+	data, err := m.h.get(ctx, "/api/v1/market/price-history", q)
+	if err != nil {
+		return nil, err
+	}
+	var v []interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}

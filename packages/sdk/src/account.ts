@@ -26,6 +26,14 @@ export class AccountAPI {
     return await this.http.get<UsageSummary>("/api/v1/private/usage");
   }
 
+  /**
+   * @deprecated Use `melaya.agents.pipelines.usageSummary()` instead.
+   * Usage summary belongs on the agents/pipelines plane, not the trading/account plane.
+   */
+  async usageSummary(): Promise<Record<string, unknown>> {
+    return await this.http.get<Record<string, unknown>>("/api/v1/private/overview/usage");
+  }
+
   /** Status of your platform API key (tier, max concurrent connections). */
   async apiKeyStatus(): Promise<Record<string, unknown>> {
     return await this.http.get<Record<string, unknown>>("/api/v1/private/api-key");

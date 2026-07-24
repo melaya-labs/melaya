@@ -29,6 +29,7 @@
 /SECURITY.md         export-ignore
 /llms.txt            export-ignore
 /assets              export-ignore
+/benchmarks          export-ignore
 /data                export-ignore
 /docs                export-ignore
 /examples            export-ignore

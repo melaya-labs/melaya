@@ -1,6 +1,10 @@
+> **Part of the Melaya Labs trading vertical (rolling out).** Melaya's core is the [agent builder + Device Control](./concepts.md) - build, run, and orchestrate multi-agent pipelines that operate software and devices. The unified exchange API below is the market-data and execution layer for the trading vertical, built on the same shared infrastructure. See [concepts.md](./concepts.md) for the base platform.
+
+> **Preview status:** Melaya Trading is planned for a later public release. This document describes preview surface that may change or remain unavailable; it is not a production-readiness statement and must not be used to operate real funds.
+
 # Exchanges & the unified API
 
-Melaya exposes **one normalized REST + WebSocket API over 70+ venues**, backed by an in-house Rust engine. You write your integration once against the Melaya schema; the engine handles each venue's symbol formats, rate limits, settlement suffixes, funding intervals, and connection lifecycles.
+For the Melaya Labs trading vertical, Melaya exposes **one normalized REST + WebSocket API over 70+ venues**, backed by an in-house Rust engine. You write your integration once against the Melaya schema; the engine handles each venue's symbol formats, rate limits, settlement suffixes, funding intervals, and connection lifecycles.
 
 This page is the **venue catalog, the normalized schema, and authentication**. The endpoint reference is split across two companion pages:
 

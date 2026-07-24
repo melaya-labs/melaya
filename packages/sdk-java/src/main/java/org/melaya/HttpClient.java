@@ -3,23 +3,22 @@ package org.melaya;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
-import java.security.cert.X509Certificate;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Internal HTTP client. Injects {@code ?apiKey=} and {@code Authorization: Bearer} on every call.
- * TLS verification is disabled when the env var {@code MELAYA_INSECURE_TLS=1} is set.
+ * Internal HTTP client. Sends the API key ONLY as an {@code Authorization: Bearer}
+ * header on every call — never in the URL query string, so the key cannot leak
+ * into access logs, proxies, or referrer headers. TLS certificate and hostname
+ * verification always use the JVM trust configuration.
  */
 public class HttpClient {
 
@@ -33,74 +32,27 @@ public class HttpClient {
         this.apiKey = apiKey;
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
 
-        boolean insecure = "1".equals(System.getenv("MELAYA_INSECURE_TLS"));
-        if (insecure) {
-            this.http = buildInsecureClient();
-        } else {
-            this.http = java.net.http.HttpClient.newBuilder()
-                    .build();
-        }
+        this.http = java.net.http.HttpClient.newBuilder().build();
     }
 
-    /** Package-private: lets E2E pass its own pre-built HttpClient (for trust-all). */
-    HttpClient(String apiKey, String baseUrl, java.net.http.HttpClient httpClient) {
-        this.apiKey = apiKey;
-        this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
-        this.http = httpClient;
-    }
-
-    private static java.net.http.HttpClient buildInsecureClient() {
-        try {
-            SSLContext ctx = SSLContext.getInstance("TLS");
-            ctx.init(null, new TrustManager[]{
-                    new X509TrustManager() {
-                        public void checkClientTrusted(X509Certificate[] c, String a) {}
-                        public void checkServerTrusted(X509Certificate[] c, String a) {}
-                        public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
-                    }
-            }, new SecureRandom());
-            return java.net.http.HttpClient.newBuilder()
-                    .sslContext(ctx)
-                    .build();
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to build insecure TLS HttpClient", e);
-        }
-    }
-
-    /** Build a trust-all SSLContext (for external use, e.g. WebSocket). */
-    public static SSLContext trustAllSslContext() {
-        try {
-            SSLContext ctx = SSLContext.getInstance("TLS");
-            ctx.init(null, new TrustManager[]{
-                    new X509TrustManager() {
-                        public void checkClientTrusted(X509Certificate[] c, String a) {}
-                        public void checkServerTrusted(X509Certificate[] c, String a) {}
-                        public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
-                    }
-            }, new SecureRandom());
-            return ctx;
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to build trust-all SSLContext", e);
-        }
-    }
-
-    /** Builds a full URL with apiKey injected plus any additional query params. */
+    /** Builds a full URL with the given query params.
+     *
+     * SECURITY: the API key is NOT injected here. It travels only in the
+     * {@code Authorization: Bearer} header (set on every request below), so it
+     * can never leak into access logs, proxies, or referrer headers. */
     String buildUrl(String path, Map<String, Object> query) {
         StringBuilder sb = new StringBuilder(baseUrl);
         if (!path.startsWith("/")) sb.append("/");
         sb.append(path);
-        // Always include apiKey
         Map<String, Object> params = new LinkedHashMap<>();
-        params.put("apiKey", apiKey);
         if (query != null) {
             for (Map.Entry<String, Object> e : query.entrySet()) {
                 if (e.getValue() != null) params.put(e.getKey(), e.getValue());
             }
         }
-        sb.append("?");
         boolean first = true;
         for (Map.Entry<String, Object> e : params.entrySet()) {
-            if (!first) sb.append("&");
+            sb.append(first ? "?" : "&");
             sb.append(URLEncoder.encode(e.getKey(), StandardCharsets.UTF_8))
               .append("=")
               .append(URLEncoder.encode(String.valueOf(e.getValue()), StandardCharsets.UTF_8));
@@ -136,6 +88,40 @@ public class HttpClient {
         return execute(req);
     }
 
+    public JsonNode put(String path, Object body) {
+        String url = buildUrl(path, null);
+        String json;
+        try {
+            json = body == null ? "" : MAPPER.writeValueAsString(body);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize request body", e);
+        }
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Authorization", "Bearer " + apiKey)
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
+                .build();
+        return execute(req);
+    }
+
+    public JsonNode patch(String path, Object body) {
+        String url = buildUrl(path, null);
+        String json;
+        try {
+            json = body == null ? "" : MAPPER.writeValueAsString(body);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize request body", e);
+        }
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Authorization", "Bearer " + apiKey)
+                .header("Content-Type", "application/json")
+                .method("PATCH", HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
+                .build();
+        return execute(req);
+    }
+
     public JsonNode delete(String path, Map<String, Object> query) {
         String url = buildUrl(path, query);
         HttpRequest req = HttpRequest.newBuilder()
@@ -146,43 +132,103 @@ public class HttpClient {
         return execute(req);
     }
 
+    /** Per-request timeout in milliseconds (default 30 s). */
+    static final long REQUEST_TIMEOUT_MS = 30_000;
+
+    /**
+     * Max retries for idempotent GET requests on network error / 429 / 5xx.
+     * Non-GET methods are never retried.
+     */
+    private static final int MAX_GET_RETRIES = 2;
+
+    /** Base backoff for retries (ms). Actual delay = base * 2^attempt + jitter(0..200 ms). */
+    private static final long RETRY_BASE_MS = 500;
+
     private JsonNode execute(HttpRequest req) {
-        try {
-            HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            String body = resp.body();
-            JsonNode data = null;
-            if (body != null && !body.isBlank()) {
-                try {
-                    data = MAPPER.readTree(body);
-                } catch (Exception e) {
-                    // not JSON; wrap as text node
-                    data = MAPPER.getNodeFactory().textNode(body);
+        boolean isGet = req.method().equalsIgnoreCase("GET");
+        int maxRetries = isGet ? MAX_GET_RETRIES : 0;
+        IOException lastIoEx = null;
+
+        // Rebuild the request with a per-request timeout.
+        req = HttpRequest.newBuilder(req, (k, v) -> true)
+                .timeout(Duration.ofMillis(REQUEST_TIMEOUT_MS))
+                .build();
+
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                int status = resp.statusCode();
+                String rawBody = resp.body();
+                JsonNode data = null;
+                if (rawBody != null && !rawBody.isBlank()) {
+                    try {
+                        data = MAPPER.readTree(rawBody);
+                    } catch (Exception e) {
+                        // not JSON; wrap as text node
+                        data = MAPPER.getNodeFactory().textNode(rawBody);
+                    }
                 }
-            }
-            int status = resp.statusCode();
-            if (status >= 400) {
-                String code = null;
-                if (data != null && data.isObject() && data.has("error")) {
-                    code = data.get("error").asText(null);
+                // Retry GET on 429 or 5xx (bounded, with Retry-After support)
+                if (isGet && (status == 429 || status >= 500) && attempt < maxRetries) {
+                    long delay = backoffDelay(attempt);
+                    String retryAfter = resp.headers().firstValue("Retry-After").orElse(null);
+                    if (retryAfter != null) {
+                        try { delay = Long.parseLong(retryAfter.trim()) * 1000L; } catch (NumberFormatException ignored) {}
+                    }
+                    sleep(delay, req);
+                    continue;
                 }
-                throw new MelayaException(
-                        "Melaya API " + status + (code != null ? " (" + code + ")" : ""),
-                        status, code, data);
-            }
-            // Check ok: false envelope
-            if (data != null && data.isObject()) {
-                JsonNode okNode = data.get("ok");
-                if (okNode != null && okNode.isBoolean() && !okNode.asBoolean()) {
-                    String code = data.has("error") ? data.get("error").asText(null) : null;
+                if (status >= 400) {
+                    String code = null;
+                    String message = null;
+                    if (data != null && data.isObject()) {
+                        if (data.has("error")) code = data.get("error").asText(null);
+                        if (data.has("message")) message = data.get("message").asText(null);
+                    }
+                    // Never surface the raw auth header in exceptions
+                    String detail = code != null ? " (" + code + ")" : (message != null ? " (" + message + ")" : "");
                     throw new MelayaException(
-                            "Melaya API request failed" + (code != null ? ": " + code : ""),
+                            "Melaya API " + status + detail,
                             status, code, data);
                 }
+                // Check ok: false envelope
+                if (data != null && data.isObject()) {
+                    JsonNode okNode = data.get("ok");
+                    if (okNode != null && okNode.isBoolean() && !okNode.asBoolean()) {
+                        String code = data.has("error") ? data.get("error").asText(null) : null;
+                        throw new MelayaException(
+                                "Melaya API request failed" + (code != null ? ": " + code : ""),
+                                status, code, data);
+                    }
+                }
+                return data;
+            } catch (MelayaException me) {
+                throw me; // never retry business-logic errors
+            } catch (IOException e) {
+                lastIoEx = e;
+                if (isGet && attempt < maxRetries) {
+                    sleep(backoffDelay(attempt), req);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("HTTP request interrupted: " + req.uri(), e);
             }
-            return data;
-        } catch (IOException | InterruptedException e) {
+        }
+        throw new RuntimeException(
+                "HTTP request failed after " + maxRetries + " retries: " + req.uri(), lastIoEx);
+    }
+
+    /** Exponential backoff with up to 200 ms of random jitter. */
+    private static long backoffDelay(int attempt) {
+        long base = RETRY_BASE_MS * (1L << attempt); // 500, 1000
+        long jitter = ThreadLocalRandom.current().nextLong(0, 200);
+        return base + jitter;
+    }
+
+    private static void sleep(long ms, HttpRequest req) {
+        try { Thread.sleep(ms); } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException("HTTP request failed: " + req.uri(), e);
+            throw new RuntimeException("HTTP retry interrupted: " + req.uri(), ie);
         }
     }
 

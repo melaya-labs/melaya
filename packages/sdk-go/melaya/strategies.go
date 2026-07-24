@@ -221,6 +221,40 @@ func (s *StrategiesAPI) AIOptRuns(ctx context.Context, strategyID string) (inter
 	return v, nil
 }
 
+// ── Team + summary (restRoutes) ───────────────────────────────────────────────
+
+// ListTeam lists strategies visible to the caller's team project.
+//
+// GET /api/v1/private/strategies/team
+func (s *StrategiesAPI) ListTeam(ctx context.Context) ([]Strategy, error) {
+	data, err := s.h.get(ctx, "/api/v1/private/strategies/team", nil)
+	if err != nil {
+		return nil, err
+	}
+	var v []Strategy
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// SummariesBulk bulk-fetches lightweight summaries for a list of strategy IDs.
+//
+// POST /api/v1/private/strategies/summaries/bulk
+func (s *StrategiesAPI) SummariesBulk(ctx context.Context, ids []string) ([]map[string]interface{}, error) {
+	data, err := s.h.post(ctx, "/api/v1/private/strategies/summaries/bulk", map[string]interface{}{
+		"ids": ids,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var v []map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 func (s *StrategiesAPI) simplePost(ctx context.Context, path string) (map[string]interface{}, error) {
@@ -248,4 +282,3 @@ func (s *StrategiesAPI) rowsGet(ctx context.Context, path string) ([]interface{}
 	}
 	return env.Rows, nil
 }
-

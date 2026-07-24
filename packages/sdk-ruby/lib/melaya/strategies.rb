@@ -151,5 +151,20 @@ module Melaya
     def ai_opt_runs(strategy_id)
       @http.get("/api/v1/strategies/#{strategy_id}/ai-opt/runs")
     end
+
+    # ── restRoutes.ts strategies endpoints ────────────────────────────────────
+
+    # GET /api/v1/private/strategies/team
+    # List strategies visible to the caller's team project.
+    def list_team
+      @http.get("/api/v1/private/strategies/team")
+    end
+
+    # POST /api/v1/private/strategies/summaries/bulk
+    # Bulk-fetch lightweight summaries for a list of strategy IDs.
+    # @param strategy_ids [Array<String>]
+    def summaries_bulk(strategy_ids)
+      @http.post("/api/v1/private/strategies/summaries/bulk", "strategyIds" => strategy_ids)
+    end
   end
 end

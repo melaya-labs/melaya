@@ -1,10 +1,12 @@
-//! Melaya Rust SDK — full end-to-end smoke test.
+//! Melaya Rust SDK — trading-plane end-to-end smoke test.
 //!
-//! Exercises EVERY method in every category (~70 checks).
+//! Exercises the trading-plane surface only (market, account, strategies,
+//! sim, backtest, streams — ~70 checks). Agent Builder, Device Control, and
+//! platform namespaces are not covered here.
 //! PAPER/SIM ONLY — never places a live order, never creates a live strategy.
 //!
 //! Run:
-//!   MK=mk_... MELAYA_INSECURE_TLS=1 cargo run --example e2e
+//!   MK=mk_... cargo run --example e2e
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -25,17 +27,17 @@ enum Status {
 impl Status {
     fn label(self) -> &'static str {
         match self {
-            Status::Pass  => "PASS ",
-            Status::Fail  => "FAIL ",
+            Status::Pass => "PASS ",
+            Status::Fail => "FAIL ",
             Status::Wired => "WIRED",
-            Status::Skip  => "SKIP ",
+            Status::Skip => "SKIP ",
         }
     }
 }
 
 struct Record {
-    cat:    &'static str,
-    name:   &'static str,
+    cat: &'static str,
+    name: &'static str,
     status: Status,
     detail: String,
 }
@@ -47,7 +49,10 @@ struct Harness {
 
 impl Harness {
     fn new() -> Self {
-        Self { records: Vec::new(), current_cat: "" }
+        Self {
+            records: Vec::new(),
+            current_cat: "",
+        }
     }
 
     fn section(&mut self, cat: &'static str) {
@@ -103,10 +108,10 @@ impl Harness {
         let mut skip = 0u32;
         for r in &self.records {
             match r.status {
-                Status::Pass  => pass  += 1,
-                Status::Fail  => fail  += 1,
+                Status::Pass => pass += 1,
+                Status::Fail => fail += 1,
                 Status::Wired => wired += 1,
-                Status::Skip  => skip  += 1,
+                Status::Skip => skip += 1,
             }
         }
         (pass, fail, wired, skip)
@@ -153,11 +158,7 @@ where
 // ── stream check ──────────────────────────────────────────────────────────
 
 /// Open a stream, wait up to 10 s for the first frame, then close.
-async fn stream_chk<F, Fut>(
-    h: &mut Harness,
-    name: &'static str,
-    mk: F,
-)
+async fn stream_chk<F, Fut>(h: &mut Harness, name: &'static str, mk: F)
 where
     F: FnOnce() -> Fut,
     Fut: std::future::Future<Output = Result<melaya::MelayaStream, melaya::MelayaError>>,
@@ -166,8 +167,8 @@ where
         Err(e) => h.fail(name, format!("open error: {e}")),
         Ok(mut s) => match timeout(Duration::from_secs(10), s.recv()).await {
             Ok(Some(frame)) => h.pass(name, format!("frame {}", json_short(&frame))),
-            Ok(None)        => h.fail(name, "stream closed with no frame"),
-            Err(_)          => {
+            Ok(None) => h.fail(name, "stream closed with no frame"),
+            Err(_) => {
                 // timed out — if the socket opened, treat as partial pass (server
                 // may not push until there is activity, but the connection works)
                 h.pass(name, "open, no frame within 10s (connection ok)")
@@ -204,17 +205,31 @@ async fn main() {
 
     // ticker (retry)
     let tick_r = with_retry(|| m.market.ticker("binance", "BTC/USDT", Some("spot"))).await;
-    let last_px = tick_r.as_ref().ok().and_then(|v| v["last"].as_f64()).unwrap_or(0.0);
-    h.record_result("ticker", tick_r, |v| v["last"].as_f64().is_some() || v["bid"].as_f64().is_some());
+    let last_px = tick_r
+        .as_ref()
+        .ok()
+        .and_then(|v| v["last"].as_f64())
+        .unwrap_or(0.0);
+    h.record_result("ticker", tick_r, |v| {
+        v["last"].as_f64().is_some() || v["bid"].as_f64().is_some()
+    });
 
     // orderbook (retry)
-    let ob = with_retry(|| m.market.orderbook("binance", "BTC/USDT", Some("spot"), Some(5))).await;
+    let ob = with_retry(|| {
+        m.market
+            .orderbook("binance", "BTC/USDT", Some("spot"), Some(5))
+    })
+    .await;
     h.record_result("orderbook", ob, |v| {
         v["bids"].as_array().map(|a| !a.is_empty()).unwrap_or(false)
     });
 
     // ohlcv (retry)
-    let candles = with_retry(|| m.market.ohlcv("binance", "BTC/USDT", "1h", Some("spot"), Some(10))).await;
+    let candles = with_retry(|| {
+        m.market
+            .ohlcv("binance", "BTC/USDT", "1h", Some("spot"), Some(10))
+    })
+    .await;
     h.record_result("ohlcv", candles, arr_ge(1));
 
     // trades (retry)
@@ -242,19 +257,35 @@ async fn main() {
     h.record_result("tickers", ticks, is_obj);
 
     // fundingRates (retry) — perp venue
-    let fr = with_retry(|| m.market.funding_rates("binanceusdm", &["BTC/USDT:USDT"], None)).await;
+    let fr = with_retry(|| {
+        m.market
+            .funding_rates("binanceusdm", &["BTC/USDT:USDT"], None)
+    })
+    .await;
     h.record_result("fundingRates", fr, is_obj);
 
     // fundingRateHistory (retry)
-    let frh = with_retry(|| m.market.funding_rate_history("binanceusdm", "BTC/USDT:USDT", Some(24), None)).await;
+    let frh = with_retry(|| {
+        m.market
+            .funding_rate_history("binanceusdm", "BTC/USDT:USDT", Some(24), None)
+    })
+    .await;
     h.record_result("fundingRateHistory", frh, arr_ge(1));
 
     // openInterest (retry)
-    let oi = with_retry(|| m.market.open_interest("binanceusdm", &["BTC/USDT:USDT"], None)).await;
+    let oi = with_retry(|| {
+        m.market
+            .open_interest("binanceusdm", &["BTC/USDT:USDT"], None)
+    })
+    .await;
     h.record_result("openInterest", oi, is_obj);
 
     // openInterestHistory (retry)
-    let oih = with_retry(|| m.market.open_interest_history("binanceusdm", "BTC/USDT:USDT", Some(24), None)).await;
+    let oih = with_retry(|| {
+        m.market
+            .open_interest_history("binanceusdm", "BTC/USDT:USDT", Some(24), None)
+    })
+    .await;
     h.record_result("openInterestHistory", oih, arr_ge(1));
 
     // instruments
@@ -262,23 +293,52 @@ async fn main() {
     h.record_result("instruments", ins, is_obj);
 
     // liquidationEvents
-    let liq = m.market.liquidation_events(Some("binanceusdm"), None, None, Some(10)).await;
+    let liq = m
+        .market
+        .liquidation_events(Some("binanceusdm"), None, None, Some(10))
+        .await;
     h.record_result("liquidationEvents", liq, |v| v.is_array());
 
     // ohlcvMulti (retry)
-    let om = with_retry(|| m.market.ohlcv_multi("binance", &["BTC/USDT", "ETH/USDT"], "1h", Some(5), Some("spot"))).await;
+    let om = with_retry(|| {
+        m.market.ohlcv_multi(
+            "binance",
+            &["BTC/USDT", "ETH/USDT"],
+            "1h",
+            Some(5),
+            Some("spot"),
+        )
+    })
+    .await;
     h.record_result("ohlcvMulti", om, is_obj);
 
     // marketConstraints
-    let mc = m.market.market_constraints("binanceusdm", "BTC/USDT:USDT", None).await;
+    let mc = m
+        .market
+        .market_constraints("binanceusdm", "BTC/USDT:USDT", None)
+        .await;
     h.record_result("marketConstraints", mc, |v| !v.is_null());
 
     // fundingRateHistoryMulti (retry)
-    let frhm = with_retry(|| m.market.funding_rate_history_multi(&["binanceusdm", "bybitlinear"], "BTC/USDT:USDT", Some(24))).await;
+    let frhm = with_retry(|| {
+        m.market.funding_rate_history_multi(
+            &["binanceusdm", "bybitlinear"],
+            "BTC/USDT:USDT",
+            Some(24),
+        )
+    })
+    .await;
     h.record_result("fundingRateHistoryMulti", frhm, is_obj);
 
     // openInterestHistoryMulti (retry)
-    let oihm = with_retry(|| m.market.open_interest_history_multi(&["binanceusdm", "bybitlinear"], "BTC/USDT:USDT", Some(24))).await;
+    let oihm = with_retry(|| {
+        m.market.open_interest_history_multi(
+            &["binanceusdm", "bybitlinear"],
+            "BTC/USDT:USDT",
+            Some(24),
+        )
+    })
+    .await;
     h.record_result("openInterestHistoryMulti", oihm, is_obj);
 
     // predictionMarkets (retry)
@@ -287,7 +347,9 @@ async fn main() {
 
     // catalogCounts
     let cc = m.market.catalog_counts().await;
-    h.record_result("catalogCounts", cc, |v| v["tools"].as_u64().unwrap_or(0) > 0);
+    h.record_result("catalogCounts", cc, |v| {
+        v["tools"].as_u64().unwrap_or(0) > 0
+    });
 
     // ════════════════════════════════════════════════════════════════════════
     // 2. ACCOUNT (3)
@@ -325,7 +387,9 @@ async fn main() {
 
     if let Some(ref sid) = read_sid {
         let got = m.strategies.get(sid).await;
-        h.record_result("get", got, |v| v["strategyId"].as_str().is_some() || v.is_object());
+        h.record_result("get", got, |v| {
+            v["strategyId"].as_str().is_some() || v.is_object()
+        });
 
         let sts = m.strategies.status(sid).await;
         h.record_result("status", sts, is_obj);
@@ -348,7 +412,16 @@ async fn main() {
         let aior = m.strategies.ai_opt_runs(sid).await;
         h.record_result("aiOptRuns", aior, |v| !v.is_null());
     } else {
-        for name in ["get", "status", "executions", "trades", "performance", "logs", "aiOptStatus", "aiOptRuns"] {
+        for name in [
+            "get",
+            "status",
+            "executions",
+            "trades",
+            "performance",
+            "logs",
+            "aiOptStatus",
+            "aiOptRuns",
+        ] {
             h.skip(name, "no existing strategy from list");
         }
     }
@@ -379,7 +452,9 @@ async fn main() {
         .ok()
         .and_then(|v| v["strategyId"].as_str())
         .map(str::to_owned);
-    h.record_result("create(custom,paper)", created, |v| v["ok"] == json!(true) && v["strategyId"].is_string());
+    h.record_result("create(custom,paper)", created, |v| {
+        v["ok"] == json!(true) && v["strategyId"].is_string()
+    });
 
     if let Some(ref sid) = paper_sid {
         let paused = m.strategies.pause(sid).await;
@@ -388,7 +463,10 @@ async fn main() {
         let resumed = m.strategies.resume(sid).await;
         h.record_result("resume", resumed, |v| v["ok"] == json!(true));
 
-        let updated = m.strategies.update_params(sid, &json!({ "fast": 8, "slow": 20 })).await;
+        let updated = m
+            .strategies
+            .update_params(sid, &json!({ "fast": 8, "slow": 20 }))
+            .await;
         h.record_result("updateParams", updated, |v| v["ok"] == json!(true));
 
         let aiostop = m.strategies.ai_opt_stop(sid).await;
@@ -400,7 +478,10 @@ async fn main() {
     }
 
     // billable / side-effecting — wired only
-    h.wired("aiOptStart",   "not invoked (would start a billed optimization)");
+    h.wired(
+        "aiOptStart",
+        "not invoked (would start a billed optimization)",
+    );
     h.wired("aiOptApprove", "not invoked (applies optimizer output)");
 
     // ════════════════════════════════════════════════════════════════════════
@@ -410,7 +491,9 @@ async fn main() {
 
     if let Some(ref sid) = paper_sid {
         let bal = m.sim.balance(sid, None).await;
-        h.record_result("balance", bal, |v| v["total"].as_f64().is_some() || v.is_object());
+        h.record_result("balance", bal, |v| {
+            v["total"].as_f64().is_some() || v.is_object()
+        });
 
         let pos = m.sim.positions(sid).await;
         h.record_result("positions", pos, |v| v.is_array());
@@ -425,39 +508,55 @@ async fn main() {
         let px = if last_px > 0.0 { last_px } else { 60000.0 };
         let limit_price = (px * 0.5).round();
 
-        let ord = m.sim.create_order(
-            sid,
-            "binanceusdm",
-            "BTC/USDT:USDT",
-            "buy",
-            0.001,
-            Some("limit"),
-            Some(limit_price),
-            Some("FUTURES"),
-            None,
-            None,
-            None,
-            None,
-            None,
-        ).await;
+        let ord = m
+            .sim
+            .create_order(
+                sid,
+                "binanceusdm",
+                "BTC/USDT:USDT",
+                "buy",
+                0.001,
+                Some("limit"),
+                Some(limit_price),
+                Some("FUTURES"),
+                None,
+                None,
+                None,
+                None,
+                None,
+            )
+            .await;
         let order_id: Option<String> = ord
             .as_ref()
             .ok()
             .and_then(|v| v["order_id"].as_str())
             .map(str::to_owned);
-        h.record_result("createOrder(limit,resting)", ord, |v| v["order_id"].is_string());
+        h.record_result("createOrder(limit,resting)", ord, |v| {
+            v["order_id"].is_string()
+        });
 
         let oo = m.sim.open_orders(sid).await;
         h.record_result("openOrders", oo, |v| v.is_array());
 
         if let Some(ref oid) = order_id {
-            let cancel = m.sim.cancel_order(sid, oid, Some("BTC/USDT:USDT"), Some("binanceusdm")).await;
+            let cancel = m
+                .sim
+                .cancel_order(sid, oid, Some("BTC/USDT:USDT"), Some("binanceusdm"))
+                .await;
             h.record_result("cancelOrder", cancel, is_obj);
         } else {
             h.skip("cancelOrder", "no resting order id");
         }
     } else {
-        for name in ["balance", "positions", "listAccounts", "myTrades", "createOrder(limit,resting)", "openOrders", "cancelOrder"] {
+        for name in [
+            "balance",
+            "positions",
+            "listAccounts",
+            "myTrades",
+            "createOrder(limit,resting)",
+            "openOrders",
+            "cancelOrder",
+        ] {
             h.skip(name, "no paper sid");
         }
     }
@@ -520,11 +619,11 @@ async fn main() {
             h.record_result("trades", bttrades, |v| v.is_array());
         } else {
             h.skip("results", format!("job status: {bt_status}"));
-            h.skip("trades",  format!("job status: {bt_status}"));
+            h.skip("trades", format!("job status: {bt_status}"));
         }
     } else {
         h.skip("results", "start failed");
-        h.skip("trades",  "start failed");
+        h.skip("trades", "start failed");
     }
 
     // list
@@ -536,7 +635,10 @@ async fn main() {
     h.record_result("favorites", favs, |v| v.is_array());
 
     // fundingRange
-    let fr_range = m.backtest.funding_range("binanceusdm", "BTC/USDT:USDT").await;
+    let fr_range = m
+        .backtest
+        .funding_range("binanceusdm", "BTC/USDT:USDT")
+        .await;
     h.record_result("fundingRange", fr_range, |v| v.is_null() || v.is_number());
 
     // start(grid_sweep) — custom strategy, paramRanges
@@ -607,33 +709,54 @@ async fn main() {
         }
 
         let deleted = m.backtest.delete(jid).await;
-        h.record_result("delete", deleted, |v| v["ok"] == json!(true) || v.is_object());
+        h.record_result("delete", deleted, |v| {
+            v["ok"] == json!(true) || v.is_object()
+        });
     } else {
         h.skip("cancel", "no cancel job");
         h.skip("delete", "no cancel job");
     }
 
     // deleteAll is destructive — wired only
-    h.wired("deleteAll", "not invoked (soft-deletes ALL non-favorited jobs)");
+    h.wired(
+        "deleteAll",
+        "not invoked (soft-deletes ALL non-favorited jobs)",
+    );
 
     // ════════════════════════════════════════════════════════════════════════
     // 7. STREAMS — public (5) + private (2)
     // ════════════════════════════════════════════════════════════════════════
     h.section("stream");
 
-    stream_chk(&mut h, "ticker",    || m.stream.ticker("binance", "BTC/USDT", Some("spot"))).await;
-    stream_chk(&mut h, "orderbook", || m.stream.orderbook("binance", "BTC/USDT", Some("spot"), Some(10))).await;
-    stream_chk(&mut h, "ohlcv",     || m.stream.ohlcv("binance", "BTC/USDT", "1m", Some("spot"))).await;
-    stream_chk(&mut h, "trades",    || m.stream.trades("binance", "BTC/USDT", Some("spot"))).await;
-    stream_chk(&mut h, "liquidations", || m.stream.liquidations(Some("binanceusdm"))).await;
+    stream_chk(&mut h, "ticker", || {
+        m.stream.ticker("binance", "BTC/USDT", Some("spot"))
+    })
+    .await;
+    stream_chk(&mut h, "orderbook", || {
+        m.stream
+            .orderbook("binance", "BTC/USDT", Some("spot"), Some(10))
+    })
+    .await;
+    stream_chk(&mut h, "ohlcv", || {
+        m.stream.ohlcv("binance", "BTC/USDT", "1m", Some("spot"))
+    })
+    .await;
+    stream_chk(&mut h, "trades", || {
+        m.stream.trades("binance", "BTC/USDT", Some("spot"))
+    })
+    .await;
+    stream_chk(&mut h, "liquidations", || {
+        m.stream.liquidations(Some("binanceusdm"))
+    })
+    .await;
 
     // private: strategies feed
     stream_chk(&mut h, "strategies(private)", || m.stream.strategies()).await;
 
     // private: account feed — use the first connected key if any
     if let Some(ref key) = qkey {
-        let exchange  = key["exchange"].as_str().unwrap_or("binanceusdm").to_owned();
-        let market    = key["market"].as_str().map(str::to_owned);
+        let exchange = key["exchange"].as_str().unwrap_or("binanceusdm").to_owned();
+        let market = key["market"].as_str().map(str::to_owned);
         let api_key_id = key["apiKeyId"].as_str().map(str::to_owned);
         stream_chk(&mut h, "private(account)", || {
             m.stream.private(
@@ -643,7 +766,8 @@ async fn main() {
                 None,
                 None,
             )
-        }).await;
+        })
+        .await;
     } else {
         h.skip("private(account)", "no connected exchange key");
     }
@@ -660,7 +784,7 @@ async fn main() {
         let deleted = m.strategies.delete(sid).await;
         h.record_result("strategies.delete", deleted, |v| v["ok"] == json!(true));
     } else {
-        h.skip("strategies.stop",   "no paper sid");
+        h.skip("strategies.stop", "no paper sid");
         h.skip("strategies.delete", "no paper sid");
     }
 

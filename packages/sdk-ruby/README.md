@@ -1,10 +1,13 @@
 # melaya
 
-Official Ruby SDK for the **[Melaya](https://melaya.org)** trading platform — normalized market data, paper + live trading, backtesting, and an AI agentic trading crew across **70+ venues**, powered by an in-house Rust engine.
+> **Current production scope:** Agent Builder and Mobile Device Control are available now. Melaya Trading namespaces are preview-only and not generally available; do not use them with real funds.
+
+Official SDK for the **[Melaya](https://melaya.org)** Agent Builder and flagship Mobile Device Control APIs. Trading namespaces are included only as a preview of a later product.
 
 - Zero runtime gem dependencies (stdlib `net/http`, `openssl`, `json` only).
+- Full Agent Builder lifecycle: projects, pipelines, templates, Connectors, HITL, evals, events, billing, team, and runner management.
+- Catalogs of **1,500+ scoped tools**, **100+ specialized subagents**, and **20+ model providers** (runtime catalog endpoints are the source of truth).
 - Pure Ruby WebSocket client (RFC 6455) — no external gem required for streaming.
-- Full market data, strategies, sim trading, backtesting, and streaming from one client.
 
 ## Install
 
@@ -20,7 +23,66 @@ Or once published to RubyGems:
 gem install melaya
 ```
 
-## Quick start
+## Agent Builder & Device Control
+
+### Quick start: pair a phone
+
+```ruby
+require "melaya"
+
+melaya = Melaya::Client.new(api_key: ENV["MELAYA_API_KEY"])  # keys are prefixed mk_
+
+pairing = melaya.agents.phone.pair
+puts "Pairing code: #{pairing["code"]} (expires in #{pairing["expiresInSeconds"]}s)"
+# Enter the code in the Melaya APK on the phone
+
+devices = melaya.agents.phone.list_devices
+apps    = melaya.agents.phone.list_apps
+
+melaya.agents.phone.set_allowed_apps(["com.android.chrome"])
+```
+
+A Melaya platform key is required. "No app API required" means Device Control operates the target app through its user interface; it does not mean the Melaya SDK is unauthenticated.
+
+### Quick start: run an agent pipeline
+
+Configure provider credentials through Melaya Connectors first. Never include a provider key in pipeline configuration or per-run overrides.
+
+```ruby
+melaya.agents.pipelines.create(
+  name:    "mobile-review",
+  project: "Operations",
+  model_provider: "anthropic",
+  model_name:     "claude-sonnet-4-6",
+  agents: [{
+    "name"        => "mobile-operator",
+    "role"        => "Careful mobile operator",
+    "instruction" => "Read before acting. Never send, publish, or delete.",
+    "agent_tools" => [
+      "phone_get_screen_tree",
+      "phone_current_app",
+      "phone_open_app",
+      "phone_click_text",
+      "phone_back",
+      "phone_wait"
+    ]
+  }],
+  steps: [{ "kind" => "agent", "agent" => { "name" => "mobile-operator" } }],
+  maxCostUsd: 1.00
+)
+
+run    = melaya.agents.pipelines.run("mobile-review", project: "Operations")
+run_id = run["run_id"]
+
+melaya.agents.phone.register_active_run(run_id)
+
+status = melaya.agents.pipelines.run_status("mobile-review", run_id)
+
+# Real-time run events over Socket.IO (connects lazily on first use)
+melaya.events.on_run_update(run_id) { |e| puts e["event_type"] }
+```
+
+## Trading quick start (preview)
 
 ```ruby
 require "melaya"
@@ -38,7 +100,7 @@ ob = melaya.market.orderbook(exchange: "bybit", symbol: "BTC/USDT", market: "spo
 candles = melaya.market.ohlcv(exchange: "okx", symbol: "ETH/USDT", timeframe: "1h", limit: 200)
 ```
 
-## Streaming
+## Streaming (preview)
 
 ```ruby
 # Live ticker (block form — closes when block returns)
@@ -54,7 +116,7 @@ melaya.stream.liquidations(exchange: "binance") do |ev|
 end
 ```
 
-## Trading
+## Trading (preview)
 
 ```ruby
 # Account: connected exchange keys and usage
@@ -126,21 +188,40 @@ melaya.strategies.delete(sid)
 
 ## Authentication
 
-Create an API key in the dashboard (**melaya.org → Settings → API Keys**). Keys are prefixed `mk_`; the SDK sends it automatically on every REST call and WebSocket connection.
+Create an API key in the dashboard (**melaya.org → Settings → API Keys**). Keys are prefixed `mk_`. Every REST call sends the key **only** as an `Authorization: Bearer mk_...` header — never in the URL query string. Public WebSocket market-data streams authenticate with `?apiKey=` in the `wss://` URL (server protocol); private WebSocket streams instead use a short-lived `?wsTicket=` that the SDK mints automatically.
 
 Public market-data and account/strategy reads work with the `mk_` key alone. **Live** order placement and live strategy launches additionally require a connected exchange key — connect one in **Settings → Connectors**, then reference it by `apiKeyId`. Paper trading and backtesting never touch a venue and need no exchange credentials.
 
-## TLS verification
-
-The SDK verifies TLS certificates by default. To disable on a dev box with TLS interception:
-
-```bash
-MELAYA_INSECURE_TLS=1 ruby your_script.rb
-```
-
-Or pass `verify_ssl: false` to the constructor. **Never disable TLS in production.**
-
 ## API surface
+
+### Agent Builder & platform (GA)
+
+| Area | Methods |
+|---|---|
+| Auth | `auth.login`, `verify_mfa`, `register`, `verify_signup`, `resend_verification`, `me`, `check`, `change_password`, `forgot_password`, `reset_password`, `mobile_handoff`, `permissions`, `refresh` |
+| MFA | `auth.mfa_status`, `mfa_setup`, `mfa_confirm` (also via `melaya.platform.mfa`) |
+| Projects | `projects.list`, `create`, `rename`, `runner_projects` |
+| Connectors | `connectors.connected_services`, `set`, `delete`, `env_handle`, `google_oauth_start` |
+| Credentials | `credentials.list`, `connected_services`, `get`, `set`, `delete`, `test`, `list_models`, plus operator-profile, OAuth, and RAG helpers |
+| Pipelines | `pipelines.create`, `get`, `update`, `delete_pipeline`, `list_pipelines`, `run`, `run_ids`, `run_status`, `cancel_run`, `outputs`, `output`, `preview_code`, `tools`, `subagents`, `instantiate_template`, `build_with_ai` |
+| Runs & traces | `pipelines.list`, `recent`, `count`, `traces`, `trace`, `trace_stats`, `delete_traces` |
+| Schedules | `pipelines.list_schedules`, `get_schedule`, `upsert_schedule`, `pause_schedule`, `resume_schedule` |
+| Overview | `pipelines.overview`, `model_prices`, `chart_data`, `cost_breakdown`, `server_version` |
+| Templates | `templates.list`, `list_global`, `list_validated`, `save`, `update`, `duplicate`, `delete`, `share`, `share_targets`, `list_assignments`, `assign(id, user_id:` \| `project_id:)`, `unassign(id, user_id:` \| `project_id:)` |
+| Phone | `phone.pair`, `list_devices`, `revoke_device`, `screen_tree`, `list_apps`, `set_allowed_apps`, `register_active_run` |
+| HITL | `hitl.pending`, `history`, `approve`, `reject`, `bulk_decide`, `run_tool_stats`, `run_tool_stats_by_agent`, `run_messages`, `run_tool_calls` |
+| Evals | `evals.list_runs`, `summary`, `run_detail`, `compare`, `memory_graph`, `run_memory`, `crew_memory`, `benchmarks` |
+| Events | `events.on_run_update`, `on_init_phase`, `on_project_event`, `on_hitl_approval`, `on_pipeline_created`, `on_pipeline_updated`, `on_pipeline_deleted`, `leave_run`, `leave_project`, `close` |
+| Billing | `billing.subscription`, `create_checkout`, `create_portal`, `plans`, `credits`, `ai_credits`, `portfolio_ideas_credits`, `risk_monitoring_credits` |
+| Accounts | `accounts.export_data`, `remove_key`, `update_profile` |
+| Runner | `runner.create_token`, `list_tokens`, `revoke_token` |
+| Team | `team.list_members`, `invite`, `create_invite_link`, `accept_invite`, `update_member_role`, `remove_member`, `get_pipeline_visibility`, `set_pipeline_visibility` |
+| Assistant | `assistant.get_profile`, `set_profile` |
+| Bugs | `bugs.create`, `list_mine`, `get`, `add_comment`, `list_notifications`, `mark_notifications_read` |
+
+Every area is also reachable through the domain namespaces: `melaya.agents.*` (pipelines/runs, hitl, assistant, phone, evals, models) and `melaya.platform.*` (projects, credentials, connectors, billing, team, templates, overview, runner, auth, mfa, accounts, bugs, events).
+
+### Trading (preview — not generally available)
 
 | Area | Methods |
 |---|---|

@@ -21,12 +21,12 @@ echo "BTC/USDT last={$t['last']} bid={$t['bid']} ask={$t['ask']}\n";
 $book = $m->market->orderbook('bybit', 'BTC/USDT', 5, 'spot');
 echo 'top bid: ' . json_encode($book['bids'][0]) . '  top ask: ' . json_encode($book['asks'][0]) . "\n";
 
-// 4. Live stream -- print 3 ticker frames then stop
-$n = 0;
+// 4. Live stream -- print up to 3 ticker frames then stop
 $stream = $m->stream->ticker('binance', 'BTC/USDT', 'spot');
-foreach ($stream->frames() as $frame) {
+for ($n = 0; $n < 3; $n++) {
+    $frame = $stream->readFrame();
+    if ($frame === null) break;
     echo "stream: {$frame['last']}\n";
-    if (++$n >= 3) break;
 }
 $stream->close();
 

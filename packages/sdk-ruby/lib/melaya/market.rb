@@ -147,6 +147,48 @@ module Melaya
       @http.get("/api/v1/public/catalog-counts")
     end
 
+    # ── restRoutes.ts market endpoints ──────────────────────────────────────────
+
+    # POST /api/v1/private/market/liquidations
+    # Get aggregated CEX liquidation data. (requireAuth)
+    # @param params [Hash] e.g. exchange, symbol, since_ms
+    def cex_liquidations(params = {})
+      @http.post("/api/v1/private/market/liquidations", params)
+    end
+
+    # GET /api/v1/market/mdd-pairs (public)
+    # Get max-drawdown pairs list (public screener data).
+    def mdd_pairs
+      @http.get("/api/v1/market/mdd-pairs")
+    end
+
+    # GET /api/v1/private/market/onchain-yields (Forge+ tier)
+    # Get on-chain yield data.
+    # @param params [Hash]
+    def onchain_yields(params = {})
+      @http.get("/api/v1/private/market/onchain-yields", params)
+    end
+
+    # GET /api/v1/private/market/onchain-liquidity (Forge+ tier)
+    # Get on-chain liquidity data.
+    # @param params [Hash]
+    def onchain_liquidity(params = {})
+      @http.get("/api/v1/private/market/onchain-liquidity", params)
+    end
+
+    # GET /api/v1/market/banner (public)
+    # Get marketing/notification banner content.
+    def banner
+      @http.get("/api/v1/market/banner")
+    end
+
+    # GET /api/v1/market/price-history (public)
+    # Get price history for chart display.
+    # @param params [Hash] e.g. exchange, symbol, timeframe
+    def price_history(params = {})
+      @http.get("/api/v1/market/price-history", params)
+    end
+
     private
 
     def compact(hash)

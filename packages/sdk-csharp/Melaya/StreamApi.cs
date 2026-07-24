@@ -17,14 +17,12 @@ public sealed class StreamApi
     private readonly string           _apiKey;
     private readonly string           _wsUrl;
     private readonly MelayaHttpClient _http;
-    private readonly bool             _insecureTls;
 
-    internal StreamApi(string apiKey, string wsUrl, MelayaHttpClient http, bool insecureTls)
+    internal StreamApi(string apiKey, string wsUrl, MelayaHttpClient http)
     {
         _apiKey      = apiKey;
         _wsUrl       = wsUrl.TrimEnd('/');
         _http        = http;
-        _insecureTls = insecureTls;
     }
 
     // ── Public feeds ──────────────────────────────────────────────────────────
@@ -93,7 +91,7 @@ public sealed class StreamApi
     public async IAsyncEnumerable<JsonElement> StrategiesAsync(
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        var ticket = await MintTicketAsync("strategies", null, null, null, ct).ConfigureAwait(false);
+        var ticket = await MintTicketAsync("strategies", null, null, null, null, ct).ConfigureAwait(false);
         var url    = $"{_wsUrl}/ws/strategies?wsTicket={Uri.EscapeDataString(ticket)}";
         await foreach (var f in ConnectAsync(url, ct).ConfigureAwait(false))
             yield return f;
@@ -111,7 +109,7 @@ public sealed class StreamApi
         string? symbol   = null,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        var ticket = await MintTicketAsync("private", exchange, market, apiKeyId ?? keyId, ct).ConfigureAwait(false);
+        var ticket = await MintTicketAsync("private", exchange, market, apiKeyId ?? keyId, symbol, ct).ConfigureAwait(false);
         var url    = $"{_wsUrl}/ws/private?wsTicket={Uri.EscapeDataString(ticket)}";
         await foreach (var f in ConnectAsync(url, ct).ConfigureAwait(false))
             yield return f;
@@ -186,12 +184,7 @@ public sealed class StreamApi
 
     private ClientWebSocket CreateWebSocket()
     {
-        var ws = new ClientWebSocket();
-        if (_insecureTls)
-        {
-            ws.Options.RemoteCertificateValidationCallback = (_, _, _, _) => true;
-        }
-        return ws;
+        return new ClientWebSocket();
     }
 
     private async Task<string> MintTicketAsync(
@@ -199,12 +192,14 @@ public sealed class StreamApi
         string? exchange,
         string? market,
         string? apiKeyId,
+        string? symbol,
         CancellationToken ct)
     {
         var body = new Dictionary<string, object?> { ["stream"] = stream };
         if (exchange is not null) body["exchange"]  = exchange;
         if (market   is not null) body["market"]    = market;
         if (apiKeyId is not null) body["apiKeyId"]  = apiKeyId;
+        if (symbol   is not null) body["symbol"]    = symbol;
 
         var r = await _http.PostAsync<WsTicketEnvelope>("/api/v1/private/private-ticket", body, ct).ConfigureAwait(false);
         if (r.WsTicket is null)

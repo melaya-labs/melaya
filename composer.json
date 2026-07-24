@@ -1,9 +1,9 @@
 {
     "name": "melaya/sdk",
-    "description": "Official Melaya PHP SDK \u2014 unified market data, strategies, backtesting, and streaming across 70+ venues.",
+    "description": "Official SDK for Melaya Agent Builder and Mobile Device Control. Includes preview Melaya Trading namespaces that are not yet generally available.",
     "type": "library",
     "license": "Apache-2.0",
-    "keywords": ["melaya", "trading", "market-data", "crypto", "sdk", "websocket", "backtesting"],
+    "keywords": ["melaya", "ai-agents", "device-control", "agent-builder", "sdk", "trading", "market-data", "websocket"],
     "homepage": "https://melaya.org",
     "support": {
         "source": "https://github.com/melaya-labs/melaya",
@@ -11,7 +11,10 @@
         "docs": "https://melaya.org/docs"
     },
     "require": {
-        "php": ">=8.1"
+        "php": ">=8.1",
+        "ext-curl": "*",
+        "ext-json": "*",
+        "ext-openssl": "*"
     },
     "require-dev": {
         "phpunit/phpunit": "^10.0"

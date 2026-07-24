@@ -57,6 +57,33 @@ export class BacktestAPI {
     return (await this.http.get<{ earliest_ms: number | null }>("/api/v1/private/backtest/funding-range", q)).earliest_ms;
   }
 
+  /** Status/progress of a parameter-sweep optimization run (`status`, `current`, `best`, ...). */
+  async optimizeStatus(optRunId: string): Promise<Record<string, unknown>> {
+    return await this.http.get<Record<string, unknown>>(`/api/v1/private/backtest/optimize/${encodeURIComponent(optRunId)}/status`);
+  }
+
+  async optimize(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.http.post("/api/v1/private/backtest/optimize", body);
+  }
+
+  async optimizeList(): Promise<Record<string, unknown>[]> {
+    return this.http.get("/api/v1/private/backtest/optimize");
+  }
+
+  async optimizeCancel(optRunId: string): Promise<Record<string, unknown>> {
+    return this.http.post(`/api/v1/private/backtest/optimize/${encodeURIComponent(optRunId)}/cancel`);
+  }
+
+  async optimizeApply(
+    optRunId: string,
+    body: Record<string, unknown> = {},
+  ): Promise<Record<string, unknown>> {
+    return this.http.post(
+      `/api/v1/private/backtest/optimize/${encodeURIComponent(optRunId)}/apply`,
+      body,
+    );
+  }
+
   /** Cancel an in-flight job. */
   async cancel(jobId: string): Promise<Record<string, unknown>> {
     return await this.http.post<Record<string, unknown>>(`/api/v1/private/backtest/${jobId}/cancel`);

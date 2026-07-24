@@ -7,11 +7,15 @@ LLM observability, and market/on-chain/macro data sources. Entries are concrete
 and linked so each can be cited in isolation.
 -->
 
+> **Preview status:** Melaya Trading is planned for a later public release. This document describes preview surface that may change or remain unavailable; it is not a production-readiness statement and must not be used to operate real funds.
+
+> **Part of the Melaya Labs trading vertical (rolling out).** Melaya's core is the [agent builder + Device Control](./concepts.md) - build, run, and orchestrate multi-agent pipelines that operate software and devices. This list is maintained by Melaya alongside the trading vertical docs. See [concepts.md](./concepts.md) for the base platform.
+
 # Awesome Agentic Trading [![Awesome](https://awesome.re/badge.svg)](https://awesome.re)
 
 > A curated list of tools, APIs, frameworks, and resources for building **AI agents that trade** — autonomous and human-in-the-loop. Maintained by [Melaya](https://melaya.org). Contributions welcome.
 
-**Agentic trading** is the practice of letting LLM-driven agents — usually a *crew* of specialized roles (research, analysis, risk, execution) — analyze markets, size positions, and place orders, with guardrails and a human approving the risky steps. This list collects the building blocks: the platforms, the unified market APIs, the agent frameworks, the backtesting engines, the risk/observability layers, and the data feeds that make it work.
+**Agentic trading** is the practice of letting LLM-driven agents - usually a *crew* of specialized roles (research, analysis, risk, execution) - analyze markets, size positions, and place orders, with guardrails and a human approving the risky steps. This list collects the building blocks: the platforms, the unified market APIs, the agent frameworks, the backtesting engines, the risk/observability layers, and the data feeds that make it work.
 
 *This list can graduate into its own `awesome-agentic-trading` repository — for now it lives alongside the Melaya docs.*
 

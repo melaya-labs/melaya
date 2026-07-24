@@ -6,6 +6,7 @@ use crate::client::HttpClient;
 use crate::error::Result;
 
 /// REST market-data API — normalized across all 70+ venues.
+#[derive(Clone)]
 pub struct MarketAPI {
     http: HttpClient,
 }
@@ -148,7 +149,10 @@ impl MarketAPI {
         if let Some(m) = market {
             body["market"] = Value::String(m.to_owned());
         }
-        let r = self.http.post("/api/v1/market/funding-rates", &body).await?;
+        let r = self
+            .http
+            .post("/api/v1/market/funding-rates", &body)
+            .await?;
         Ok(r["rates"].clone())
     }
 
@@ -167,7 +171,10 @@ impl MarketAPI {
         if let Some(m) = market {
             body["market"] = Value::String(m.to_owned());
         }
-        let r = self.http.post("/api/v1/market/funding-rate-history", &body).await?;
+        let r = self
+            .http
+            .post("/api/v1/market/funding-rate-history", &body)
+            .await?;
         Ok(r["history"].clone())
     }
 
@@ -182,7 +189,10 @@ impl MarketAPI {
         if let Some(m) = market {
             body["market"] = Value::String(m.to_owned());
         }
-        let r = self.http.post("/api/v1/market/open-interest", &body).await?;
+        let r = self
+            .http
+            .post("/api/v1/market/open-interest", &body)
+            .await?;
         Ok(r["openInterest"].clone())
     }
 
@@ -201,7 +211,10 @@ impl MarketAPI {
         if let Some(m) = market {
             body["market"] = Value::String(m.to_owned());
         }
-        let r = self.http.post("/api/v1/market/open-interest-history", &body).await?;
+        let r = self
+            .http
+            .post("/api/v1/market/open-interest-history", &body)
+            .await?;
         Ok(r["history"].clone())
     }
 
@@ -235,7 +248,10 @@ impl MarketAPI {
         if let Some(v) = limit {
             body["limit"] = serde_json::json!(v);
         }
-        let r = self.http.post("/api/v1/market/liquidation-events", &body).await?;
+        let r = self
+            .http
+            .post("/api/v1/market/liquidation-events", &body)
+            .await?;
         Ok(r["events"].clone())
     }
 
@@ -248,7 +264,8 @@ impl MarketAPI {
         limit: Option<u32>,
         market: Option<&str>,
     ) -> Result<Value> {
-        let mut body = serde_json::json!({ "exchange": exchange, "symbols": symbols, "timeframe": timeframe });
+        let mut body =
+            serde_json::json!({ "exchange": exchange, "symbols": symbols, "timeframe": timeframe });
         if let Some(v) = limit {
             body["limit"] = serde_json::json!(v);
         }
@@ -270,7 +287,10 @@ impl MarketAPI {
         if let Some(m) = market {
             body["market"] = Value::String(m.to_owned());
         }
-        let r = self.http.post("/api/v1/market/market-constraints", &body).await?;
+        let r = self
+            .http
+            .post("/api/v1/market/market-constraints", &body)
+            .await?;
         Ok(r["constraints"].clone())
     }
 
@@ -285,7 +305,10 @@ impl MarketAPI {
         if let Some(h) = hours {
             body["hours"] = serde_json::json!(h);
         }
-        let r = self.http.post("/api/v1/market/funding-rate-history-multi", &body).await?;
+        let r = self
+            .http
+            .post("/api/v1/market/funding-rate-history-multi", &body)
+            .await?;
         Ok(r["perExchange"].clone())
     }
 
@@ -300,7 +323,10 @@ impl MarketAPI {
         if let Some(h) = hours {
             body["hours"] = serde_json::json!(h);
         }
-        let r = self.http.post("/api/v1/market/open-interest-history-multi", &body).await?;
+        let r = self
+            .http
+            .post("/api/v1/market/open-interest-history-multi", &body)
+            .await?;
         Ok(r["perExchange"].clone())
     }
 
@@ -315,5 +341,54 @@ impl MarketAPI {
     pub async fn catalog_counts(&self) -> Result<Value> {
         let q = HashMap::new();
         self.http.get("/api/v1/public/catalog-counts", &q).await
+    }
+
+    // ── restRoutes.ts market endpoints ─────────────────────────────────────────
+
+    /// Aggregated CEX liquidation data (POST /api/v1/private/market/liquidations).
+    pub async fn cex_liquidations(&self, body: &Value) -> Result<Value> {
+        self.http
+            .post("/api/v1/private/market/liquidations", body)
+            .await
+    }
+
+    /// Max-drawdown pairs list (public screener data).
+    pub async fn mdd_pairs(&self) -> Result<Value> {
+        let q = HashMap::new();
+        self.http.get("/api/v1/market/mdd-pairs", &q).await
+    }
+
+    /// On-chain yield data (Forge+ tier).
+    pub async fn onchain_yields(&self) -> Result<Value> {
+        let q = HashMap::new();
+        self.http
+            .get("/api/v1/private/market/onchain-yields", &q)
+            .await
+    }
+
+    /// On-chain liquidity data (Forge+ tier).
+    pub async fn onchain_liquidity(&self) -> Result<Value> {
+        let q = HashMap::new();
+        self.http
+            .get("/api/v1/private/market/onchain-liquidity", &q)
+            .await
+    }
+
+    /// Marketing/notification banner content (public).
+    pub async fn banner(&self) -> Result<Value> {
+        let q = HashMap::new();
+        self.http.get("/api/v1/market/banner", &q).await
+    }
+
+    /// Price history for chart display (public).
+    pub async fn price_history(
+        &self,
+        symbol: Option<&str>,
+        exchange: Option<&str>,
+    ) -> Result<Value> {
+        let mut q: HashMap<&str, Option<String>> = HashMap::new();
+        q.insert("symbol", symbol.map(str::to_owned));
+        q.insert("exchange", exchange.map(str::to_owned));
+        self.http.get("/api/v1/market/price-history", &q).await
     }
 }

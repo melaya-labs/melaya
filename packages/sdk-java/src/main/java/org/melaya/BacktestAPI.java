@@ -81,4 +81,49 @@ public class BacktestAPI {
     public JsonNode deleteAll() {
         return http.delete("/api/v1/private/backtest", null);
     }
+
+    // ── Parameter-sweep optimization ──────────────────────────────────────────
+
+    /**
+     * Start a parameter sweep optimization (genetic/grid) over a strategy config.
+     * Returns a job/run ID — poll with {@link #optimizeList()} or listen to events.
+     *
+     * @param body optimization config (strategy, param ranges, algorithm, etc.)
+     */
+    public JsonNode optimize(Map<String, Object> body) {
+        return http.post("/api/v1/private/backtest/optimize", body);
+    }
+
+    /** List optimization sweep runs. */
+    public JsonNode optimizeList() {
+        return http.get("/api/v1/private/backtest/optimize", null);
+    }
+
+    /**
+     * Get the status/progress of an optimization sweep run.
+     *
+     * @param optRunId the optimization run ID
+     */
+    public JsonNode optimizeStatus(String optRunId) {
+        return http.get("/api/v1/private/backtest/optimize/" + optRunId + "/status", null);
+    }
+
+    /**
+     * Cancel an in-progress optimization sweep.
+     *
+     * @param optRunId the optimization run ID
+     */
+    public JsonNode optimizeCancel(String optRunId) {
+        return http.post("/api/v1/private/backtest/optimize/" + optRunId + "/cancel", null);
+    }
+
+    /**
+     * Apply the best params from a completed optimization sweep to a strategy.
+     *
+     * @param optRunId the optimization run ID
+     * @param body     optional body (e.g. target strategy ID to apply to)
+     */
+    public JsonNode optimizeApply(String optRunId, Map<String, Object> body) {
+        return http.post("/api/v1/private/backtest/optimize/" + optRunId + "/apply", body);
+    }
 }

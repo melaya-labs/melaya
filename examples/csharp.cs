@@ -39,9 +39,9 @@ var created = await client.Strategies.CreateAsync(new
     strategyType = "custom",                 // custom Rhai definition
     exchange = "binanceusdm", symbol = "BTC/USDT:USDT", market = "FUTURES",
     dryRun = true,                            // dryRun:false + apiKeyId => REAL orders
-    @params = new { language = "rhai", definition = "fn evaluate() { emit_long(param("qty")); }", qty = 0.001 },
+    @params = new { language = "rhai", definition = """fn evaluate() { emit_long(param("qty")); }""", qty = 0.001 },
 });
-var sid = created.StrategyId;
+var sid = created.StrategyId!;
 Console.WriteLine($"launched paper strategy {sid}");
 var fill = await client.Sim.CreateOrderAsync(sid, "binanceusdm", "BTC/USDT:USDT",
     "buy", 0.001, "market", market: "FUTURES");
@@ -53,7 +53,7 @@ await client.Strategies.StopAsync(sid);
 var bt = await client.Backtest.StartAsync(new
 {
     strategyType = "custom", exchange = "binance", symbol = "BTC/USDT", timeframe = "1h",
-    language = "rhai", definition = "fn evaluate() { emit_long(param("qty")); }", @params = new { qty = 0.001 },
+    language = "rhai", definition = """fn evaluate() { emit_long(param("qty")); }""", @params = new { qty = 0.001 },
 });
-Console.WriteLine($"backtest job {bt.GetProperty("job_id")} started");
+Console.WriteLine($"backtest job {bt.JobId} started");
 Console.WriteLine("done");

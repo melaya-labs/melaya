@@ -68,3 +68,26 @@ class BacktestAPI:
     def delete_all(self) -> Dict[str, Any]:
         """Soft-delete every non-favorited job. Returns the count deleted."""
         return self._request("DELETE", "/api/v1/private/backtest")
+
+    # ── Parameter sweep optimization (from restRoutes.ts) ────────────────────
+
+    def optimize(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """Start a parameter sweep optimization (genetic/grid) over a strategy config."""
+        return self._request("POST", "/api/v1/private/backtest/optimize", json=body)
+
+    def optimize_list(self) -> List[Any]:
+        """List optimization sweep runs."""
+        return self._request("GET", "/api/v1/private/backtest/optimize")
+
+    def optimize_status(self, opt_run_id: str) -> Dict[str, Any]:
+        """Get status/progress of an optimization sweep run."""
+        return self._request("GET", f"/api/v1/private/backtest/optimize/{opt_run_id}/status")
+
+    def optimize_cancel(self, opt_run_id: str) -> Dict[str, Any]:
+        """Cancel an in-progress optimization sweep."""
+        return self._request("POST", f"/api/v1/private/backtest/optimize/{opt_run_id}/cancel")
+
+    def optimize_apply(self, opt_run_id: str, **body: Any) -> Dict[str, Any]:
+        """Apply best params from a completed optimization sweep to a strategy."""
+        return self._request("POST", f"/api/v1/private/backtest/optimize/{opt_run_id}/apply",
+                             json=body if body else None)

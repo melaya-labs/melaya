@@ -2,17 +2,16 @@ package org.melaya;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-import javax.net.ssl.SSLContext;
-import java.net.http.HttpClient;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Full end-to-end smoke test for the Melaya Java SDK.
- * Exercises EVERY method in every category (~70 checks).
+ * End-to-end smoke test for the trading plane of the Melaya Java SDK
+ * (market, account, sim, strategies, backtest, stream — ~70 checks).
+ * GA namespaces (projects, pipelines, phone, templates, …) are not covered here.
  *
  * <pre>
- *   MK=mk_yourkey MELAYA_INSECURE_TLS=1 ./gradlew run
+ *   MK=mk_yourkey gradle run
  * </pre>
  *
  * Safety: paper/sim only. Created strategies are always stopped and deleted.
@@ -161,17 +160,7 @@ public class E2E {
             System.exit(2);
         }
 
-        // Build SDK — trust-all TLS when MELAYA_INSECURE_TLS=1
-        boolean insecure = "1".equals(System.getenv("MELAYA_INSECURE_TLS"));
-        org.melaya.HttpClient http;
-        if (insecure) {
-            SSLContext ctx = org.melaya.HttpClient.trustAllSslContext();
-            HttpClient javaHttp = HttpClient.newBuilder().sslContext(ctx).build();
-            http = new org.melaya.HttpClient(mk, Melaya.DEFAULT_BASE_URL, javaHttp);
-        } else {
-            http = new org.melaya.HttpClient(mk, Melaya.DEFAULT_BASE_URL);
-        }
-        Melaya m = new Melaya(http, Melaya.DEFAULT_WS_URL);
+        Melaya m = new Melaya(mk);
 
         // Constants mirrored from the reference TS smoke
         final String EX    = "binance";
