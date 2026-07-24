@@ -48,7 +48,7 @@
     "url": "https://github.com/melaya-labs/melaya/issues"
   },
   "devDependencies": {
-    "typescript": "^5.5.4"
+    "typescript": "^7.0.2"
   },
   "publishConfig": {
     "access": "public"
