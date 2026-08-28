@@ -6,7 +6,7 @@ description = "Official SDK for Melaya Agent Builder and Mobile Device Control. 
 license = "Apache-2.0"
 repository = "https://github.com/melaya-labs/melaya"
 homepage = "https://melaya.org"
-documentation = "https://melaya.org/docs"
+documentation = "https://melaya.org/documentation"
 keywords = ["melaya", "ai-agents", "device-control", "agent-builder", "trading"]
 categories = ["api-bindings", "web-programming"]
 

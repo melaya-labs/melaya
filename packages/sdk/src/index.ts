@@ -26,7 +26,7 @@
  * melaya.events.onHitlApproval((e) => console.log("HITL:", e.type, e.count));
  * ```
  *
- * @see https://melaya.org/docs
+ * @see https://melaya.org/documentation
  */
 
 // ── Core ─────────────────────────────────────────────────────────────────────

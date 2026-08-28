@@ -251,7 +251,7 @@ All modules are also grouped by plane: `melaya.agents.*` (pipelines, hitl, assis
 | Public streaming | `stream.ticker`, `orderbook`, `ohlcv`, `trades`, `liquidations` |
 | Private streaming | `stream.strategies`, `stream.private` |
 
-Full docs: **[melaya.org/docs](https://melaya.org/docs)**.
+Full docs: **[melaya.org/documentation](https://melaya.org/documentation)**.
 
 ## License
 

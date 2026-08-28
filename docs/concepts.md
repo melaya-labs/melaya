@@ -1,6 +1,6 @@
 # Concepts — the Melaya agent platform
 
-A short tour of the ideas behind Melaya, the **platform for building, running, and orchestrating high-trust AI agents** — and for putting those agents in control of real mobile **devices**. Everything here is live today. For the full product docs and the interactive API reference, see [melaya.org/docs](https://melaya.org/docs). Two deeper guides sit alongside this one: the [agent builder](./agent-builder.md) and the flagship [Device Control](./device-control.md). Trading is one vertical built on this platform; it is covered last.
+A short tour of the ideas behind Melaya, the **platform for building, running, and orchestrating high-trust AI agents** — and for putting those agents in control of real mobile **devices**. Everything here is live today. For the full product docs and the interactive API reference, see [melaya.org/documentation](https://melaya.org/documentation). Two deeper guides sit alongside this one: the [agent builder](./agent-builder.md) and the flagship [Device Control](./device-control.md). Trading is one vertical built on this platform; it is covered last.
 
 ## Agents
 

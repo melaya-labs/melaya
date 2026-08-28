@@ -2,7 +2,7 @@
 
 > **Build high-trust AI agents that can do real work.** Melaya combines a visual Agent Builder with flagship Mobile Device Control: bring your preferred cloud or local model, give each agent only the tools it needs, and require human approval for consequential actions. Melaya Trading is planned for a later public release.
 
-[Website](https://melaya.org) · [Documentation](https://melaya.org/docs) · [Discord](https://discord.gg/2BBMUUdnkj)
+[Website](https://melaya.org) · [Documentation](https://melaya.org/documentation) · [Discord](https://discord.gg/2BBMUUdnkj)
 
 [![SDKs](https://img.shields.io/badge/SDKs-9_languages-6E56CF)](#official-sdks)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
@@ -132,13 +132,14 @@ See [Security and trust](./docs/security.md).
 
 - [Agent Builder](./docs/agent-builder.md)
 - [Mobile Device Control](./docs/device-control.md)
+- [MCP Server](./docs/mcp.md)
 - [Concepts](./docs/concepts.md)
 - [Security and trust](./docs/security.md)
 - [FAQ](./docs/faq.md)
 - [Comparison](./docs/comparison.md)
 - [Melaya Trading preview](./docs/agentic-trading.md)
 
-Full product documentation and interactive API reference: [melaya.org/docs](https://melaya.org/docs).
+Full product documentation and interactive API reference: [melaya.org/documentation](https://melaya.org/documentation).
 
 ## Trading preview status
 

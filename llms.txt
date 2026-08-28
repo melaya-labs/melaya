@@ -72,8 +72,9 @@ Design philosophy: agents should not be loose chatbots with unlimited powers. Th
 ## Links
 
 - Website: https://melaya.org
-- Documentation: https://melaya.org/docs
+- Documentation: https://melaya.org/documentation
 - Source & SDKs (GitHub): https://github.com/melaya-labs/melaya
+- MCP server (remote, Streamable HTTP): https://api.melaya.org/mcp
 - TypeScript/JavaScript SDK (npm): https://www.npmjs.com/package/@melaya/sdk
 - Python SDK (PyPI): https://pypi.org/project/melaya/
 - Rust SDK (crates.io): https://crates.io/crates/melaya

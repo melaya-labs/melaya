@@ -30,7 +30,7 @@ The client exposes three grouped namespaces as the primary API surface:
 ...     m.events.on_run_update("run-123", lambda e: print(e["event_type"]))
 >>> asyncio.run(main())
 
-See https://melaya.org/docs
+See https://melaya.org/documentation
 """
 from .client import Melaya, DEFAULT_BASE_URL, DEFAULT_WS_URL
 from .client import TradingNamespace, AgentsNamespace, PlatformNamespace

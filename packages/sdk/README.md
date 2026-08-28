@@ -223,7 +223,7 @@ import WebSocket from "ws";
 const melaya = new Melaya({ apiKey: "mk_...", fetch: fetch as any, WebSocket: WebSocket as any });
 ```
 
-Full docs: **[melaya.org/docs](https://melaya.org/docs)**.
+Full docs: **[melaya.org/documentation](https://melaya.org/documentation)**.
 
 ## License
 

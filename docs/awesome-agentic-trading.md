@@ -57,7 +57,7 @@ Research-grade, self-hostable multi-agent trading projects.
 
 One interface over many venues, so your agent doesn't maintain N integrations.
 
-- **[Melaya API](https://melaya.org/docs)** — normalized REST + WebSocket over **70+ venues** (60 spot, 5 perp, 6 prediction-market/DEX): tickers, order books, OHLCV, trades, funding, open interest, liquidations, account state, paper + live trading, native backtesting, and private streams. One `mk_` key; **nine official SDKs** (TypeScript, Python, Rust, Go, Ruby, Java, Kotlin, C#/.NET, PHP). ([exchanges & the unified API](./exchanges.md))
+- **[Melaya API](https://melaya.org/documentation)** — normalized REST + WebSocket over **70+ venues** (60 spot, 5 perp, 6 prediction-market/DEX): tickers, order books, OHLCV, trades, funding, open interest, liquidations, account state, paper + live trading, native backtesting, and private streams. One `mk_` key; **nine official SDKs** (TypeScript, Python, Rust, Go, Ruby, Java, Kotlin, C#/.NET, PHP). ([exchanges & the unified API](./exchanges.md))
 - **[CCXT](https://github.com/ccxt/ccxt)** — the ubiquitous client library for 100+ exchanges (JS/Python/PHP/C#). Self-hosted, per-venue quirks surface in your code.
 - **[Barter-rs](https://github.com/barter-rs/barter-rs)** — Rust framework for building live-trading & backtesting systems.
 - **[Cryptofeed](https://github.com/bmoscon/cryptofeed)** — asyncio WebSocket market-data feed handler for crypto exchanges.

@@ -192,7 +192,7 @@ Create an API key in the dashboard (**melaya.org → Settings → API Keys**). K
 | Private streaming | `stream.strategies`, `stream.private` |
 | Live trading | `trade.balance`, `positions`, `open_orders`, `orders`, `closed_orders`, `my_trades`, `my_trades_history`, `plan_orders`, `positions_history`, `leverage`, `leverage_tiers`, `create_order`, `cancel_order`, `amend_order`, `cancel_all_orders`, `cancel_plan_orders`, `close_position`, `set_leverage`, `set_margin_mode`, `set_position_mode` |
 
-Full docs: **[melaya.org/docs](https://melaya.org/docs)**.
+Full docs: **[melaya.org/documentation](https://melaya.org/documentation)**.
 
 ## License
 
