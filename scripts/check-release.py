@@ -75,8 +75,13 @@ require(
     "SDK versions differ: " + ", ".join(f"{name}={version}" for name, version in versions.items()),
 )
 
+# GITHUB_REF_NAME is set on EVERY Actions run, so on a push to main it is
+# literally "main". The old `if tag:` guard therefore ran the release-tag
+# rules on branch builds and failed them every time, which is why CI was red
+# on main while passing locally (the variable is unset off-CI). GITHUB_REF_TYPE
+# is the precise signal: "tag" or "branch".
 tag = os.environ.get("GITHUB_REF_NAME", "")
-if tag:
+if tag and os.environ.get("GITHUB_REF_TYPE", "tag") == "tag":
     require(re.fullmatch(r"v\d+\.\d+\.\d+", tag) is not None, f"release tag is invalid: {tag}")
     if len(unique_versions) == 1:
         require(tag == f"v{next(iter(unique_versions))}", f"{tag} does not match SDK version")
