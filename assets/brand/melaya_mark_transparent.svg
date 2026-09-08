@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="gTop" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#00E7FF"/>
+      <stop offset="1" stop-color="#00C2FF"/>
+    </linearGradient>
+    <linearGradient id="gLeft" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#007CFF"/>
+      <stop offset="1" stop-color="#0B56FF"/>
+    </linearGradient>
+    <linearGradient id="gRight" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0B56FF"/>
+      <stop offset="1" stop-color="#071C3A"/>
+    </linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feColorMatrix in="blur" type="matrix"
+        values="1 0 0 0 0   0 1 0 0 0   0 0 1 0 0   0 0 0 0.55 0" result="glowColor"/>
+      <feMerge>
+        <feMergeNode in="glowColor"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="gEdge" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#00E7FF" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#007CFF" stop-opacity="0.55"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- shadow -->
+  <ellipse cx="256" cy="385" rx="145" ry="44" fill="#000" opacity="0.26"/>
+
+  <g filter="url(#glow)" stroke-linejoin="round" stroke-linecap="round">
+    <!-- base cube (bottom layer) -->
+    <polygon points="256,120 378,188 378,332 256,402 134,332 134,188" fill="#0E1630" opacity="0.45"/>
+
+    <!-- main cube body -->
+    <polygon points="256,150 376,218 376,328 256,398 136,328 136,218" fill="none"/>
+
+    <!-- top face -->
+    <polygon points="256,150 376,218 256,286 136,218" fill="url(#gTop)"/>
+    <!-- left face -->
+    <polygon points="136,218 256,286 256,398 136,328" fill="url(#gLeft)"/>
+    <!-- right face -->
+    <polygon points="376,218 256,286 256,398 376,328" fill="url(#gRight)"/>
+
+    <!-- layer split line -->
+    <polyline points="136,272 256,340 376,272" fill="none" stroke="url(#gEdge)" stroke-width="7" opacity="0.75"/>
+
+    <!-- outer edge strokes -->
+    <polygon points="256,150 376,218 376,328 256,398 136,328 136,218" fill="none" stroke="#1FF3FF" stroke-width="6" opacity="0.95"/>
+    <polyline points="256,150 256,286 256,398" fill="none" stroke="#1FF3FF" stroke-width="5" opacity="0.85"/>
+
+    <!-- top chevron (abstract M) -->
+    <path d="M 196 214 L 256 248 L 316 214 L 316 244 L 256 284 L 196 244 Z" fill="#EFFFFF" opacity="0.92"/>
+
+    <!-- micro highlights -->
+    <polyline points="256,150 376,218" fill="none" stroke="#FFFFFF" stroke-width="2" opacity="0.28"/>
+    <polyline points="256,150 136,218" fill="none" stroke="#FFFFFF" stroke-width="2" opacity="0.22"/>
+  </g>
+</svg>
