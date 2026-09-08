@@ -1,8 +1,8 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/melaya_horizontal_light.webp">
-  <img src="assets/brand/melaya_horizontal_dark.webp" width="380" alt="Melaya">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/melaya_horizontal_dark.webp">
+  <img src="assets/brand/melaya_horizontal_light.webp" width="380" alt="Melaya">
 </picture>
 
 ### Governed AI agents that actually do the work
