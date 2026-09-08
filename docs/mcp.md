@@ -192,7 +192,7 @@ Recorded so its absence is not mistaken for an oversight.
 
 **Trading.** Melaya's trading surface writes against live exchange keys and moves real positions. It is not exposed over MCP at any scope, and the exclusion is enforced by a test rather than by convention.
 
-**Administration.** There is no honest way to write "act with platform administrator authority" on a screen a third-party client renders. An admin using this connection sees their own account, exactly like everyone else.
+**Platform-operator powers.** There is no honest way to write "act with elevated platform authority" on a screen a third-party client renders. Someone with elevated rights on their Melaya account sees exactly what everyone else sees over this connection: their own account.
 
 **Credentials of any kind.** No tool reads, writes or mints a credential value. The one exception is the runner token, named above, because a runner starts from a command line.
 

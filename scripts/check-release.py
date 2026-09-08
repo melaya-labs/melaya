@@ -348,9 +348,15 @@ require(
     re.search(r"\badmin\b", text("README.md"), re.IGNORECASE) is None,
     "README.md exposes the internal admin concept",
 )
-require_contains("README.md", "Agent Builder", "public positioning must lead with Agent Builder")
-require_contains("README.md", "Mobile Device Control", "public positioning must feature device control")
-require_contains("README.md", "Melaya Trading", "public positioning must identify Trading as preview")
+# Public positioning gate. These track the CURRENT product line; update them
+# deliberately when the line changes, never by deleting the check.
+# Until 2026-09-08 this required "Mobile Device Control" and "Melaya Trading".
+# The public line is now six products and trading is no longer publicly
+# positioned, so the old strings gated the README against the truth.
+require_contains("README.md", "Melaya Agents", "public positioning must lead with Melaya Agents")
+require_contains("README.md", "Device Control", "public positioning must feature Device Control")
+require_contains("README.md", "Browser Control", "public positioning must feature Browser Control")
+require_contains("README.md", "MCP Server", "public positioning must feature the MCP Server")
 
 require_contains(
     ".github/workflows/release.yml",
@@ -368,7 +374,7 @@ for python_workflow in (
     ".github/workflows/release.yml",
 ):
     require_contains(python_workflow, "build==1.5.0", "Python build frontend must be pinned")
-    require_contains(python_workflow, "twine==6.2.0", "Twine must be pinned")
+    require_contains(python_workflow, "twine==7.0.0", "Twine must be pinned")
 
 archive_attributes = text(".gitattributes")
 for excluded_tree in (
