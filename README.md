@@ -15,7 +15,7 @@ Melaya is a governed platform for AI agents that do real work — in the cloud o
 [![Tools](https://img.shields.io/badge/scoped_tools-6,900%2B-22D3EE)](#the-catalog)
 [![Subagents](https://img.shields.io/badge/subagents-103-8B5CF6)](#the-catalog)
 [![AI providers](https://img.shields.io/badge/AI_providers-26-F59E0B)](#bring-your-own-model)
-[![MCP](https://img.shields.io/badge/MCP-80_tools-10B981)](https://github.com/melaya-labs/melaya-mcp)
+[![MCP](https://img.shields.io/badge/MCP-81_tools-10B981)](https://github.com/melaya-labs/melaya-mcp)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
 </div>
@@ -47,7 +47,7 @@ Melaya is a governed platform for AI agents that do real work — in the cloud o
 </tr>
 <tr>
 <td align="center"><img src="assets/brand/melaya_zen.webp" width="42"></td>
-<td><b>MCP Server</b> — <i>available now</i><br>Give Claude, Codex, Cursor, ChatGPT or any compatible client access to Melaya's execution layer through <b>one remote endpoint</b>. 80 scoped tools across 8 permission domains, OAuth 2.1 + PKCE, no API key to paste.<br><a href="https://melaya.org/en/product/mcp">Product</a> · <a href="https://github.com/melaya-labs/melaya-mcp">Repo</a> · <a href="./docs/mcp.md">Docs</a></td>
+<td><b>MCP Server</b> — <i>available now</i><br>Give Claude, Codex, Cursor, ChatGPT or any compatible client access to Melaya's execution layer through <b>one remote endpoint</b>. 81 scoped tools across 8 permission domains, OAuth 2.1 + PKCE, no API key to paste.<br><a href="https://melaya.org/en/product/mcp">Product</a> · <a href="https://github.com/melaya-labs/melaya-mcp">Repo</a> · <a href="./docs/mcp.md">Docs</a></td>
 </tr>
 <tr>
 <td align="center"><img src="assets/brand/melaya_fire.webp" width="42"></td>
@@ -63,7 +63,7 @@ Melaya is a governed platform for AI agents that do real work — in the cloud o
 |:--:|:--:|:--:|
 | **6,912** | **103** | **26** |
 | scoped tools | specialized subagents | AI providers |
-| **80** | **9** | **8** |
+| **81** | **9** | **8** |
 | MCP tools | official SDKs | MCP permission domains |
 
 </div>
@@ -186,6 +186,38 @@ See [Security and trust](./docs/security.md).
 - [Comparison](./docs/comparison.md)
 
 Full product documentation and interactive API reference: [melaya.org/documentation](https://melaya.org/documentation).
+
+## Where to find us
+
+Melaya is listed across the MCP registries and the product directories below.
+Every link was fetched and confirmed live on 2026-09-21.
+
+**Product directories**
+
+[![Product Hunt](https://img.shields.io/badge/Product_Hunt-Melaya-DA552F)](https://www.producthunt.com/products/melaya)
+[![AlternativeTo](https://img.shields.io/badge/AlternativeTo-Melaya-5B7FBB)](https://alternativeto.net/software/melaya/about/)
+[![SaaSHub](https://img.shields.io/badge/SaaSHub-Melaya-2A6FDB)](https://www.saashub.com/melaya)
+[![SourceForge](https://img.shields.io/badge/SourceForge-Melaya-FF6600)](https://sourceforge.net/software/product/Melaya/)
+[![Slashdot](https://img.shields.io/badge/Slashdot-Melaya-004242)](https://slashdot.org/software/p/Melaya/)
+[![Indie Hackers](https://img.shields.io/badge/Indie_Hackers-Melaya-0E2439)](https://www.indiehackers.com/product/melaya)
+
+**AI agent directories**
+
+[![AI Agents Directory](https://img.shields.io/badge/AI_Agents_Directory-Melaya-7C3AED)](https://aiagentsdirectory.com/agent/melaya)
+[![AgentLocker](https://img.shields.io/badge/AgentLocker-Melaya-0F766E)](https://agentlocker.ai/agent/melaya)
+[![AI Tool Seekers](https://img.shields.io/badge/AI_Tool_Seekers-Melaya-DB2777)](https://aitoolseekers.com/tools/melaya)
+
+**MCP ecosystem**
+
+[![MCP Registry](https://img.shields.io/badge/MCP_Registry-org.melaya%2Fmelaya-6E56CF)](https://registry.modelcontextprotocol.io)
+[![Glama](https://img.shields.io/badge/Glama-melaya--mcp-22D3EE)](https://glama.ai/mcp/servers/@melaya-labs/melaya-mcp)
+[![mcp.so](https://img.shields.io/badge/mcp.so-melaya-8B5CF6)](https://mcp.so/servers/melaya-1f614a)
+[![Smithery](https://img.shields.io/badge/Smithery-melaya-8B5CF6)](https://smithery.ai/servers/info-h530/melaya)
+[![mcpserver.dev](https://img.shields.io/badge/mcpserver.dev-melaya-10B981)](https://mcpserver.dev/s/melaya_1f0eb4j)
+[![MCP Market](https://img.shields.io/badge/MCP_Market-melaya-F59E0B)](https://mcpmarket.com/server/melaya)
+[![Cursor Directory](https://img.shields.io/badge/Cursor_Directory-melaya-0EA5E9)](https://cursor.directory/plugins/melaya)
+
+<sub>Also on <a href="https://launchkiwi.com/p/melaya">LaunchKiwi</a> · <a href="https://makerhunt.io/project/melaya">MakerHunt</a> · <a href="https://launchnest.io/p/melaya">LaunchNest</a> · <a href="https://www.foundrlist.com/product/melaya">FoundrList</a> · <a href="https://launchpadly.co/startup/melaya">Launchpadly</a> · <a href="https://launchigniter.com/product/melaya">LaunchIgniter</a> · <a href="https://tools.launchllama.co/products/melaya">Launch Llama</a> · <a href="https://thesaasdir.com/product/melaya/">The SaaS Dir</a> · <a href="https://getprojectradar.com/notes/melaya">ProjectRadar</a> · <a href="https://topbusinesssoftware.com/products/Melaya/reviews/">TopBusinessSoftware</a> · <a href="https://hackernoon.com/u/melaya">HackerNoon</a></sub>
 
 ## License
 
