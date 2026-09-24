@@ -15,7 +15,7 @@ Melaya is a governed platform for AI agents that do real work — in the cloud o
 [![Tools](https://img.shields.io/badge/scoped_tools-6,900%2B-22D3EE)](#the-catalog)
 [![Subagents](https://img.shields.io/badge/subagents-103-8B5CF6)](#the-catalog)
 [![AI providers](https://img.shields.io/badge/AI_providers-26-F59E0B)](#bring-your-own-model)
-[![MCP](https://img.shields.io/badge/MCP-81_tools-10B981)](https://github.com/melaya-labs/melaya-mcp)
+[![MCP](https://img.shields.io/badge/MCP-83_tools-10B981)](https://github.com/melaya-labs/melaya-mcp)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
 </div>
@@ -47,7 +47,7 @@ Melaya is a governed platform for AI agents that do real work — in the cloud o
 </tr>
 <tr>
 <td align="center"><img src="assets/brand/melaya_zen.webp" width="42"></td>
-<td><b>MCP Server</b> — <i>available now</i><br>Give Claude, Codex, Cursor, ChatGPT or any compatible client access to Melaya's execution layer through <b>one remote endpoint</b>. 81 scoped tools across 8 permission domains, OAuth 2.1 + PKCE, no API key to paste.<br><a href="https://melaya.org/en/product/mcp">Product</a> · <a href="https://github.com/melaya-labs/melaya-mcp">Repo</a> · <a href="./docs/mcp.md">Docs</a></td>
+<td><b>MCP Server</b> — <i>available now</i><br>Give Claude, Codex, Cursor, ChatGPT or any compatible client access to Melaya's execution layer through <b>one remote endpoint</b>. 83 scoped tools across 8 permission domains, OAuth 2.1 + PKCE, no API key to paste.<br><a href="https://melaya.org/en/product/mcp">Product</a> · <a href="https://github.com/melaya-labs/melaya-mcp">Repo</a> · <a href="./docs/mcp.md">Docs</a></td>
 </tr>
 <tr>
 <td align="center"><img src="assets/brand/melaya_fire.webp" width="42"></td>
@@ -63,7 +63,7 @@ Melaya is a governed platform for AI agents that do real work — in the cloud o
 |:--:|:--:|:--:|
 | **6,912** | **103** | **26** |
 | scoped tools | specialized subagents | AI providers |
-| **81** | **9** | **8** |
+| **83** | **9** | **8** |
 | MCP tools | official SDKs | MCP permission domains |
 
 </div>

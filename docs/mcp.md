@@ -54,7 +54,7 @@ Eight scopes, one per domain. You grant them individually and can decline any of
 | `melaya:team` | Read who has access to your projects, and invite people you name |
 | `offline_access` | Stay connected without signing in again |
 
-**The scopes do real work.** The tool list your assistant receives is filtered to what you granted, so a connection made for phone control alone sees 21 tools rather than all 73. If a capability is missing, it is because you declined it, not because Melaya lacks it.
+**The scopes do real work.** The tool list your assistant receives is filtered to what you granted, so a connection made for phone control alone sees 23 tools rather than all 83. If a capability is missing, it is because you declined it, not because Melaya lacks it.
 
 Disconnecting in Melaya settings immediately revokes the connection's ability to renew itself. The access token it already holds is self-contained and keeps working until it expires, which is at most one hour.
 
@@ -154,7 +154,7 @@ Nothing else does. Provider and connector credentials are resolved server-side a
 
 ## Tools
 
-Seventy-three, grouped by domain. Every one declares whether it is read-only or makes changes, so your assistant can ask before anything consequential.
+Eighty-three, grouped by domain. Every one declares whether it is read-only or makes changes, so your assistant can ask before anything consequential.
 
 **Setup and account** — `melaya_setup_status`, `melaya_account_whoami`, `melaya_account_usage`, `melaya_account_subscription`, `melaya_model_list`
 
@@ -164,13 +164,13 @@ Seventy-three, grouped by domain. Every one declares whether it is read-only or 
 
 **Phone: reading** — `melaya_phone_status`, `melaya_phone_screen`, `melaya_phone_screenshot`, `melaya_phone_current_app`, `melaya_phone_playbook`
 
-**Phone: acting** — `melaya_phone_open`, `melaya_phone_click`, `melaya_phone_tap`, `melaya_phone_swipe`, `melaya_phone_scroll`, `melaya_phone_type`, `melaya_phone_navigate`, `melaya_phone_batch`, `melaya_phone_publish`, `melaya_phone_wait`, `melaya_phone_stop`
+**Phone: acting** — `melaya_phone_wake`, `melaya_phone_open`, `melaya_phone_click`, `melaya_phone_tap`, `melaya_phone_swipe`, `melaya_phone_drag_hold`, `melaya_phone_scroll`, `melaya_phone_type`, `melaya_phone_navigate`, `melaya_phone_batch`, `melaya_phone_publish`, `melaya_phone_wait`, `melaya_phone_stop`
 
-**Browser** — `melaya_browser_status`, `melaya_browser_pair`, `melaya_browser_attach`, `melaya_browser_screen`, `melaya_browser_screenshot`, `melaya_browser_get_text`, `melaya_browser_navigate`, `melaya_browser_click`, `melaya_browser_type`, `melaya_browser_scroll`, `melaya_browser_tabs`, `melaya_browser_batch`, `melaya_browser_restrict_origins`, `melaya_browser_stop`
+**Browser** — `melaya_browser_status`, `melaya_browser_pair`, `melaya_browser_attach`, `melaya_browser_screen`, `melaya_browser_screenshot`, `melaya_browser_get_text`, `melaya_browser_read`, `melaya_browser_navigate`, `melaya_browser_click`, `melaya_browser_type`, `melaya_browser_select_option`, `melaya_browser_upload`, `melaya_browser_hover`, `melaya_browser_move`, `melaya_browser_drag_hold`, `melaya_browser_scroll`, `melaya_browser_tabs`, `melaya_browser_batch`, `melaya_browser_restrict_origins`, `melaya_browser_allow_sites`, `melaya_browser_stop`
 
 **Browser: DevTools** — `melaya_browser_network`, `melaya_browser_console`, `melaya_browser_performance`
 
-**Pipelines** — `melaya_pipeline_list`, `melaya_pipeline_get`, `melaya_pipeline_registry`, `melaya_pipeline_templates`, `melaya_pipeline_preview`, `melaya_pipeline_save`, `melaya_pipeline_from_template`, `melaya_pipeline_delete`, `melaya_pipeline_schedule`, `melaya_pipeline_run`, `melaya_run_phone_agent`
+**Pipelines** — `melaya_pipeline_list`, `melaya_pipeline_get`, `melaya_pipeline_registry`, `melaya_pipeline_templates`, `melaya_pipeline_preview`, `melaya_pipeline_save`, `melaya_pipeline_from_template`, `melaya_pipeline_delete`, `melaya_pipeline_schedule`, `melaya_pipeline_trigger`, `melaya_pipeline_run`, `melaya_run_phone_agent`
 
 **Runs and quality** — `melaya_run_status`, `melaya_run_inspect`, `melaya_run_diagnosis`, `melaya_run_cancel`, `melaya_eval_report`, `melaya_agent_memory`, `melaya_approval_list`
 
