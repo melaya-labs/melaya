@@ -9,13 +9,14 @@
 
 Melaya is a governed platform for AI agents that do real work — in the cloud or on your own machine — across your business systems, your browser, and real mobile apps.
 
-[**Website**](https://melaya.org) · [**Documentation**](https://melaya.org/documentation) · [**MCP Server**](https://melaya.org/en/product/mcp) · [**Discord**](https://discord.gg/2BBMUUdnkj)
+[**Website**](https://melaya.org) · [**Documentation**](https://melaya.org/documentation) · [**MCP Server**](https://melaya.org/en/product/mcp) · [**Agent Skill**](#agent-skill-teach-any-ai-to-run-melaya) · [**Discord**](https://discord.gg/2BBMUUdnkj)
 
 [![SDKs](https://img.shields.io/badge/SDKs-9_languages-6E56CF)](#official-sdks)
 [![Tools](https://img.shields.io/badge/scoped_tools-6,900%2B-22D3EE)](#the-catalog)
 [![Subagents](https://img.shields.io/badge/subagents-103-8B5CF6)](#the-catalog)
 [![AI providers](https://img.shields.io/badge/AI_providers-26-F59E0B)](#bring-your-own-model)
 [![MCP](https://img.shields.io/badge/MCP-88_tools-10B981)](https://github.com/melaya-labs/melaya-mcp)
+[![Agent Skill](https://img.shields.io/badge/Agent_Skill-11_modules-EC4899)](./skills/melaya)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
 </div>
@@ -47,7 +48,7 @@ Melaya is a governed platform for AI agents that do real work — in the cloud o
 </tr>
 <tr>
 <td align="center"><img src="assets/brand/melaya_zen.webp" width="42"></td>
-<td><b>MCP Server</b> — <i>available now</i><br>Give Claude, Codex, Cursor, ChatGPT or any compatible client access to Melaya's execution layer through <b>one remote endpoint</b>. 88 scoped tools across 9 permission domains, OAuth 2.1 + PKCE, no API key to paste.<br><a href="https://melaya.org/en/product/mcp">MCP Server product page</a> · <a href="https://github.com/melaya-labs/melaya-mcp">Repo</a> · <a href="./docs/mcp.md">Docs</a></td>
+<td><b>MCP Server</b> — <i>available now</i><br>Give Claude, Codex, Cursor, ChatGPT or any compatible client access to Melaya's execution layer through <b>one remote endpoint</b>. 88 scoped tools across 9 permission domains, OAuth 2.1 + PKCE, no API key to paste.<br><a href="https://melaya.org/en/product/mcp">MCP Server product page</a> · <a href="https://github.com/melaya-labs/melaya-mcp">Repo</a> · <a href="./docs/mcp.md">Docs</a> · <a href="./skills/melaya">Agent Skill</a></td>
 </tr>
 <tr>
 <td align="center"><img src="assets/brand/melaya_fire.webp" width="42"></td>
@@ -140,6 +141,69 @@ codex mcp add melaya --url https://api.melaya.org/mcp
 
 Setup for Claude, ChatGPT, Cursor, VS Code, Le Chat, Gemini CLI, Zed, Cline, Goose and more: **[melaya-labs/melaya-mcp](https://github.com/melaya-labs/melaya-mcp)**.
 
+## Agent Skill: teach any AI to run Melaya
+
+The MCP server gives your assistant the tools. The **[Melaya skill](./skills/melaya)** gives it the method: how to connect services, build and validate pipelines on real runs, set triggers and approvals, read results and hand work over to a client. It is a free, open playbook your assistant reads before it acts, so it gets it right the first time instead of guessing.
+
+<table>
+<tr>
+<td width="33%" valign="top">
+
+**Any AI assistant**
+
+Paste this line into ChatGPT, Gemini, Cursor or any assistant that can read a web page:
+
+```text
+Install the Melaya skill from
+https://github.com/melaya-labs/melaya/tree/main/skills/melaya
+and use it whenever I ask you
+to work with Melaya.
+```
+
+</td>
+<td width="33%" valign="top">
+
+**Claude Code**
+
+```bash
+git clone --depth 1 \
+  https://github.com/melaya-labs/melaya \
+  /tmp/melaya
+cp -r /tmp/melaya/skills/melaya \
+  ~/.claude/skills/
+```
+
+Restart Claude Code. The skill loads on its own when you mention Melaya.
+
+</td>
+<td width="33%" valign="top">
+
+**Claude.ai and Claude Desktop**
+
+Download the [`skills/melaya`](./skills/melaya) folder as a .zip and upload it under **Settings → Capabilities → Skills**.
+
+Other tools: add [`SKILL.md`](./skills/melaya/SKILL.md) as a project instruction or rules file.
+
+</td>
+</tr>
+</table>
+
+One short router (`SKILL.md`) holds the rules that always apply; the assistant opens only the module the task needs:
+
+| Module | What it teaches |
+|---|---|
+| [quickstart](./skills/melaya/modules/quickstart) | Plain-language journeys for non-technical users |
+| [discovery](./skills/melaya/modules/discovery) | Finding the right tools, templates and connected services |
+| [runners-models](./skills/melaya/modules/runners-models) | The local runner and models: Claude Code, Codex, Copilot, Ollama, LM Studio, cloud providers |
+| [projects-templates](./skills/melaya/modules/projects-templates) | Projects, teams and starting from a validated template |
+| [pipeline-authoring](./skills/melaya/modules/pipeline-authoring) | Writing pipeline configs that generate and run correctly |
+| [agentic-systems](./skills/melaya/modules/agentic-systems) | Designing complete multi-pipeline systems end to end |
+| [data-spine](./skills/melaya/modules/data-spine) | Data stores in Google Sheets, bulk scoring, keeping records clean |
+| [automation-governance](./skills/melaya/modules/automation-governance) | Schedules, event triggers, approvals and cost limits |
+| [validate-debug](./skills/melaya/modules/validate-debug) | Proving a pipeline on real runs and fixing what fails |
+| [client-handover](./skills/melaya/modules/client-handover) | Documentation and handover for the people who will use it |
+| [devices-browser](./skills/melaya/modules/devices-browser) | Agents that use a phone or a browser the way a person does |
+
 ## Official SDKs
 
 <div align="center">
@@ -182,6 +246,7 @@ See [Security and trust](./docs/security.md).
 - [Melaya Agents](./docs/agent-builder.md)
 - [Device Control](./docs/device-control.md)
 - [MCP Server](./docs/mcp.md)
+- [Agent Skill](./skills/melaya)
 - [Concepts](./docs/concepts.md)
 - [Security and trust](./docs/security.md)
 - [FAQ](./docs/faq.md)
