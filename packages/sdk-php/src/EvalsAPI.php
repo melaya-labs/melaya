@@ -53,13 +53,13 @@ class EvalsAPI
     /** Get memory graph visualization data for eval runs. */
     public function memoryGraph(): array
     {
-        return $this->http->get('/api/v1/private/evals/memory-graph');
+        return $this->http->get('/api/v1/private/memory/graph');
     }
 
     /** Get memory usage for a specific eval run. */
     public function runMemory(string $runId): array
     {
-        return $this->http->get('/api/v1/private/evals/runs/' . rawurlencode($runId) . '/memory');
+        return $this->http->get('/api/v1/private/memory/runs/' . rawurlencode($runId));
     }
 
     /**
@@ -70,12 +70,36 @@ class EvalsAPI
      */
     public function crewMemory(array $params): array
     {
-        return $this->http->get('/api/v1/private/evals/crew-memory', $params);
+        return $this->http->get('/api/v1/private/memory/crew', $params);
     }
 
     /** Get benchmark scores across eval runs. */
     public function benchmarks(array $params = []): array
     {
         return $this->http->get('/api/v1/private/evals/benchmarks', $params);
+    }
+
+    // ── Crew memory edit/delete ──────────────────────────────────────────────
+    // Maps to /api/v1/private/memory/crew/*. Editor/owner-gated, tenant-scoped.
+
+    /**
+     * Edit one persisted crew-memory entry.
+     *
+     * @param array $body ['pipeline' => '...', 'entryId' => '...', 'project' => '...',
+     *                     'patch' => ['topic' => '...', 'content' => '...', 'tags' => [...]]]
+     */
+    public function editEntry(array $body): array
+    {
+        return $this->http->post('/api/v1/private/memory/crew/edit', $body);
+    }
+
+    /**
+     * Delete one persisted crew-memory entry.
+     *
+     * @param array $body ['pipeline' => '...', 'entryId' => '...', 'project' => '...']
+     */
+    public function deleteEntry(array $body): array
+    {
+        return $this->http->post('/api/v1/private/memory/crew/delete', $body);
     }
 }

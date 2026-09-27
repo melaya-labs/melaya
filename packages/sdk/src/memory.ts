@@ -100,6 +100,21 @@ export interface CrewMemoryParams {
   project?: string;
 }
 
+/** Params for `editEntry()`. */
+export interface CrewMemoryEditParams {
+  pipeline: string;
+  entryId: string;
+  project?: string;
+  patch: { topic?: string; content?: string; tags?: string[] };
+}
+
+/** Params for `deleteEntry()`. */
+export interface CrewMemoryDeleteParams {
+  pipeline: string;
+  entryId: string;
+  project?: string;
+}
+
 export class MemoryAPI {
   constructor(private readonly http: HttpClient) {}
 
@@ -133,6 +148,16 @@ export class MemoryAPI {
       pipeline: params.pipeline,
       project: params.project,
     });
+  }
+
+  /** Edit one persisted crew-memory entry (topic/content/tags). */
+  async editEntry(params: CrewMemoryEditParams): Promise<{ ok: boolean } & Record<string, unknown>> {
+    return this.http.post("/api/v1/private/memory/crew/edit", params);
+  }
+
+  /** Delete one persisted crew-memory entry. */
+  async deleteEntry(params: CrewMemoryDeleteParams): Promise<{ ok: boolean } & Record<string, unknown>> {
+    return this.http.post("/api/v1/private/memory/crew/delete", params);
   }
 }
 

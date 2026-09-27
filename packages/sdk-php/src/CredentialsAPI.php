@@ -214,6 +214,138 @@ class CredentialsAPI
         return $this->http->post('/api/v1/private/credentials/google/oauth', $body ?: null);
     }
 
+    /** List the Google OAuth capabilities actually granted to the caller. */
+    public function googleStatus(): array
+    {
+        return $this->http->get('/api/v1/private/credentials/google/status');
+    }
+
+    /**
+     * Select the connected Google account used by one capability.
+     *
+     * @param string $capability One of: gmail, calendar, drive, sheets, docs,
+     *                           search_console, youtube, google_ads, analytics,
+     *                           meet, slides.
+     * @param string $accountId  24-hex-char connected-account id.
+     */
+    public function googleSetDefault(string $capability, string $accountId): array
+    {
+        return $this->http->put('/api/v1/private/credentials/google/default', [
+            'capability' => $capability,
+            'accountId'  => $accountId,
+        ]);
+    }
+
+    /**
+     * Disconnect one Google product, or an entire Google account.
+     *
+     * @param string      $accountId  24-hex-char connected-account id.
+     * @param string|null $capability Omit to disconnect the whole account; pass
+     *                                one capability to disconnect only that product.
+     */
+    public function googleDisconnect(string $accountId, ?string $capability = null): array
+    {
+        $body = ['accountId' => $accountId];
+        if ($capability !== null) {
+            $body['capability'] = $capability;
+        }
+        return $this->http->delete('/api/v1/private/credentials/google/access', [], $body);
+    }
+
+    // ── Database connector test ──────────────────────────────────────────────
+
+    /**
+     * Test a database connector from the user's runner (reaches
+     * IP-allow-listed / VPC hosts that Melaya's cloud cannot reach directly).
+     *
+     * @param string     $service     Database service id.
+     * @param array|null $credentials Connection fields to test, if not already stored.
+     * @return array{sessionId: string}
+     */
+    public function dbTestStart(string $service, ?array $credentials = null): array
+    {
+        $body = ['service' => $service];
+        if ($credentials !== null) {
+            $body['credentials'] = $credentials;
+        }
+        return $this->http->post('/api/v1/private/credentials/db-test', $body);
+    }
+
+    /** Poll a database connector runner-test result. */
+    public function dbTestStatus(string $sessionId): array
+    {
+        return $this->http->get('/api/v1/private/credentials/db-test/' . rawurlencode($sessionId));
+    }
+
+    // ── Telegram QR login ────────────────────────────────────────────────────
+
+    /**
+     * Start Telegram user QR login.
+     *
+     * @return array{handle: string}
+     */
+    public function telegramQrStart(int $apiId, string $apiHash): array
+    {
+        return $this->http->post('/api/v1/private/credentials/telegram/auth/qr/start', [
+            'api_id'   => $apiId,
+            'api_hash' => $apiHash,
+        ]);
+    }
+
+    /** Poll Telegram user QR login. @param string $handle Handle from `telegramQrStart()`, starts with "tgauth_". */
+    public function telegramQrPoll(string $handle): array
+    {
+        return $this->http->post('/api/v1/private/credentials/telegram/auth/qr/poll', ['handle' => $handle]);
+    }
+
+    // ── WhatsApp Embedded Signup ──────────────────────────────────────────────
+
+    /** WhatsApp Embedded Signup config (appId/configId). */
+    public function whatsappSignupConfig(): array
+    {
+        return $this->http->get('/api/v1/private/credentials/whatsapp/embedded-signup/config');
+    }
+
+    /**
+     * WhatsApp Embedded Signup code exchange.
+     *
+     * @param array $body ['code' => ..., 'phoneNumberId' => ..., 'wabaId' => ..., 'project' => ...]
+     */
+    public function whatsappSignupExchange(array $body): array
+    {
+        return $this->http->post('/api/v1/private/credentials/whatsapp/embedded-signup/exchange', $body);
+    }
+
+    // ── TikTok ────────────────────────────────────────────────────────────────
+
+    /**
+     * Get the connected TikTok account's creator info (nickname, allowed
+     * privacy levels, interaction availability) for the compliant
+     * Post-to-TikTok approval UI.
+     */
+    public function tiktokCreatorInfo(): array
+    {
+        return $this->http->get('/api/v1/private/credentials/tiktok/creator-info');
+    }
+
+    // ── Substack email-link login ─────────────────────────────────────────────
+
+    /** Ask Substack to email a sign-in link. */
+    public function substackEmailLinkSend(string $email): array
+    {
+        return $this->http->post('/api/v1/private/credentials/substack/email-link', ['email' => $email]);
+    }
+
+    /** Finish Substack sign-in with the emailed link. */
+    public function substackEmailLinkRedeem(string $link, ?string $email = null): array
+    {
+        $body = ['link' => $link];
+        if ($email !== null) {
+            $body['email'] = $email;
+        }
+        return $this->http->post('/api/v1/private/credentials/substack/email-link/redeem', $body);
+    }
+
     // ── CLI auth ─────────────────────────────────────────────────────────────
 
     /** Start CLI authentication flow (device-code style). */

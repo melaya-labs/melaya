@@ -28,6 +28,9 @@ namespace Melaya;
  *
  * // Evals
  * $summary = $m->agents->evals->summary();
+ *
+ * // Connector tools — call the same tools the Assistant/MCP surface expose
+ * $result = $m->agents->connectorTools->call('gmail_list_messages');
  * ```
  */
 final class AgentsNamespace
@@ -47,6 +50,9 @@ final class AgentsNamespace
     /** Eval run results, summaries, memory graphs, and benchmarks. */
     public readonly EvalsAPI $evals;
 
+    /** Discover and call connector tools (Gmail, Slack, Stripe, …) directly. */
+    public readonly ConnectorToolsAPI $connectorTools;
+
     /** @internal Constructed by {@see Melaya}. */
     public function __construct(
         PipelinesAPI $pipelines,
@@ -54,11 +60,13 @@ final class AgentsNamespace
         AssistantAPI $assistant,
         PhoneAPI $phone,
         EvalsAPI $evals,
+        ConnectorToolsAPI $connectorTools,
     ) {
-        $this->pipelines = $pipelines;
-        $this->hitl      = $hitl;
-        $this->assistant = $assistant;
-        $this->phone     = $phone;
-        $this->evals     = $evals;
+        $this->pipelines      = $pipelines;
+        $this->hitl           = $hitl;
+        $this->assistant      = $assistant;
+        $this->phone          = $phone;
+        $this->evals          = $evals;
+        $this->connectorTools = $connectorTools;
     }
 }

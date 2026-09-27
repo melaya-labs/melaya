@@ -15,6 +15,9 @@ import org.json.JSONObject
  *   - `GET  /api/v1/private/hitl/runs/:runId/messages`           — paginated run messages
  *   - `GET  /api/v1/private/hitl/runs/:runId/tool-stats/by-agent`— stats by agent
  *   - `GET  /api/v1/private/hitl/runs/:runId/tool-calls`         — all tool calls for a run
+ *   - `GET  /api/v1/private/projects/:project/tool-calls`        — project tool-call audit ledger
+ *   - `GET  /api/v1/private/projects/:project/tool-calls/facets` — audit filter facets (tools, agents)
+ *   - `GET  /api/v1/private/runs/:runId/tool-calls/:spanId`      — full untruncated tool-call detail
  *
  * @example
  * ```kotlin
@@ -141,6 +144,70 @@ class HitlAPI internal constructor(private val http: HttpClient) {
             is JSONObject -> r.optJSONArray("toolCalls")?.toJsonObjects() ?: emptyList()
             else -> emptyList()
         }
+    }
+
+    // ── Project audit ────────────────────────────────────────────────────────
+
+    /**
+     * Project tool-call audit ledger: every tool invocation across the project's runs —
+     * tool, invoking agent, pipeline + run, who ran it, status, latency, HITL approval
+     * provenance, 4KB-truncated input/output. Keyset-paginated newest-first by default.
+     *
+     * @param project         The project name (URL-encoded automatically).
+     * @param beforeCreatedAt Keyset cursor — pass `nextCursor.beforeCreatedAt` from a prior page.
+     * @param beforeId        Keyset cursor — pass `nextCursor.beforeId` from a prior page.
+     * @param limit           Page size, 1–100 (server default 30).
+     * @param tool            Filter by tool name.
+     * @param agent           Filter by invoking agent name.
+     * @param runId           Filter to a single run.
+     * @param status          Filter by outcome: `"ok"` | `"error"`.
+     * @param search          Free-text search over tool input/output.
+     * @param connectorSource Filter by credential pool: `"project"` | `"personal"`.
+     * @param approval        Filter by HITL provenance: `"auto"`, `"approved"`, or `"by:<username>"`.
+     * @param provider        Filter by model provider.
+     * @param sort            `"recent"` (default) | `"oldest"` | `"slowest"` | `"fastest"`.
+     * @return Object with `items` (tool-call records), `nextCursor` (`{beforeCreatedAt, beforeId}` or null), and `capped`.
+     */
+    fun projectToolCalls(
+        project: String,
+        beforeCreatedAt: String? = null,
+        beforeId: String? = null,
+        limit: Int? = null,
+        tool: String? = null,
+        agent: String? = null,
+        runId: String? = null,
+        status: String? = null,
+        search: String? = null,
+        connectorSource: String? = null,
+        approval: String? = null,
+        provider: String? = null,
+        sort: String? = null,
+    ): JSONObject {
+        val query = buildMap<String, Any?> {
+            if (beforeCreatedAt != null) put("beforeCreatedAt", beforeCreatedAt)
+            if (beforeId != null)        put("beforeId",        beforeId)
+            if (limit != null)           put("limit",           limit)
+            if (tool != null)            put("tool",            tool)
+            if (agent != null)           put("agent",           agent)
+            if (runId != null)           put("runId",           runId)
+            if (status != null)          put("status",          status)
+            if (search != null)          put("search",          search)
+            if (connectorSource != null) put("connectorSource", connectorSource)
+            if (approval != null)        put("approval",        approval)
+            if (provider != null)        put("provider",        provider)
+            if (sort != null)            put("sort",            sort)
+        }
+        return http.get("/api/v1/private/projects/${enc(project)}/tool-calls", query).asObject()
+    }
+
+    /** Distinct tools (with call counts) and agents seen in the project's tool-call ledger — powers audit filters. */
+    fun projectToolCallFacets(project: String): JSONObject {
+        return http.get("/api/v1/private/projects/${enc(project)}/tool-calls/facets").asObject()
+    }
+
+    /** Full, untruncated input/output for a single tool-call span within a run (access-checked). */
+    fun toolCallDetail(runId: String, spanId: String): JSONObject {
+        return http.get("/api/v1/private/runs/${enc(runId)}/tool-calls/${enc(spanId)}").asObject()
     }
 
     private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8")

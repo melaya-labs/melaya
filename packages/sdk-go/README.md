@@ -4,6 +4,8 @@
 
 Official SDK for the **[Melaya](https://melaya.org)** Agent Builder and flagship Mobile Device Control APIs. Trading namespaces are included only as a preview of a later product.
 
+**Melaya products:** [Melaya Agents](https://melaya.org/en/product/agentic-framework) · [Melaya Assistant](https://melaya.org/en/product/assistant) · [Device Control](https://melaya.org/en/product/agentic-device-control) · [Browser Control](https://melaya.org/en/product/agentic-browser-control) · [MCP Server](https://melaya.org/en/product/mcp) · [Melaya Marketing](https://melaya.org/en/product/marketing)
+
 ## Install
 
 ```sh
@@ -48,28 +50,28 @@ func main() {
 
     _, _ = m.Phone.SetAllowedApps(ctx, []string{"com.android.chrome"})
 
-    // Create an agent pipeline
+    // Create an agent pipeline. IMPORTANT: the run is generated ONLY from
+    // steps[] — a top-level "agents" array alone produces an EMPTY pipeline.
+    // Embed each agent's full definition inside its own step.
     _, err = m.Pipelines.Create(ctx, melaya.PipelineConfig{
-        "name":           "mobile-review",
-        "project":        "Operations",
-        "model_provider": "anthropic",
-        "model_name":     "claude-sonnet-4-6",
-        "agents": []map[string]interface{}{{
-            "name":        "mobile-operator",
-            "role":        "Careful mobile operator",
-            "instruction": "Read before acting. Never send, publish, or delete.",
-            "agent_tools": []string{
-                "phone_get_screen_tree",
-                "phone_current_app",
-                "phone_open_app",
-                "phone_click_text",
-                "phone_back",
-                "phone_wait",
-            },
-        }},
+        "name":    "mobile-review",
+        "project": "Operations",
         "steps": []map[string]interface{}{{
-            "kind":  "agent",
-            "agent": map[string]interface{}{"name": "mobile-operator"},
+            "kind": "agent",
+            "agent": map[string]interface{}{
+                "name":        "mobile-operator",
+                "role":        "Careful mobile operator",
+                "instruction": "Read before acting. Never send, publish, or delete.",
+                "model":       map[string]interface{}{"provider": "anthropic", "name": "claude-sonnet-4-6"},
+                "agent_tools": []string{
+                    "phone_get_screen_tree",
+                    "phone_current_app",
+                    "phone_open_app",
+                    "phone_click_text",
+                    "phone_back",
+                    "phone_wait",
+                },
+            },
         }},
         "maxCostUsd": 1.00,
     })
@@ -176,6 +178,84 @@ Never hard-code keys in source files. Use environment variables:
 m, _ := melaya.New(os.Getenv("MELAYA_API_KEY"))
 ```
 
+## Embeddable pipeline lifecycle — run inputs, uploads, docs, and audit
+
+- **`Get`/`Update` envelope:** `Get` returns the server's envelope
+  `{name, client, config, code, docs}` — the editable config lives under the
+  `"config"` key. To edit a pipeline, mutate `envelope["config"]` and pass
+  *that* to `Update`, not the envelope itself. `Update` takes
+  `PipelineUpdateBody{Config, Project}`.
+- **`Run` with inputs:** pass `PipelineRunOptions.RunInputs` to thread a brief
+  and/or named input values (`RunInputs{Brief, Values}`) through to a run. A
+  file value inside `Values` can be `{"file_id": ...}` (from `UploadRunFile`),
+  `{"url": ...}` (≤25 MB), or `{"base64": ..., "name": ...}` (≤7 MB). The
+  response echoes the resolved `RunInputs` back.
+- **File uploads:** `UploadRunFile`, `UploadDoc` (static-context docs),
+  and `UploadRetrievalDoc` (RAG docs) each send a `multipart/form-data`
+  request built with the standard library's `mime/multipart` — pass any
+  `io.Reader` plus a filename.
+- **`IngestRetrieval`** can take minutes on a large corpus; since every
+  request on a `Client` shares its `Options.Timeout`, construct one with a
+  longer timeout (e.g. 300s) if you have a lot of documents to embed.
+- **Config fields worth knowing:** `hitl_mode` (`"safe"` default |
+  `"autonomous"` | `"payments_only"` — only `"safe"` honors
+  `human_approval_tools`), `connector_source` (`"personal"` | `"project"`),
+  `force_local_runner`, `inputs[]`. See `PipelineConfig`'s doc comment for
+  the full reference, including why a top-level `agents[]` array alone
+  produces an empty pipeline.
+
+## Connector tools — calling tools directly over REST
+
+`m.ConnectorTools` (alias `m.Agents.ConnectorTools`) exposes the same
+list/discover/test/connect/call surface the Melaya MCP server gives an
+assistant — for calling a connector tool directly from your own code. Do not
+confuse it with `m.Connectors`, which only stores project-scoped connector
+*credentials*.
+
+- **Reads run immediately.** `Call` returns `Status: "done"` with `Result` set.
+- **Writes default to an approval card** raised in the Melaya app (the same
+  card the Assistant raises) — `Call` returns HTTP 202, decoded as
+  `Status: "pending_approval"` with `RequestID` set (a 202 is a success, not
+  an error). Poll `CallStatus`, or use `CallAndWait` to block until the user
+  decides.
+- **`ConnectorToolCallOptions{Approval: "none"}`** runs a write immediately
+  instead of staging it — it is still audit-logged.
+- **Money-moving and trading tools are always refused**, under both approval
+  modes — the call returns a `*MelayaError` with
+  `Code == "money_moving_requires_app_approval"`; check it with
+  `err.(*melaya.MelayaError).IsMoneyMovingRefused()`.
+- **No method here ever accepts or returns a credential value.**
+
+```go
+tools, _ := m.ConnectorTools.Search(ctx, "unread email", nil)
+res, _ := m.ConnectorTools.Call(ctx, "gmail_list_messages", nil, nil)
+fmt.Println(res.Result)
+
+// A write, approved in the Melaya app, waited on synchronously:
+out, err := m.ConnectorTools.CallAndWait(ctx, "gmail_send",
+    map[string]interface{}{"to": "a@b.com", "subject": "hi", "body": "…"}, nil)
+if err != nil {
+    if melErr, ok := err.(*melaya.MelayaError); ok && melErr.IsMoneyMovingRefused() {
+        log.Fatal("refused: money-moving tools never run over the API")
+    }
+    log.Fatal(err)
+}
+fmt.Println(out.Status, out.Result)
+```
+
+### ConnectorTools (`m.ConnectorTools.*`)
+
+| Method | Description |
+|---|---|
+| `Services(ctx)` | Connected services + read/write tool counts |
+| `Search(ctx, q, *ConnectorToolSearchOptions)` | Discover tools by business keywords (`Limit` 1-50, default 15) |
+| `Describe(ctx, tool)` | One tool's full description + parameters |
+| `Test(ctx, service)` | Test the stored credential for a service |
+| `Connect(ctx, service)` | Start connecting a service (never takes a secret) |
+| `Call(ctx, tool, args, *ConnectorToolCallOptions)` | Invoke a tool — immediate for reads, staged for approval by default on writes |
+| `CallStatus(ctx, requestID)` | Outcome of a staged write |
+| `CallAndWait(ctx, tool, args, *ConnectorToolCallAndWaitOptions)` | `Call` plus polling `CallStatus` to a terminal outcome (`PollInterval` default 3s, `Timeout` default 10m) |
+
 ## API surface — Agent Builder & platform (GA)
 
 Flat accessors shown; the same pointers are grouped under `m.Agents.*` and
@@ -184,19 +264,20 @@ Flat accessors shown; the same pointers are grouped under `m.Agents.*` and
 
 | Namespace | Methods |
 |---|---|
-| `m.Auth` | `Login`, `VerifyMFA`, `Register`, `VerifySignup`, `ResendVerification`, `Me`, `Check`, `ChangePassword`, `ForgotPassword`, `ResetPassword`, `CreateMobileHandoff`, `MyPermissions`, `Refresh`, `MFAStatus`, `MFASetup`, `MFAConfirm`, `ExportMyData`, `RemoveKey`, `UpdateProfile`, `Credits`, `AICredits`, `PortfolioIdeasCredits`, `RiskMonitoringCredits`, `Version` |
+| `m.Auth` | `Login`, `VerifyMFA`, `Register`, `VerifySignup`, `ResendVerification`, `Me`, `Check`, `ChangePassword`, `ForgotPassword`, `ResetPassword`, `CreateMobileHandoff`, `MyPermissions`, `Refresh`, `MFAStatus`, `MFASetup`, `MFAConfirm`, `ResendEmailVerification`, `VerifyEmail`, `ExportMyData`, `RemoveKey`, `UpdateProfile`, `Credits`, `AICredits`, `PortfolioIdeasCredits`, `RiskMonitoringCredits`, `Version` |
 | `m.Projects` | `List`, `Create`, `Rename`, `RunnerProjects` |
-| `m.Connectors` | `ConnectedServices`, `Set`, `Delete`, `EnvHandle`, `GoogleOAuthStart` |
-| `m.Credentials` | `List`, `ConnectedServices`, `Get`, `Set`, `Delete`, `Test`, `GetOperatorProfile`, `SetOperatorProfile`, `ListModels`, `MelayaAccounts`, plus connector auth flows (`RagIngest*`, `RagRetrieve*`, `PickFolder*`, `LinkedInConnect*`, `LumaConnect*`, `GoogleOAuthStart`, `CliAuthStart`, `NotebookLM*`, `TelegramAuth*`) |
-| `m.Pipelines` | `ListPipelines`, `Create`, `Get`, `Update`, `Delete`, `Run`, `RunIDs`, `RunStatus`, `CancelRun`, `Outputs`, `Output`, `PreviewCode`, `Tools`, `Subagents`, `InstantiateTemplate`, `BuildWithAI`, `Overview`, `Count`, `List`, `Recent`, `Traces`, `Trace`, `TraceStats`, `DeleteTraces`, `ListSchedules`, `GetSchedule`, `UpsertSchedule`, `PauseSchedule`, `ResumeSchedule` |
+| `m.Connectors` | `ConnectedServices`, `Set`, `Delete`, `EnvHandle`, `GoogleOAuthStart`, `ApplyPersonal`, `SharedBy`, `GoogleStatus`, `GoogleSetDefault`, `GoogleDisconnect`, `DBTestStart`, `DBTestStatus` |
+| `m.Credentials` | `List`, `ConnectedServices`, `Get`, `Set`, `Delete`, `Test`, `GetOperatorProfile`, `SetOperatorProfile`, `ListModels`, `MelayaAccounts`, `GoogleStatus`, `GoogleSetDefault`, `GoogleDisconnect`, `DBTestStart`, `DBTestStatus`, `TelegramQrStart`, `TelegramQrPoll`, `WhatsappSignupConfig`, `WhatsappSignupExchange`, `TiktokCreatorInfo`, `SubstackEmailLinkSend`, `SubstackEmailLinkRedeem`, plus connector auth flows (`RagIngest*`, `RagRetrieve*`, `PickFolder*`, `LinkedInConnect*`, `LumaConnect*`, `GoogleOAuthStart`, `CliAuthStart`, `NotebookLM*`, `TelegramAuth*`) |
+| `m.Pipelines` | `ListPipelines`, `Create`, `Get`, `Update`, `Delete`, `Run`, `RunIDs`, `RunStatus`, `CancelRun`, `UploadRunFile`, `RunInputs`, `RunInputFile`, `RunActive`, `ListDocs`, `UploadDoc`, `DeleteDoc`, `UploadRetrievalDoc`, `IngestRetrieval`, `DeleteRetrievalDoc`, `Outputs`, `Output`, `PreviewCode`, `Tools`, `Subagents`, `InstantiateTemplate`, `BuildWithAI`, `Overview`, `Count`, `List`, `Recent`, `Traces`, `Trace`, `TraceStats`, `DeleteTraces`, `ProjectToolCalls`, `ProjectToolCallFacets`, `ToolCallDetail`, `ListSchedules`, `GetSchedule`, `UpsertSchedule`, `PauseSchedule`, `ResumeSchedule` |
 | `m.Templates` | `List`, `ListGlobal`, `ListValidated`, `Save`, `Update`, `Duplicate`, `Delete`, `Share`, `ListAssignments`, `Assign`, `Unassign`, `ShareTargets` — `Assign`/`Unassign` take a `TemplateAssignBody` with exactly one of `UserID` or `ProjectID` set (both UUIDs) |
-| `m.Phone` | `Pair`, `ListDevices`, `RevokeDevice`, `ScreenTree`, `ListApps`, `SetAllowedApps`, `RegisterActiveRun` |
+| `m.Phone` | `Pair`, `ListDevices`, `RevokeDevice`, `ScreenTree`, `ListApps`, `SetAllowedApps`, `GrantApp`, `RegisterActiveRun`, `RequestCast` |
 | `m.Hitl` | `Pending`, `History`, `Approve`, `Reject`, `BulkDecide`, `RunToolStats`, `RunToolStatsByAgent`, `RunMessages`, `RunToolCalls` |
-| `m.Evals` | `ListRuns`, `Summary`, `RunDetail`, `Compare`, `MemoryGraph`, `RunMemory`, `CrewMemory`, `Benchmarks` |
+| `m.Evals` | `ListRuns`, `Summary`, `RunDetail`, `Compare`, `MemoryGraph`, `RunMemory`, `CrewMemory`, `EditMemoryEntry`, `DeleteMemoryEntry`, `Benchmarks` |
+| `m.ConnectorTools` | `Services`, `Search`, `Describe`, `Test`, `Connect`, `Call`, `CallStatus`, `CallAndWait` — the same tool-call surface the MCP server exposes; see "Connector tools" above |
 | `m.Events` | `OnRunUpdate`, `OnInitPhase`, `OnProjectEvent`, `OnHitlApproval`, `OnPipelineCreated`, `OnPipelineUpdated`, `OnPipelineDeleted`, `LeaveRun`, `LeaveProject`, `Close` — connects lazily on first subscription; nothing is opened at client construction |
-| `m.Billing` | `Subscription`, `CreateCheckout`, `CreatePortal`, `Plans` |
+| `m.Billing` | `Subscription`, `CreateCheckout`, `CreatePortal`, `Plans`, `AmbassadorPerk`, `RedeemCode`, `ReservedPromo` |
 | `m.Runner` | `CreateToken`, `ListTokens`, `RevokeToken` |
-| `m.Team` | `ListMembers`, `Invite`, `CreateInviteLink`, `AcceptInvite`, `UpdateMemberRole`, `RemoveMember`, `GetPipelineVisibility`, `SetPipelineVisibility` |
+| `m.Team` | `ListMembers`, `Invite`, `CreateInviteLink`, `AcceptInvite`, `UpdateMemberRole`, `RemoveMember`, `TransferOwnership`, `GetPipelineVisibility`, `SetPipelineVisibility` |
 | `m.Assistant` | `GetProfile`, `SetProfile` |
 | `m.Bugs` | `Create`, `ListMine`, `Get`, `AddComment`, `ListNotifications`, `MarkNotificationsRead` |
 | `m.Overview` | `ModelPrices`, `ChartData`, `UsageSummary`, `CostBreakdown` |

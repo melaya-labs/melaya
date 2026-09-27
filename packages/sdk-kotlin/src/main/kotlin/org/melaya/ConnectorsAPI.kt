@@ -14,6 +14,16 @@ import org.json.JSONObject
  *   - `DELETE /api/v1/private/projects/:project/connectors/:service`         — delete connector
  *   - `POST   /api/v1/private/projects/:project/connectors/env-handle`       — get env-handle token
  *   - `POST   /api/v1/private/projects/:project/connectors/google/oauth`     — start Google OAuth
+ *   - `POST   /api/v1/private/projects/:project/connectors/:service/apply-personal` — share caller's personal connector
+ *   - `GET    /api/v1/private/projects/:project/connectors/shared-by`        — who shared each connector
+ *   - `GET    /api/v1/private/projects/:project/connectors/google/status`    — granted Google capabilities
+ *   - `PUT    /api/v1/private/projects/:project/connectors/google/default`   — set default Google account
+ *   - `DELETE /api/v1/private/projects/:project/connectors/google/access`    — disconnect Google product/account
+ *   - `POST   /api/v1/private/projects/:project/connectors/db-test`          — start a runner DB test
+ *   - `GET    /api/v1/private/projects/:project/connectors/db-test/:sessionId` — poll a runner DB test
+ *
+ * Google capability values: `gmail`, `calendar`, `drive`, `sheets`, `docs`, `search_console`,
+ * `youtube`, `google_ads`, `analytics`, `meet`, `slides`. `accountId` is a 24-hex-char id.
  *
  * @example
  * ```kotlin
@@ -82,6 +92,86 @@ class ConnectorsAPI internal constructor(private val http: HttpClient) {
         return http.post(
             "/api/v1/private/projects/${enc(project)}/connectors/google/oauth",
             body
+        ).asObject()
+    }
+
+    /**
+     * Share the caller's OWN personal connector credential into the project pool
+     * (requires editor/owner role on the project). Values stay server-side.
+     *
+     * @param project            The project name.
+     * @param service            The service to share (e.g. `"openai"`).
+     * @param googleCapabilities Optional Google capabilities to share (Google services only).
+     */
+    fun applyPersonal(
+        project: String,
+        service: String,
+        googleCapabilities: List<String>? = null,
+    ): JSONObject {
+        val body = buildMap<String, Any?> {
+            if (googleCapabilities != null) put("googleCapabilities", googleCapabilities)
+        }
+        return http.post(
+            "/api/v1/private/projects/${enc(project)}/connectors/${enc(service)}/apply-personal",
+            body
+        ).asObject()
+    }
+
+    /** Which member shared each connected project connector (usernames only, never values). */
+    fun sharedBy(project: String): JSONObject {
+        return http.get("/api/v1/private/projects/${enc(project)}/connectors/shared-by").asObject()
+    }
+
+    // ── Google OAuth (capability-level, project scope) ──────────────────────────
+
+    /** List the Google OAuth capabilities actually granted to a project. */
+    fun googleStatus(project: String): JSONObject {
+        return http.get("/api/v1/private/projects/${enc(project)}/connectors/google/status").asObject()
+    }
+
+    /** Select the project's connected Google account used for one [capability]. */
+    fun googleSetDefault(project: String, capability: String, accountId: String): JSONObject {
+        return http.put(
+            "/api/v1/private/projects/${enc(project)}/connectors/google/default",
+            mapOf("capability" to capability, "accountId" to accountId)
+        ).asObject()
+    }
+
+    /**
+     * Disconnect one Google product, or an entire Google account, from a project.
+     *
+     * @param accountId  24-hex-char connected-account id.
+     * @param capability Optional single capability to disconnect; omit to disconnect the whole account.
+     */
+    fun googleDisconnect(project: String, accountId: String, capability: String? = null): JSONObject {
+        val body = buildMap<String, Any?> {
+            put("accountId", accountId)
+            if (capability != null) put("capability", capability)
+        }
+        return http.delete(
+            "/api/v1/private/projects/${enc(project)}/connectors/google/access",
+            body = body
+        ).asObject()
+    }
+
+    // ── Database connector test (project scope) ─────────────────────────────────
+
+    /**
+     * Probe a database connector from the user's own runner (reaches IP-allow-listed / VPC hosts).
+     * @return Object with `sessionId` — poll it with [dbTestStatus].
+     */
+    fun dbTestStart(project: String, service: String, credentials: Map<String, String>? = null): JSONObject {
+        val body = buildMap<String, Any?> {
+            put("service", service)
+            if (credentials != null) put("credentials", credentials)
+        }
+        return http.post("/api/v1/private/projects/${enc(project)}/connectors/db-test", body).asObject()
+    }
+
+    /** Poll a project DB connector runner-test result by [sessionId]. */
+    fun dbTestStatus(project: String, sessionId: String): JSONObject {
+        return http.get(
+            "/api/v1/private/projects/${enc(project)}/connectors/db-test/${enc(sessionId)}"
         ).asObject()
     }
 

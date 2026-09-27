@@ -23,6 +23,7 @@ require_relative "melaya/pipelines"
 require_relative "melaya/hitl"
 require_relative "melaya/credentials"
 require_relative "melaya/connectors"
+require_relative "melaya/connector_tools"
 require_relative "melaya/phone"
 require_relative "melaya/team"
 require_relative "melaya/templates"
@@ -57,7 +58,8 @@ module Melaya
   #
   # **Namespace groupings**:
   # - +trading+  — market, account, sim, strategies, backtest, stream, trade
-  # - +agents+   — pipelines (also +.runs+), hitl, assistant, phone, evals, models
+  # - +agents+   — pipelines (also +.runs+), hitl, assistant, phone, evals, models,
+  #                connector_tools
   # - +platform+ — projects, credentials, connectors, billing, team, templates,
   #                overview, runner, auth (also +.mfa+), accounts, bugs, events
   #
@@ -126,6 +128,10 @@ module Melaya
     attr_reader :credentials
     # Project-scoped connector credentials.
     attr_reader :connectors
+    # Call already-connected connector tools directly (Gmail, Slack, Stripe, ...)
+    # — the same surface the MCP server and Assistant use. Not to be confused
+    # with +connectors+ (credential storage).
+    attr_reader :connector_tools
     # Phone device control: pair, list, screen-tree, apps.
     attr_reader :phone
     # Project team management: members, roles, invite links.
@@ -156,7 +162,8 @@ module Melaya
     attr_reader :trading
 
     # Agent-plane namespace.
-    # Groups: pipelines (alias: runs), hitl, assistant, phone, evals, models.
+    # Groups: pipelines (alias: runs), hitl, assistant, phone, evals, models,
+    # connector_tools.
     #
     # @return [AgentsNamespace]
     # @example
@@ -166,6 +173,7 @@ module Melaya
     #   melaya.agents.assistant.get_profile
     #   melaya.agents.evals.list_runs
     #   melaya.agents.models.list_models(provider: "anthropic")
+    #   melaya.agents.connector_tools.services
     attr_reader :agents
 
     # Platform-plane namespace.
@@ -230,6 +238,7 @@ module Melaya
       @hitl        = HitlAPI.new(http)
       @credentials = CredentialsAPI.new(http)
       @connectors  = ConnectorsAPI.new(http)
+      @connector_tools = ConnectorToolsAPI.new(http)
       @phone       = PhoneAPI.new(http)
       @team        = TeamAPI.new(http)
       @templates   = TemplatesAPI.new(http)
@@ -268,7 +277,8 @@ module Melaya
         evals:     @evals,
         # credentials#list_models is the canonical "models" surface; expose the
         # full CredentialsAPI object here so callers can do agents.models.list_models(...)
-        models:    @credentials
+        models:    @credentials,
+        connector_tools: @connector_tools
       )
 
       # Platform namespace: events slot uses a lazy proxy so the Socket.IO

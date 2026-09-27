@@ -71,6 +71,14 @@ export class TeamAPI {
     );
   }
 
+  /** Transfer project ownership to another user (by user id, uuid). Caller must be the current owner. */
+  async transferOwnership(projectId: string, newOwnerUserId: string): Promise<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(
+      `/api/v1/private/projects/${encodeURIComponent(projectId)}/transfer-ownership`,
+      { newOwnerUserId },
+    );
+  }
+
   // ── Pipeline visibility ──────────────────────────────────────────────────────
 
   /** Get visibility settings for a pipeline within a project. */

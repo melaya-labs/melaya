@@ -70,4 +70,24 @@ public class AccountsAPI {
     public JsonNode riskMonitoringCredits() {
         return http.get("/api/v1/private/accounts/credits/risk-monitoring", null);
     }
+
+    /**
+     * Send a verification email to the signed-in account's saved email.
+     *
+     * <p>Maps to {@code POST /api/v1/private/accounts/resend-email-verification}.
+     */
+    public JsonNode resendEmailVerification() {
+        return http.post("/api/v1/private/accounts/resend-email-verification", null);
+    }
+
+    /**
+     * Confirm saved email ownership without creating a login session.
+     *
+     * <p>Maps to {@code POST /api/v1/private/accounts/verify-email}.
+     *
+     * @param token the 64-hex-char verification token from the email
+     */
+    public JsonNode verifyEmail(String token) {
+        return http.post("/api/v1/private/accounts/verify-email", Map.of("token", token));
+    }
 }

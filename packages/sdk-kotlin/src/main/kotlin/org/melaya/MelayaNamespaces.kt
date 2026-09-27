@@ -47,6 +47,8 @@ class TradingNamespace internal constructor(
  * melaya.agents.assistant.getProfile()
  * melaya.agents.phone.listDevices()
  * melaya.agents.evals.benchmarks()
+ * melaya.agents.memory.deleteEntry(pipeline = "daily-digest", entryId = "mem_123")
+ * melaya.agents.connectorTools.search("unread email")
  * ```
  */
 class AgentsNamespace internal constructor(
@@ -60,6 +62,10 @@ class AgentsNamespace internal constructor(
     val phone: PhoneAPI,
     /** Agent evaluation runs and benchmark scores. */
     val evals: EvalsAPI,
+    /** Edit/delete persisted cross-run agent crew memory entries. */
+    val memory: MemoryAPI,
+    /** Call any unlocked connector tool directly (reads, staged/immediate writes, discovery). */
+    val connectorTools: ConnectorToolsAPI,
 )
 
 /**

@@ -3,7 +3,8 @@
  *
  * Zero runtime dependencies: uses the global `fetch` (Node 18+, browsers) and
  * the global `WebSocket` (Node 22+, browsers). Both can be injected via
- * options for older runtimes.
+ * options for older runtimes. Multipart uploads (`postMultipart`) use the
+ * global `FormData` / `Blob` (Node 18+, browsers) — no extra dependency.
  */
 import { MarketAPI } from "./market.js";
 import { AccountAPI } from "./account.js";
@@ -19,6 +20,7 @@ import { MemoryAPI } from "./memory.js";
 import { HitlAPI } from "./hitl.js";
 import { CredentialsAPI } from "./credentials.js";
 import { ConnectorsAPI } from "./connectors.js";
+import { ConnectorToolsAPI } from "./connector-tools.js";
 import { BillingAPI } from "./billing.js";
 import { PhoneAPI } from "./phone.js";
 import { TeamAPI } from "./team.js";
@@ -142,6 +144,12 @@ export class MelayaError extends Error {
 
 type QueryValue = string | number | boolean | undefined | null;
 
+/**
+ * Input accepted by `postMultipart()`. `Uint8Array` / `ArrayBuffer` are
+ * wrapped in a `Blob` internally; a `Blob` (or `File`) is used as-is.
+ */
+export type FileInput = Uint8Array | ArrayBuffer | Blob;
+
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_GET_RETRIES = 2;
 
@@ -171,9 +179,9 @@ export class HttpClient {
     return u.toString();
   }
 
-  /** Build an AbortSignal that fires after `this.timeoutMs`. */
-  private timeoutSignal(): AbortSignal {
-    return AbortSignal.timeout(this.timeoutMs);
+  /** Build an AbortSignal that fires after `timeoutMs` (defaults to `this.timeoutMs`). */
+  private timeoutSignal(timeoutMs?: number): AbortSignal {
+    return AbortSignal.timeout(timeoutMs ?? this.timeoutMs);
   }
 
   /**
@@ -181,18 +189,21 @@ export class HttpClient {
    * For idempotent GET requests, retries up to MAX_GET_RETRIES times on
    * network errors, 429 (with Retry-After), or 5xx responses.
    * POST / PUT / PATCH / DELETE are never retried.
+   * Pass `timeoutMs` to override the client's default for one call (e.g. a
+   * slow ingestion endpoint).
    */
   private async fetchWithRetry(
     url: string,
     init: RequestInit,
     idempotent: boolean,
+    timeoutMs?: number,
   ): Promise<Response> {
     let lastErr: unknown;
     const maxAttempts = idempotent ? 1 + MAX_GET_RETRIES : 1;
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       // Fresh AbortSignal per attempt
-      const signal = this.timeoutSignal();
+      const signal = this.timeoutSignal(timeoutMs);
       try {
         const res = await this.fetchImpl(url, { ...init, signal });
 
@@ -248,7 +259,11 @@ export class HttpClient {
     return this.parse<T>(res);
   }
 
-  async post<T>(path: string, body?: unknown): Promise<T> {
+  /**
+   * `opts.timeoutMs` overrides the client's default timeout for this one call
+   * (e.g. a long-running ingestion job). POST is never retried.
+   */
+  async post<T>(path: string, body?: unknown, opts?: { timeoutMs?: number }): Promise<T> {
     const res = await this.fetchWithRetry(
       this.url(path),
       {
@@ -257,8 +272,66 @@ export class HttpClient {
         body: body === undefined ? undefined : JSON.stringify(body),
       },
       false,
+      opts?.timeoutMs,
     );
     return this.parse<T>(res);
+  }
+
+  /**
+   * POST a single file as `multipart/form-data; boundary=...`. Relies on the
+   * global `FormData`/`Blob` to build the body — the boundary and
+   * Content-Type header are computed by the fetch implementation itself, so
+   * they are never set manually here. Not retried. Parses the response
+   * exactly like `post()` (same error type, same `{ ok: false }` check).
+   */
+  async postMultipart<T>(
+    path: string,
+    query: Record<string, QueryValue> | undefined,
+    fieldName: string,
+    file: FileInput,
+    filename: string,
+    contentType?: string,
+  ): Promise<T> {
+    const blob =
+      file instanceof Blob ? file : new Blob([file], contentType ? { type: contentType } : undefined);
+    const form = new FormData();
+    form.append(fieldName, blob, filename);
+    const res = await this.fetchWithRetry(
+      this.url(path, query),
+      { method: "POST", headers: { Authorization: `Bearer ${this.apiKey}` }, body: form },
+      false,
+    );
+    return this.parse<T>(res);
+  }
+
+  /**
+   * GET raw bytes (e.g. a binary file download). Unlike `get()`, this never
+   * attempts to JSON-parse the body and does not apply the `{ ok: false }`
+   * envelope check. Retries like other GETs.
+   */
+  async getBytes(path: string, query?: Record<string, QueryValue>): Promise<Uint8Array> {
+    const res = await this.fetchWithRetry(
+      this.url(path, query),
+      { method: "GET", headers: { Authorization: `Bearer ${this.apiKey}` } },
+      true,
+    );
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      let data: unknown;
+      try {
+        data = text ? JSON.parse(text) : undefined;
+      } catch {
+        data = text;
+      }
+      const code = (data as { error?: string } | undefined)?.error;
+      throw new MelayaError(
+        `Melaya API ${res.status}${code ? ` (${code})` : ""}`,
+        res.status,
+        code,
+        data,
+      );
+    }
+    return new Uint8Array(await res.arrayBuffer());
   }
 
   async put<T>(path: string, body?: unknown): Promise<T> {
@@ -287,10 +360,21 @@ export class HttpClient {
     return this.parse<T>(res);
   }
 
-  async delete<T>(path: string, query?: Record<string, QueryValue>): Promise<T> {
+  /**
+   * `body`, when passed, is sent as a JSON payload (per the REST bridge rule:
+   * DELETE → path params + query + JSON body).
+   */
+  async delete<T>(path: string, query?: Record<string, QueryValue>, body?: unknown): Promise<T> {
     const res = await this.fetchWithRetry(
       this.url(path, query),
-      { method: "DELETE", headers: { Authorization: `Bearer ${this.apiKey}` } },
+      {
+        method: "DELETE",
+        headers:
+          body === undefined
+            ? { Authorization: `Bearer ${this.apiKey}` }
+            : { Authorization: `Bearer ${this.apiKey}`, "Content-Type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      },
       false,
     );
     return this.parse<T>(res);
@@ -378,6 +462,12 @@ export interface AgentsNamespace {
    * Secret CRUD stays exclusively on `melaya.platform.credentials`.
    */
   readonly models: ModelsAPI;
+  /**
+   * Connector tool calls: discover, describe, test, connect, and call the
+   * same connector tools the MCP server exposes. Distinct from
+   * `melaya.platform.connectors`, which stores project-scoped credentials.
+   */
+  readonly connectorTools: ConnectorToolsAPI;
 }
 
 /**
@@ -509,6 +599,8 @@ export class Melaya {
   readonly credentials: CredentialsAPI;
   /** @deprecated Use `melaya.platform.connectors` instead. */
   readonly connectors: ConnectorsAPI;
+  /** @deprecated Use `melaya.agents.connectorTools` instead. */
+  readonly connectorTools: ConnectorToolsAPI;
   /** @deprecated Use `melaya.platform.billing` instead. */
   readonly billing: BillingAPI;
   /** @deprecated Use `melaya.agents.phone` instead. */
@@ -567,6 +659,7 @@ export class Melaya {
     const hitl = new HitlAPI(http);
     const credentials = new CredentialsAPI(http);
     const connectors = new ConnectorsAPI(http);
+    const connectorTools = new ConnectorToolsAPI(http);
     const billing = new BillingAPI(http);
     const phone = new PhoneAPI(http);
     const team = new TeamAPI(http);
@@ -590,7 +683,7 @@ export class Melaya {
 
     // ── Domain namespaces ────────────────────────────────────────────────────
     this.trading = { market, account, sim, strategies, trade, backtest, stream };
-    this.agents = { pipelines, evals, memory, hitl, assistant, phone, models };
+    this.agents = { pipelines, evals, memory, hitl, assistant, phone, models, connectorTools };
     this.platform = {
       auth,
       mfa,
@@ -622,6 +715,7 @@ export class Melaya {
     this.hitl = hitl;
     this.credentials = credentials;
     this.connectors = connectors;
+    this.connectorTools = connectorTools;
     this.billing = billing;
     this.phone = phone;
     this.team = team;

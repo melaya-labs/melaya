@@ -53,8 +53,28 @@ internal sealed class MelayaHttpClient : IDisposable
         return await RetryGetAsync<T>(url, ct).ConfigureAwait(false);
     }
 
-    internal async Task<T> PostAsync<T>(string path, object? body = null,
+    /// <summary>
+    /// GET raw bytes (a binary download — never JSON-parsed on success).
+    /// Retries like <see cref="GetAsync{T}"/>; on a non-2xx response the same
+    /// JSON-envelope error handling applies and a <see cref="MelayaException"/> is thrown.
+    /// </summary>
+    internal async Task<byte[]> GetBytesAsync(string path,
+        IReadOnlyDictionary<string, string?>? query = null,
         CancellationToken ct = default)
+    {
+        var url  = BuildUrl(path, query);
+        var resp = await RetryGetRawAsync(url, ct).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+        {
+            // Reuses the same JSON-envelope error parsing as every other call;
+            // this always throws for a non-2xx response.
+            await ParseAsync<JsonElement>(resp, ct).ConfigureAwait(false);
+        }
+        return await resp.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+    }
+
+    internal async Task<T> PostAsync<T>(string path, object? body = null,
+        CancellationToken ct = default, int? timeoutMsOverride = null)
     {
         var url     = BuildUrl(path);
         var content = body is null
@@ -63,10 +83,47 @@ internal sealed class MelayaHttpClient : IDisposable
                 JsonSerializer.Serialize(body, _jsonOpts),
                 Encoding.UTF8,
                 "application/json");
-        using var cts = MakeTimeoutCts(ct);
+        using var cts = MakeTimeoutCts(ct, timeoutMsOverride);
         var resp = await _http.PostAsync(url, content, cts.Token).ConfigureAwait(false);
         return await ParseAsync<T>(resp, cts.Token).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// POST a single file as <c>multipart/form-data</c> (one file part named <paramref name="fieldName"/>).
+    /// Never retried — matches the non-idempotent POST/PUT/PATCH/DELETE contract. Parses the
+    /// response exactly like <see cref="PostAsync{T}"/> (same envelope + error handling).
+    /// </summary>
+    internal async Task<T> PostMultipartAsync<T>(
+        string path,
+        IReadOnlyDictionary<string, string?>? query,
+        string fieldName,
+        Stream file,
+        string filename,
+        string? contentType,
+        CancellationToken ct = default)
+    {
+        var url = BuildUrl(path, query);
+        using var form = new MultipartFormDataContent();
+        var fileContent = new StreamContent(file);
+        if (!string.IsNullOrEmpty(contentType))
+            fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
+        form.Add(fileContent, fieldName, filename);
+
+        using var cts = MakeTimeoutCts(ct);
+        var resp = await _http.PostAsync(url, form, cts.Token).ConfigureAwait(false);
+        return await ParseAsync<T>(resp, cts.Token).ConfigureAwait(false);
+    }
+
+    /// <summary>Convenience overload of <see cref="PostMultipartAsync{T}(string, IReadOnlyDictionary{string, string?}?, string, Stream, string, string?, CancellationToken)"/> for in-memory byte arrays.</summary>
+    internal Task<T> PostMultipartAsync<T>(
+        string path,
+        IReadOnlyDictionary<string, string?>? query,
+        string fieldName,
+        byte[] file,
+        string filename,
+        string? contentType,
+        CancellationToken ct = default)
+        => PostMultipartAsync<T>(path, query, fieldName, new MemoryStream(file, writable: false), filename, contentType, ct);
 
     internal async Task<T> PutAsync<T>(string path, object? body = null,
         CancellationToken ct = default)
@@ -111,9 +168,37 @@ internal sealed class MelayaHttpClient : IDisposable
         return await ParseAsync<T>(resp, cts.Token).ConfigureAwait(false);
     }
 
+    /// <summary>DELETE with a JSON request body (some routes require the target in the body, not the path/query).</summary>
+    internal async Task<T> DeleteWithBodyAsync<T>(string path, object? body = null,
+        CancellationToken ct = default)
+    {
+        var url     = BuildUrl(path);
+        var content = body is null
+            ? null
+            : new StringContent(
+                JsonSerializer.Serialize(body, _jsonOpts),
+                Encoding.UTF8,
+                "application/json");
+        using var cts = MakeTimeoutCts(ct);
+        var req = new HttpRequestMessage(HttpMethod.Delete, url) { Content = content };
+        var resp = await _http.SendAsync(req, cts.Token).ConfigureAwait(false);
+        return await ParseAsync<T>(resp, cts.Token).ConfigureAwait(false);
+    }
+
     // ── Retry logic (GET only) ─────────────────────────────────────────────────
 
     private async Task<T> RetryGetAsync<T>(string url, CancellationToken ct)
+    {
+        var resp = await RetryGetRawAsync(url, ct).ConfigureAwait(false);
+        return await ParseAsync<T>(resp, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Shared GET-with-retry loop returning the raw (already status-resolved) response.
+    /// Used by both <see cref="RetryGetAsync{T}"/> (JSON envelope) and
+    /// <see cref="GetBytesAsync"/> (raw binary) so both get identical retry/back-off behavior.
+    /// </summary>
+    private async Task<HttpResponseMessage> RetryGetRawAsync(string url, CancellationToken ct)
     {
         int attempt   = 0;
         int backoffMs = 500;
@@ -163,16 +248,17 @@ internal sealed class MelayaHttpClient : IDisposable
                 continue;
             }
 
-            return await ParseAsync<T>(resp, ct).ConfigureAwait(false);
+            return resp;
         }
     }
 
-    private CancellationTokenSource MakeTimeoutCts(CancellationToken ct)
+    private CancellationTokenSource MakeTimeoutCts(CancellationToken ct, int? timeoutMsOverride = null)
     {
-        if (_timeoutMs <= 0)
+        var effectiveTimeoutMs = timeoutMsOverride ?? _timeoutMs;
+        if (effectiveTimeoutMs <= 0)
             return CancellationTokenSource.CreateLinkedTokenSource(ct);
         var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(_timeoutMs);
+        cts.CancelAfter(effectiveTimeoutMs);
         return cts;
     }
 

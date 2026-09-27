@@ -16,6 +16,8 @@ import org.json.JSONObject
  *   - `GET    /api/v1/private/accounts/credits/ai`                — AI credit balance
  *   - `GET    /api/v1/private/accounts/credits/portfolio-ideas`   — portfolio-ideas credits
  *   - `GET    /api/v1/private/accounts/credits/risk-monitoring`   — risk-monitoring credits
+ *   - `POST   /api/v1/private/accounts/resend-email-verification` — resend email verification
+ *   - `POST   /api/v1/private/accounts/verify-email`               — confirm saved email ownership
  *
  * @example
  * ```kotlin
@@ -65,6 +67,16 @@ class AccountsAPI internal constructor(private val http: HttpClient) {
     /** Return risk-monitoring feature credit balance. */
     fun riskMonitoringCredits(): JSONObject {
         return http.get("/api/v1/private/accounts/credits/risk-monitoring").asObject()
+    }
+
+    /** Send a verification email to the signed-in account's saved email. */
+    fun resendEmailVerification(): JSONObject {
+        return http.post("/api/v1/private/accounts/resend-email-verification").asObject()
+    }
+
+    /** Confirm saved-email ownership using the 64-hex-char [token] from the verification email. */
+    fun verifyEmail(token: String): JSONObject {
+        return http.post("/api/v1/private/accounts/verify-email", mapOf("token" to token)).asObject()
     }
 
     private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8")

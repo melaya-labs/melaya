@@ -1,4 +1,4 @@
-//! # Melaya Rust SDK v0.2.0
+//! # Melaya Rust SDK v0.3.0
 //!
 //! Official Rust client for the [Melaya](https://melaya.org) platform:
 //! market data, trading, strategies, backtests, WebSocket streaming,
@@ -12,7 +12,7 @@
 //! | Namespace | Modules |
 //! |---|---|
 //! | `melaya.trading` | `market`, `account`, `sim`, `strategies`, `trade`, `backtest`, `stream` |
-//! | `melaya.agents`  | `pipelines`, `hitl`, `assistant`, `phone`, `evals` |
+//! | `melaya.agents`  | `pipelines`, `hitl`, `assistant`, `phone`, `evals`, `memory`, `connector_tools` |
 //! | `melaya.platform`| `projects`, `credentials`, `connectors`, `billing`, `team`, `templates`, `runner`, `auth`, `mfa`, `accounts`, `bugs`, `events` |
 //!
 //! Flat accessors (`melaya.market`, `melaya.pipelines`, …) remain available for
@@ -67,11 +67,13 @@ mod assistant;
 mod auth;
 mod billing;
 mod bugs;
+mod connector_tools;
 mod connectors;
 mod credentials;
 mod evals;
 mod events;
 mod hitl;
+mod memory;
 mod phone;
 mod pipelines;
 mod projects;
@@ -102,15 +104,17 @@ pub use assistant::AssistantAPI;
 pub use auth::{AuthAPI, MfaAPI};
 pub use billing::BillingAPI;
 pub use bugs::BugsAPI;
+pub use connector_tools::ConnectorToolsAPI;
 pub use connectors::ConnectorsAPI;
 pub use credentials::CredentialsAPI;
 pub use evals::EvalsAPI;
 pub use events::{EventSubscription, MelayaEvents};
 pub use hitl::HitlAPI;
+pub use memory::{CrewMemoryPatch, MemoryAPI};
 pub use phone::PhoneAPI;
 pub use pipelines::{
     DeleteTracesResult, PipelineRunAccepted, PipelineRunOptions, PipelineRunStatus, PipelinesAPI,
-    TraceSummary, TracesPage,
+    RunActiveStatus, RunInputs, TraceSummary, TracesPage,
 };
 pub use projects::ProjectsAPI;
 pub use runner::RunnerAPI;
@@ -195,7 +199,7 @@ pub struct Melaya {
     pub trading: TradingNamespace,
 
     /// Agents-plane namespace: `pipelines`, `hitl`, `assistant`, `phone`,
-    /// `evals`.
+    /// `evals`, `memory`, `connector_tools`.
     pub agents: AgentsNamespace,
 
     /// Platform-plane namespace: `projects`, `credentials`, `connectors`,
@@ -249,6 +253,13 @@ pub struct Melaya {
     pub assistant: AssistantAPI,
     /// Eval run results and memory graphs.
     pub evals: EvalsAPI,
+    /// Cross-run persistent agent crew memory: edit and delete one entry.
+    /// Reads (graph / run memory / crew listing) live on `evals`.
+    pub memory: MemoryAPI,
+    /// Discover and call connector tools directly (the same surface the MCP
+    /// server exposes): search, describe, test, connect, and call, with
+    /// staged approval for writes.
+    pub connector_tools: ConnectorToolsAPI,
     /// Bug reports: create, comment, notifications.
     pub bugs: BugsAPI,
     /// Platform real-time events over Socket.IO at `/api/v1/events`.
@@ -297,6 +308,8 @@ impl Melaya {
         let templates = TemplatesAPI::new(http.clone());
         let assistant = AssistantAPI::new(http.clone());
         let evals = EvalsAPI::new(http.clone());
+        let memory = MemoryAPI::new(http.clone());
+        let connector_tools = ConnectorToolsAPI::new(http.clone());
         let bugs = BugsAPI::new(http.clone());
         let events = MelayaEvents::new(opts.api_key.clone(), base_url);
 
@@ -316,6 +329,8 @@ impl Melaya {
             assistant: assistant.clone(),
             phone: phone.clone(),
             evals: evals.clone(),
+            memory: memory.clone(),
+            connector_tools: connector_tools.clone(),
         };
         let platform = PlatformNamespace {
             projects: projects.clone(),
@@ -360,6 +375,8 @@ impl Melaya {
             templates,
             assistant,
             evals,
+            memory,
+            connector_tools,
             bugs,
             events,
         })

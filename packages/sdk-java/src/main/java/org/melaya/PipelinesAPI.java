@@ -21,8 +21,31 @@ import static org.melaya.MarketAPI.params;
  *   <li>{@code /api/v1/private/ai/build-pipeline/sync} — AI-assisted build</li>
  *   <li>{@code /api/v1/private/overview/pipeline*} — listing/counting runs</li>
  *   <li>{@code /api/v1/private/runs/:runId/traces} — trace access</li>
+ *   <li>{@code /api/v1/private/projects/:project/tool-calls} — project tool-call audit ledger</li>
  *   <li>{@code /api/v1/private/pipeline-schedule} — cron scheduling</li>
  * </ul>
+ *
+ * <p><strong>IMPORTANT — {@code steps[]} vs {@code agents[]}:</strong> a pipeline's
+ * runnable config is generated ONLY from {@code steps[]}. A top-level {@code agents[]}
+ * list alone produces an EMPTY pipeline. Every step that runs an agent must embed
+ * the FULL agent definition inline:
+ * <pre>{@code
+ * "steps": [{
+ *   "kind": "agent",
+ *   "agent": {
+ *     "name": "researcher",
+ *     "role": "...",
+ *     "instruction": "...",              // the task — there is no "prompt" field
+ *     "model": { "provider": "anthropic", "name": "claude-sonnet-4-6" },
+ *     "agent_tools": ["..."],
+ *     "human_approval_tools": ["..."]
+ *   }
+ * }]
+ * }</pre>
+ * Other notable config fields: {@code hitl_mode} ({@code "safe"} default | {@code "autonomous"} |
+ * {@code "payments_only"} — only {@code "safe"} honours {@code human_approval_tools}),
+ * {@code connector_source} ({@code "personal"} | {@code "project"}), {@code force_local_runner},
+ * {@code inputs[]}.
  *
  * @example
  * <pre>{@code
@@ -83,6 +106,10 @@ public class PipelinesAPI {
      * Get a pipeline's full configuration by name.
      *
      * <p>Maps to {@code GET /api/v1/private/pipelines/{name}}.
+     * Returns an ENVELOPE: {@code { name, client, config, code, docs }}. The
+     * runnable pipeline configuration is {@code envelope.get("config")} — edit
+     * THAT (e.g. {@code config.get("steps").get(0).get("agent")}) and pass it back
+     * to {@link #update}, not the envelope itself.
      *
      * @param name    the pipeline name (URL-encoded automatically)
      * @param project optional project qualifier; pass {@code null} to omit
@@ -93,12 +120,16 @@ public class PipelinesAPI {
     }
 
     /**
-     * Update an existing pipeline.
+     * Update an existing pipeline — the path for editing per-agent prompts or
+     * swapping a model. First {@link #get} the pipeline, mutate
+     * {@code envelope.get("config")} in place (e.g. change the model on
+     * {@code config.steps[0].agent}), then pass that mutated config back here.
      *
      * <p>Maps to {@code PUT /api/v1/private/pipelines/{name}}.
      *
      * @param name the pipeline name (URL-encoded automatically)
-     * @param body request body containing {@code config} and {@code project}
+     * @param body request body containing {@code config} (the edited value from
+     *             {@code get(name, project).get("config")}) and {@code project}
      */
     public JsonNode update(String name, Map<String, Object> body) {
         return http.put("/api/v1/private/pipelines/" + encode(name), body);
@@ -123,11 +154,23 @@ public class PipelinesAPI {
      * Trigger a pipeline run.
      *
      * <p>Maps to {@code POST /api/v1/private/pipelines/{name}/run}.
-     * Returns {@code { run_id, queued }}.
+     * Returns {@code { run_id, queued, run_inputs? }} — {@code run_inputs} echoes
+     * back the resolved inputs when {@code run_inputs} was sent in the request.
+     *
+     * <p>{@code executionTarget} is used ONLY for the tier check at request time —
+     * where the run actually executes is decided by the pipeline's own stored
+     * config (local model providers / {@code force_local_runner}), not by this field.
+     *
+     * <p>{@code env_overrides} keys prefixed {@code MEL_} or {@code MELAYA_} are
+     * stripped server-side and never reach the run.
      *
      * @param name the pipeline name (URL-encoded automatically)
      * @param body optional run parameters: {@code project}, {@code executionTarget},
-     *             {@code studio_url}, {@code env_overrides}; may be {@code null}
+     *             {@code studio_url}, {@code env_overrides}, and
+     *             {@code run_inputs}: {@code { brief?, values? }} where a file value
+     *             inside {@code values} may be {@code { file_id }} (from
+     *             {@link #uploadRunFile}), {@code { url }} (≤25 MB), or
+     *             {@code { base64, name }} (≤7 MB); may be {@code null}
      */
     public JsonNode run(String name, Map<String, Object> body) {
         return http.post("/api/v1/private/pipelines/" + encode(name) + "/run", body);
@@ -171,6 +214,168 @@ public class PipelinesAPI {
     public JsonNode cancelRun(String name, String runId) {
         return http.delete(
                 "/api/v1/private/pipelines/" + encode(name) + "/runs/" + encode(runId),
+                null);
+    }
+
+    /**
+     * Upload a file for a later run. Multipart POST with a single field {@code file}
+     * (built by hand — no third-party multipart dependency). Returns
+     * {@code { file_id, ... }} — a single-use handle, valid 24 h. Pass it as
+     * {@code run_inputs.values.<key> = { "file_id": file_id }} on {@link #run}.
+     *
+     * <p>Maps to {@code POST /api/v1/private/pipelines/{name}/run-files?key={key}[&project=]}.
+     *
+     * @param name the pipeline name (URL-encoded automatically)
+     * @param key  the run-input key this file is uploaded for
+     * @param file the file bytes
+     * @param opts optional map: {@code filename} (defaults to {@code "file"}),
+     *             {@code contentType} (defaults to {@code application/octet-stream}),
+     *             {@code project}; may be {@code null}
+     */
+    public JsonNode uploadRunFile(String name, String key, byte[] file, Map<String, Object> opts) {
+        Object project = opts != null ? opts.get("project") : null;
+        Map<String, Object> query = params("key", key, "project", project);
+        String filename = opts != null && opts.get("filename") != null
+                ? String.valueOf(opts.get("filename")) : "file";
+        String contentType = opts != null && opts.get("contentType") != null
+                ? String.valueOf(opts.get("contentType")) : "application/octet-stream";
+        return http.postMultipart(
+                "/api/v1/private/pipelines/" + encode(name) + "/run-files",
+                query, "file", file, filename, contentType);
+    }
+
+    /**
+     * Get what a run was started with (brief, values, files).
+     *
+     * <p>Maps to {@code GET /api/v1/private/pipelines/{name}/runs/{runId}/inputs}.
+     *
+     * @param name  the pipeline name (URL-encoded automatically)
+     * @param runId the run ID (16 hex chars)
+     */
+    public JsonNode runInputs(String name, String runId) {
+        return http.get(
+                "/api/v1/private/pipelines/" + encode(name) + "/runs/" + encode(runId) + "/inputs",
+                null);
+    }
+
+    /**
+     * Download one run-input file by index. Returns RAW BYTES — do not JSON-parse.
+     *
+     * <p>Maps to {@code GET /api/v1/private/pipelines/{name}/runs/{runId}/inputs/files/{index}}.
+     *
+     * @param name  the pipeline name (URL-encoded automatically)
+     * @param runId the run ID (16 hex chars)
+     * @param index the file index (0-99)
+     */
+    public byte[] runInputFile(String name, String runId, int index) {
+        return http.getBytes(
+                "/api/v1/private/pipelines/" + encode(name) + "/runs/" + encode(runId)
+                        + "/inputs/files/" + index,
+                null);
+    }
+
+    /**
+     * Check whether a run is still active (liveness poll for cloud-spawn runs).
+     *
+     * <p>Maps to {@code GET /api/v1/private/pipelines/{name}/runs/{runId}/active}.
+     * Returns {@code { active: boolean }}.
+     *
+     * @param name  the pipeline name (URL-encoded automatically)
+     * @param runId the run ID
+     */
+    public JsonNode runActive(String name, String runId) {
+        return http.get(
+                "/api/v1/private/pipelines/" + encode(name) + "/runs/" + encode(runId) + "/active",
+                null);
+    }
+
+    // ── Static-context documents ─────────────────────────────────────────────
+
+    /**
+     * List static-context documents attached to a pipeline.
+     *
+     * <p>Maps to {@code GET /api/v1/private/pipelines/{name}/docs}.
+     */
+    public JsonNode listDocs(String name) {
+        return http.get("/api/v1/private/pipelines/" + encode(name) + "/docs", null);
+    }
+
+    /**
+     * Upload a static-context document. Multipart POST, single field {@code file}.
+     * Allowed extensions: {@code .txt .md .pdf .csv .json .docx .doc .pptx .xlsx}.
+     *
+     * <p>Maps to {@code POST /api/v1/private/pipelines/{name}/docs}.
+     *
+     * @param name the pipeline name (URL-encoded automatically)
+     * @param file the file bytes
+     * @param opts optional map: {@code filename}, {@code contentType}; may be {@code null}
+     */
+    public JsonNode uploadDoc(String name, byte[] file, Map<String, Object> opts) {
+        String filename = opts != null && opts.get("filename") != null
+                ? String.valueOf(opts.get("filename")) : "file";
+        String contentType = opts != null && opts.get("contentType") != null
+                ? String.valueOf(opts.get("contentType")) : "application/octet-stream";
+        return http.postMultipart(
+                "/api/v1/private/pipelines/" + encode(name) + "/docs",
+                null, "file", file, filename, contentType);
+    }
+
+    /**
+     * Delete a static-context document by filename.
+     *
+     * <p>Maps to {@code DELETE /api/v1/private/pipelines/{name}/docs/{filename}}.
+     */
+    public JsonNode deleteDoc(String name, String filename) {
+        return http.delete(
+                "/api/v1/private/pipelines/" + encode(name) + "/docs/" + encode(filename),
+                null);
+    }
+
+    // ── RAG (retrieval) documents ────────────────────────────────────────────
+
+    /**
+     * Upload a RAG retrieval document. Multipart POST, single field {@code file}.
+     *
+     * <p>Maps to {@code POST /api/v1/private/pipelines/{name}/docs/retrieval}.
+     *
+     * @param name the pipeline name (URL-encoded automatically)
+     * @param file the file bytes
+     * @param opts optional map: {@code filename}, {@code contentType}; may be {@code null}
+     */
+    public JsonNode uploadRetrievalDoc(String name, byte[] file, Map<String, Object> opts) {
+        String filename = opts != null && opts.get("filename") != null
+                ? String.valueOf(opts.get("filename")) : "file";
+        String contentType = opts != null && opts.get("contentType") != null
+                ? String.valueOf(opts.get("contentType")) : "application/octet-stream";
+        return http.postMultipart(
+                "/api/v1/private/pipelines/" + encode(name) + "/docs/retrieval",
+                null, "file", file, filename, contentType);
+    }
+
+    /**
+     * Embed changed retrieval documents with the pipeline's configured embedder.
+     * Can take minutes — uses a 300 s request timeout instead of the client default.
+     *
+     * <p>Maps to {@code POST /api/v1/private/pipelines/{name}/docs/retrieval/ingest}.
+     *
+     * @param name the pipeline name (URL-encoded automatically)
+     * @param body optional ingest options; pass {@code null} to send {@code {}}
+     */
+    public JsonNode ingestRetrieval(String name, Map<String, Object> body) {
+        return http.post(
+                "/api/v1/private/pipelines/" + encode(name) + "/docs/retrieval/ingest",
+                body != null ? body : Map.of(),
+                300_000);
+    }
+
+    /**
+     * Delete a RAG retrieval document by filename.
+     *
+     * <p>Maps to {@code DELETE /api/v1/private/pipelines/{name}/docs/retrieval/{filename}}.
+     */
+    public JsonNode deleteRetrievalDoc(String name, String filename) {
+        return http.delete(
+                "/api/v1/private/pipelines/" + encode(name) + "/docs/retrieval/" + encode(filename),
                 null);
     }
 
@@ -330,6 +535,53 @@ public class PipelinesAPI {
      */
     public JsonNode deleteTraces(String runId) {
         return http.delete("/api/v1/private/runs/" + encode(runId) + "/traces", null);
+    }
+
+    // ── Tool calls / audit ────────────────────────────────────────────────────
+
+    /**
+     * Project tool-call audit ledger: every tool invocation across the project's
+     * runs — tool, invoking agent, pipeline + run, who ran it, status, latency,
+     * HITL approval provenance (auto vs approved + approver), 4KB-truncated
+     * input/output. Keyset-paginated.
+     *
+     * <p>Maps to {@code GET /api/v1/private/projects/{project}/tool-calls}.
+     * Returns {@code { items: ToolCall[], nextCursor: {beforeCreatedAt, beforeId} | null, capped: boolean }}.
+     *
+     * @param project the project name
+     * @param query   optional query params: {@code beforeCreatedAt}, {@code beforeId},
+     *                {@code limit} (1-100, default 30), {@code tool}, {@code agent}, {@code runId},
+     *                {@code status} ({@code "ok"}|{@code "error"}), {@code search},
+     *                {@code connectorSource} ({@code "project"}|{@code "personal"}),
+     *                {@code approval} ({@code "auto"}|{@code "approved"}|{@code "by:<username>"}),
+     *                {@code provider}, {@code sort} ({@code "recent"}|{@code "oldest"}|{@code "slowest"}|{@code "fastest"});
+     *                may be {@code null}
+     */
+    public JsonNode projectToolCalls(String project, Map<String, Object> query) {
+        return http.get("/api/v1/private/projects/" + encode(project) + "/tool-calls", query);
+    }
+
+    /**
+     * Distinct tools (with call counts) and agents seen in the project's
+     * tool-call ledger — powers the audit filters.
+     *
+     * <p>Maps to {@code GET /api/v1/private/projects/{project}/tool-calls/facets}.
+     * Returns {@code { tools: [{name, count}], agents: string[] }}.
+     */
+    public JsonNode projectToolCallFacets(String project) {
+        return http.get("/api/v1/private/projects/" + encode(project) + "/tool-calls/facets", null);
+    }
+
+    /**
+     * Full, untruncated input/output for a single tool-call span in a run
+     * (access-checked).
+     *
+     * <p>Maps to {@code GET /api/v1/private/runs/{runId}/tool-calls/{spanId}}.
+     */
+    public JsonNode toolCallDetail(String runId, String spanId) {
+        return http.get(
+                "/api/v1/private/runs/" + encode(runId) + "/tool-calls/" + encode(spanId),
+                null);
     }
 
     // ── Schedule ──────────────────────────────────────────────────────────────

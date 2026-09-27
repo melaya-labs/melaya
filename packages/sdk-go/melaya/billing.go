@@ -72,3 +72,53 @@ func (b *BillingAPI) Plans(ctx context.Context) ([]BillingPlan, error) {
 	}
 	return v, nil
 }
+
+// AmbassadorPerk returns the ambassador discount the caller is entitled to
+// (nil if none) — the checkout applies it automatically, but it's surfaced so
+// the discount is visible before that.
+//
+// GET /api/v1/private/billing/ambassador-perk
+func (b *BillingAPI) AmbassadorPerk(ctx context.Context) (map[string]interface{}, error) {
+	data, err := b.h.get(ctx, "/api/v1/private/billing/ambassador-perk", nil)
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// RedeemCode redeems a single-use promo code to the caller's account; the
+// discount applies on the next checkout.
+//
+// POST /api/v1/private/billing/redeem-code
+func (b *BillingAPI) RedeemCode(ctx context.Context, code string) (map[string]interface{}, error) {
+	data, err := b.h.post(ctx, "/api/v1/private/billing/redeem-code", map[string]string{"code": code})
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// ReservedPromo returns the caller's active reserved promo (nil if none), so
+// the subscription modal can reflect a discount without the user re-entering
+// a code.
+//
+// GET /api/v1/private/billing/reserved-promo
+func (b *BillingAPI) ReservedPromo(ctx context.Context) (map[string]interface{}, error) {
+	data, err := b.h.get(ctx, "/api/v1/private/billing/reserved-promo", nil)
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}

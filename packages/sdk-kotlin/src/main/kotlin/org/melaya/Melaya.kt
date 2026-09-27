@@ -7,7 +7,7 @@ const val DEFAULT_BASE_URL = "https://api.melaya.org"
 const val DEFAULT_WS_URL   = "wss://wss.melaya.org"
 
 /**
- * The Melaya SDK entry point — v0.2.0.
+ * The Melaya SDK entry point — v0.3.0.
  *
  * Covers the full REST surface across trading, agents, and platform planes,
  * plus real-time events via Socket.IO at `/api/v1/events`.
@@ -141,6 +141,13 @@ class Melaya @JvmOverloads constructor(
     /** Project-scoped connector credentials (per-project service keys). */
     val connectors = ConnectorsAPI(http)
 
+    /**
+     * Call ANY unlocked connector tool directly (Gmail, Slack, Stripe, …) — the same
+     * surface the Melaya Assistant and MCP server use. Not to be confused with
+     * [connectors], which only stores project-scoped credentials.
+     */
+    val connectorTools = ConnectorToolsAPI(http)
+
     /** Phone device control: pair, list, screen-tree, apps, active run registration. */
     val phone = PhoneAPI(http)
 
@@ -155,6 +162,9 @@ class Melaya @JvmOverloads constructor(
 
     /** Agent evaluation runs and benchmark scores. */
     val evals = EvalsAPI(http)
+
+    /** Edit/delete persisted cross-run agent crew memory entries. */
+    val memory = MemoryAPI(http)
 
     /** In-app bug reports and notifications. */
     val bugs = BugsAPI(http)
@@ -196,20 +206,24 @@ class Melaya @JvmOverloads constructor(
 
     /**
      * Agents plane: pipeline runs, HITL approvals, assistant, phone control,
-     * and evaluations.
+     * evaluations, crew memory, and connector tool calls.
      *
      * ```kotlin
      * melaya.agents.pipelines.recent()
      * melaya.agents.hitl.pending()
      * melaya.agents.evals.benchmarks()
+     * melaya.agents.memory.editEntry(pipeline = "daily-digest", entryId = "mem_123", patch = mapOf("content" to "…"))
+     * melaya.agents.connectorTools.search("unread email")
      * ```
      */
     val agents = AgentsNamespace(
-        pipelines = pipelines,
-        hitl      = hitl,
-        assistant = assistant,
-        phone     = phone,
-        evals     = evals,
+        pipelines      = pipelines,
+        hitl           = hitl,
+        assistant      = assistant,
+        phone          = phone,
+        evals          = evals,
+        memory         = memory,
+        connectorTools = connectorTools,
     )
 
     /**

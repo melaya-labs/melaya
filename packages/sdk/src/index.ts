@@ -31,7 +31,7 @@
 
 // ── Core ─────────────────────────────────────────────────────────────────────
 export { Melaya, MelayaError, DEFAULT_BASE_URL, DEFAULT_WS_URL, ModelsAPI, OverviewAPI } from "./client.js";
-export type { MelayaOptions, TradingNamespace, AgentsNamespace, PlatformNamespace } from "./client.js";
+export type { MelayaOptions, TradingNamespace, AgentsNamespace, PlatformNamespace, FileInput } from "./client.js";
 
 // ── Trading plane ─────────────────────────────────────────────────────────────
 export { MarketAPI } from "./market.js";
@@ -52,9 +52,22 @@ export { PipelinesAPI } from "./pipelines.js";
 export type {
   PipelineConfig,
   PipelineCreateBody,
+  PipelineGetEnvelope,
+  PipelineStep,
+  PipelineAgentDef,
+  PipelineAgentModel,
   PipelineRunOptions,
   PipelineRunAccepted,
   PipelineRunStatus,
+  PipelineRunFileValue,
+  PipelineRunInputs,
+  PipelineRunInputsRecord,
+  RunFileUploadResult,
+  ToolCall,
+  ToolCallCursor,
+  ToolCallListParams,
+  ToolCallListResult,
+  ToolCallFacets,
   TemplateInstantiateBody,
 } from "./pipelines.js";
 export { EvalsAPI } from "./evals.js";
@@ -83,10 +96,32 @@ export type {
   CrewMemoryResult,
   MemoryGraphParams,
   CrewMemoryParams,
+  CrewMemoryEditParams,
+  CrewMemoryDeleteParams,
 } from "./memory.js";
 export { HitlAPI } from "./hitl.js";
 export { CredentialsAPI } from "./credentials.js";
 export { ConnectorsAPI } from "./connectors.js";
+export { ConnectorToolsAPI } from "./connector-tools.js";
+export type {
+  ConnectorApproval,
+  ConnectorToolParam,
+  ConnectorToolInfo,
+  ConnectorServicesResult,
+  ConnectorSearchResult,
+  ConnectorTestResult,
+  ConnectorConnectResult,
+  ConnectorCallDone,
+  ConnectorCallPending,
+  ConnectorCallResult,
+  ConnectorCallStatusWaiting,
+  ConnectorCallStatusDone,
+  ConnectorCallStatusRejected,
+  ConnectorCallStatus,
+  ConnectorCallOptions,
+  ConnectorCallAndWaitOptions,
+  ConnectorCallOutcome,
+} from "./connector-tools.js";
 export { BillingAPI } from "./billing.js";
 export { PhoneAPI } from "./phone.js";
 export { TeamAPI } from "./team.js";

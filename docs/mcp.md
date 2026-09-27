@@ -40,7 +40,7 @@ claude mcp add --transport http melaya https://api.melaya.org/mcp
 
 ## Permissions
 
-Eight scopes, one per domain. You grant them individually and can decline any of them.
+Ten scopes. You grant them individually and can decline any of them.
 
 | Scope | What it allows |
 |---|---|
@@ -50,11 +50,13 @@ Eight scopes, one per domain. You grant them individually and can decline any of
 | `melaya:phone` | Operate your paired Android phone, inside apps you have allow-listed |
 | `melaya:browser` | Operate a browser you have connected, on sites you have allowed |
 | `melaya:pipelines` | Create, edit, schedule, run and cancel agent pipelines |
-| `melaya:connectors` | Read data from services you have connected. Read only: nothing can be sent or changed |
+| `melaya:projects` | Create projects, rename them and edit descriptions, delete an empty project you created |
+| `melaya:connectors` | Read data from services you have connected. Read only |
+| `melaya:connectors.write` | Act through connected services: send emails, create or update records and files. Needs `melaya:connectors`. Never moves money or trades |
 | `melaya:team` | Read who has access to your projects, and invite people you name |
 | `offline_access` | Stay connected without signing in again |
 
-**The scopes do real work.** The tool list your assistant receives is filtered to what you granted, so a connection made for phone control alone sees 23 tools rather than all 83. If a capability is missing, it is because you declined it, not because Melaya lacks it.
+**The scopes do real work.** The tool list your assistant receives is filtered to what you granted, so a connection made for phone control alone sees 23 tools rather than all 88. If a capability is missing, it is because you declined it, not because Melaya lacks it.
 
 Disconnecting in Melaya settings immediately revokes the connection's ability to renew itself. The access token it already holds is self-contained and keeps working until it expires, which is at most one hour.
 
@@ -154,7 +156,7 @@ Nothing else does. Provider and connector credentials are resolved server-side a
 
 ## Tools
 
-Eighty-three, grouped by domain. Every one declares whether it is read-only or makes changes, so your assistant can ask before anything consequential.
+Eighty-eight, grouped by domain. Every one declares whether it is read-only or makes changes, so your assistant can ask before anything consequential.
 
 **Setup and account** — `melaya_setup_status`, `melaya_account_whoami`, `melaya_account_usage`, `melaya_account_subscription`, `melaya_model_list`
 
@@ -172,9 +174,15 @@ Eighty-three, grouped by domain. Every one declares whether it is read-only or m
 
 **Pipelines** — `melaya_pipeline_list`, `melaya_pipeline_get`, `melaya_pipeline_registry`, `melaya_pipeline_templates`, `melaya_pipeline_preview`, `melaya_pipeline_save`, `melaya_pipeline_from_template`, `melaya_pipeline_delete`, `melaya_pipeline_schedule`, `melaya_pipeline_trigger`, `melaya_pipeline_run`, `melaya_run_phone_agent`
 
+`melaya_pipeline_run` takes optional run inputs, on any pipeline: `brief` (free text for this run only, e.g. "run the due diligence for abc.xyz"), `files` (attachments for this run) and `inputs` (values for the inputs the pipeline declares, listed by `melaya_pipeline_get`; files as `{"url": "https://..."}` or `{"base64": "...", "name": "deck.pdf"}`; base64 up to 7 MB, URLs up to 25 MB). `melaya_run_status` echoes the inputs a run was started with.
+
 **Runs and quality** — `melaya_run_status`, `melaya_run_inspect`, `melaya_run_diagnosis`, `melaya_run_cancel`, `melaya_eval_report`, `melaya_agent_memory`, `melaya_approval_list`
 
 **Connected services** — `melaya_connector_list`, `melaya_connector_test`, `melaya_connector_connect`, `melaya_connector_tools`, `melaya_connector_call`
+
+**Projects** — `melaya_project_list`, `melaya_project_get`, `melaya_project_create`, `melaya_project_update`, `melaya_project_delete`
+
+Delete is a dry run until confirmed, only the project's creator can do it, and a project that still holds pipelines, run history or other members is refused.
 
 **Team** — `melaya_team_list`, `melaya_team_invite`
 
@@ -182,9 +190,11 @@ Eighty-three, grouped by domain. Every one declares whether it is read-only or m
 
 ### Two notes on the connector tools
 
-They are **read-only, structurally**. Not by policy, and not by an approval prompt you could click through: the write path is blocked in two independent places, so a write stays blocked even if Melaya's own tool catalog is out of date. If a task needs something sent or changed in a connected service, the answer is a Melaya pipeline that includes it.
+They are **read-only by default, structurally**. Without `melaya:connectors.write` the write path is blocked in two independent places, so a write stays blocked even if Melaya's own tool catalog is out of date.
 
-And a naming warning if you also use the Melaya SDK: **"connectors" means something different there.** In the SDK, `connectors` is project credential storage. Here, `melaya:connectors` is reading data from services you already connected. This surface cannot store, read or delete a credential at all.
+Grant `melaya:connectors.write` as well and `melaya_connector_call` can act for you: send an email, create or update a record or a file. **Anything that moves money or trades is excluded at every permission level**: payments, refunds, purchases, transfers, ad-spend changes and orders are refused by the server, and again by the executor, and stay with you in the Melaya app. Every write made this way is audit-logged.
+
+And a naming warning if you also use the Melaya SDK: **"connectors" means something different there.** In the SDK, `connectors` is project credential storage. Here, `melaya:connectors` is reading data from services you already connected, and `melaya:connectors.write` is acting through them. The SDK counterpart of these tools is the `connectorTools` module (list, search, describe, test, connect, call), where a write takes `approval: "required"` (an approval card in the Melaya app) or `"none"`. This surface cannot store, read or delete a credential at all.
 
 ## What is deliberately not here
 

@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Melaya;
 
 /// <summary>
@@ -46,5 +48,24 @@ public sealed class BillingApi
     public async Task<List<BillingPlan>> PlansAsync(CancellationToken ct = default)
     {
         return await _http.GetAsync<List<BillingPlan>>("/api/v1/billing/plans", ct: ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Get the caller's ambassador-program perk status, if enrolled.</summary>
+    public async Task<JsonElement> AmbassadorPerkAsync(CancellationToken ct = default)
+    {
+        return await _http.GetAsync<JsonElement>("/api/v1/private/billing/ambassador-perk", ct: ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Redeem a promo/discount code against the caller's subscription.</summary>
+    public async Task<JsonElement> RedeemCodeAsync(string code, CancellationToken ct = default)
+    {
+        var body = new { code };
+        return await _http.PostAsync<JsonElement>("/api/v1/private/billing/redeem-code", body, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Get the caller's reserved promotional pricing, if any.</summary>
+    public async Task<JsonElement> ReservedPromoAsync(CancellationToken ct = default)
+    {
+        return await _http.GetAsync<JsonElement>("/api/v1/private/billing/reserved-promo", ct: ct).ConfigureAwait(false);
     }
 }

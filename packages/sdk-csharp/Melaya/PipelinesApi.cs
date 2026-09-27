@@ -166,14 +166,37 @@ public sealed class PipelinesApi
         return await _http.GetAsync<PipelineListResult>("/api/v1/private/pipelines", ct: ct).ConfigureAwait(false);
     }
 
-    /// <summary>Create a new pipeline definition.</summary>
+    /// <summary>
+    /// Create a new pipeline definition.
+    /// <para>
+    /// The run is generated ONLY from a <c>steps</c> array in the config — a top-level
+    /// <c>agents</c> array by itself produces an EMPTY pipeline. Each step embeds its own
+    /// full agent definition, e.g.
+    /// <c>steps: [{ kind: "agent", agent: { name, role, instruction, model: { provider, name }, agent_tools, human_approval_tools } }]</c>.
+    /// There is no <c>prompt</c> field: the task goes in <c>instruction</c>, and
+    /// <c>system_prompt_override</c> replaces the persona prompt entirely.
+    /// </para>
+    /// <para>
+    /// Other config fields worth knowing: <c>hitl_mode</c> (<c>"safe"</c> default |
+    /// <c>"autonomous"</c> | <c>"payments_only"</c> — only <c>"safe"</c> honours
+    /// <c>human_approval_tools</c>), <c>connector_source</c> (<c>"personal"</c> |
+    /// <c>"project"</c>), <c>force_local_runner</c>, and <c>inputs[]</c> (declares the
+    /// <c>run_inputs</c> schema accepted by <see cref="RunAsync"/>).
+    /// </para>
+    /// </summary>
     /// <param name="body">Name, project, optional description, and pipeline config.</param>
     public async Task<System.Text.Json.JsonElement> CreateAsync(PipelineCreateRequest body, CancellationToken ct = default)
     {
         return await _http.PostAsync<System.Text.Json.JsonElement>("/api/v1/private/pipelines", body, ct).ConfigureAwait(false);
     }
 
-    /// <summary>Get a pipeline definition by name.</summary>
+    /// <summary>
+    /// Get a pipeline definition by name. Returns the full envelope
+    /// <c>{ name, client, config, code, docs }</c> — the editable pipeline config lives under
+    /// <c>config</c>. To edit and save: read <c>config</c> out of the envelope, mutate it
+    /// (e.g. via <see cref="System.Text.Json.Nodes.JsonNode"/>), and pass it back to
+    /// <see cref="UpdateAsync"/> as <c>PipelineUpdateRequest.Config</c>.
+    /// </summary>
     /// <param name="name">Pipeline name.</param>
     /// <param name="project">Optional project scope.</param>
     public async Task<System.Text.Json.JsonElement> GetAsync(string name, string? project = null, CancellationToken ct = default)
@@ -183,7 +206,11 @@ public sealed class PipelinesApi
             $"/api/v1/private/pipelines/{Uri.EscapeDataString(name)}", q, ct).ConfigureAwait(false);
     }
 
-    /// <summary>Update a pipeline definition.</summary>
+    /// <summary>
+    /// Update a pipeline definition. Pass the full config (typically the <c>config</c>
+    /// property read back from <see cref="GetAsync"/>'s envelope) — partial merges are not
+    /// supported server-side.
+    /// </summary>
     /// <param name="name">Pipeline name.</param>
     /// <param name="body">Updated config and project.</param>
     public async Task<System.Text.Json.JsonElement> UpdateAsync(string name, PipelineUpdateRequest body, CancellationToken ct = default)
@@ -202,13 +229,37 @@ public sealed class PipelinesApi
             $"/api/v1/private/pipelines/{Uri.EscapeDataString(name)}", q, ct).ConfigureAwait(false);
     }
 
-    /// <summary>Enqueue a pipeline run.</summary>
+    /// <summary>
+    /// Enqueue a pipeline run. <paramref name="body"/>.RunInputs lets you deliver a free-text
+    /// brief and/or keyed values (including uploaded-file references) to the pipeline's first
+    /// agent; the response echoes them back under <c>RunInputs</c> when provided.
+    /// </summary>
     /// <param name="name">Pipeline name.</param>
-    /// <param name="body">Optional project, execution target, studio URL, and env overrides.</param>
+    /// <param name="body">Optional project, execution target, studio URL, env overrides, and run inputs.</param>
     public async Task<PipelineRunResult> RunAsync(string name, PipelineRunRequest? body = null, CancellationToken ct = default)
     {
         return await _http.PostAsync<PipelineRunResult>(
             $"/api/v1/private/pipelines/{Uri.EscapeDataString(name)}/run", body, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Upload a file to reference from <see cref="PipelineRunInputs.Values"/> as <c>{ file_id }</c>.
+    /// The returned <see cref="RunFileUploadResult.FileId"/> is single-use and valid for 24 hours.
+    /// </summary>
+    /// <param name="name">Pipeline name.</param>
+    /// <param name="key">The run-inputs value key this file is destined for.</param>
+    /// <param name="file">Raw file bytes.</param>
+    /// <param name="filename">File name sent in the multipart part.</param>
+    /// <param name="contentType">Optional MIME type for the uploaded file.</param>
+    /// <param name="project">Optional project scope.</param>
+    public async Task<RunFileUploadResult> UploadRunFileAsync(
+        string name, string key, byte[] file, string filename,
+        string? contentType = null, string? project = null, CancellationToken ct = default)
+    {
+        var q = Q(("key", key), ("project", project));
+        return await _http.PostMultipartAsync<RunFileUploadResult>(
+            $"/api/v1/private/pipelines/{Uri.EscapeDataString(name)}/run-files",
+            q, "file", file, filename, contentType, ct).ConfigureAwait(false);
     }
 
     /// <summary>List all run IDs for a pipeline.</summary>
@@ -227,6 +278,41 @@ public sealed class PipelinesApi
         return await _http.GetAsync<PipelineRunStatus>(
             $"/api/v1/private/pipelines/{Uri.EscapeDataString(name)}/runs/{Uri.EscapeDataString(runId)}",
             ct: ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Read back the inputs (brief, values, file metadata) recorded for a run.</summary>
+    /// <param name="name">Pipeline name.</param>
+    /// <param name="runId">Run ID (16 hex chars).</param>
+    public async Task<PipelineRunInputsResult> RunInputsAsync(string name, string runId, CancellationToken ct = default)
+    {
+        return await _http.GetAsync<PipelineRunInputsResult>(
+            $"/api/v1/private/pipelines/{Uri.EscapeDataString(name)}/runs/{Uri.EscapeDataString(runId)}/inputs",
+            ct: ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Download one run-input file's raw bytes by its index within the run's file list.
+    /// The response is a binary download — it is never JSON-parsed.
+    /// </summary>
+    /// <param name="name">Pipeline name.</param>
+    /// <param name="runId">Run ID (16 hex chars).</param>
+    /// <param name="index">File index (0-99).</param>
+    public async Task<byte[]> RunInputFileAsync(string name, string runId, int index, CancellationToken ct = default)
+    {
+        return await _http.GetBytesAsync(
+            $"/api/v1/private/pipelines/{Uri.EscapeDataString(name)}/runs/{Uri.EscapeDataString(runId)}/inputs/files/{index}",
+            ct: ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Check whether a run is still active (queued or running).</summary>
+    /// <param name="name">Pipeline name.</param>
+    /// <param name="runId">Run ID.</param>
+    public async Task<bool> RunActiveAsync(string name, string runId, CancellationToken ct = default)
+    {
+        var r = await _http.GetAsync<PipelineRunActiveResult>(
+            $"/api/v1/private/pipelines/{Uri.EscapeDataString(name)}/runs/{Uri.EscapeDataString(runId)}/active",
+            ct: ct).ConfigureAwait(false);
+        return r.Active ?? false;
     }
 
     /// <summary>Cancel an in-progress run.</summary>
@@ -304,6 +390,163 @@ public sealed class PipelinesApi
     {
         return await _http.PostAsync<System.Text.Json.JsonElement>(
             "/api/v1/private/ai/build-pipeline/sync", body, ct).ConfigureAwait(false);
+    }
+
+    // ── Static-context documents ─────────────────────────────────────────────────
+
+    /// <summary>List static-context documents attached to a pipeline.</summary>
+    /// <param name="name">Pipeline name.</param>
+    public async Task<System.Text.Json.JsonElement> ListDocsAsync(string name, CancellationToken ct = default)
+    {
+        return await _http.GetAsync<System.Text.Json.JsonElement>(
+            $"/api/v1/private/pipelines/{Uri.EscapeDataString(name)}/docs", ct: ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Upload a static-context document for a pipeline.
+    /// Allowed extensions: <c>.txt .md .pdf .csv .json .docx .doc .pptx .xlsx</c>.
+    /// </summary>
+    /// <param name="name">Pipeline name.</param>
+    /// <param name="file">Raw file bytes.</param>
+    /// <param name="filename">File name sent in the multipart part.</param>
+    /// <param name="contentType">Optional MIME type for the uploaded file.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<System.Text.Json.JsonElement> UploadDocAsync(
+        string name, byte[] file, string filename, string? contentType = null, CancellationToken ct = default)
+    {
+        return await _http.PostMultipartAsync<System.Text.Json.JsonElement>(
+            $"/api/v1/private/pipelines/{Uri.EscapeDataString(name)}/docs",
+            null, "file", file, filename, contentType, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Delete a static-context document by filename.</summary>
+    /// <param name="name">Pipeline name.</param>
+    /// <param name="filename">Document filename, as returned by <see cref="ListDocsAsync"/>.</param>
+    public async Task<BoolResult> DeleteDocAsync(string name, string filename, CancellationToken ct = default)
+    {
+        return await _http.DeleteAsync<BoolResult>(
+            $"/api/v1/private/pipelines/{Uri.EscapeDataString(name)}/docs/{Uri.EscapeDataString(filename)}",
+            ct: ct).ConfigureAwait(false);
+    }
+
+    // ── RAG (retrieval) documents ─────────────────────────────────────────────────
+
+    /// <summary>Upload a RAG retrieval document for a pipeline.</summary>
+    /// <param name="name">Pipeline name.</param>
+    /// <param name="file">Raw file bytes.</param>
+    /// <param name="filename">File name sent in the multipart part.</param>
+    /// <param name="contentType">Optional MIME type for the uploaded file.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<System.Text.Json.JsonElement> UploadRetrievalDocAsync(
+        string name, byte[] file, string filename, string? contentType = null, CancellationToken ct = default)
+    {
+        return await _http.PostMultipartAsync<System.Text.Json.JsonElement>(
+            $"/api/v1/private/pipelines/{Uri.EscapeDataString(name)}/docs/retrieval",
+            null, "file", file, filename, contentType, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Embed changed RAG retrieval documents with the pipeline's configured embedder.
+    /// Can take minutes for a large document set — defaults to a 300 s timeout for this call
+    /// alone (override via <paramref name="timeoutMs"/>; does not affect other calls).
+    /// </summary>
+    /// <param name="name">Pipeline name.</param>
+    /// <param name="body">Optional request body; sent as <c>{}</c> when omitted.</param>
+    /// <param name="timeoutMs">Per-call timeout in milliseconds (default 300 000 ms / 5 min).</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<System.Text.Json.JsonElement> IngestRetrievalAsync(
+        string name, object? body = null, int timeoutMs = 300_000, CancellationToken ct = default)
+    {
+        return await _http.PostAsync<System.Text.Json.JsonElement>(
+            $"/api/v1/private/pipelines/{Uri.EscapeDataString(name)}/docs/retrieval/ingest",
+            body ?? new { }, ct, timeoutMs).ConfigureAwait(false);
+    }
+
+    /// <summary>Delete a RAG retrieval document by filename.</summary>
+    /// <param name="name">Pipeline name.</param>
+    /// <param name="filename">Document filename.</param>
+    public async Task<BoolResult> DeleteRetrievalDocAsync(string name, string filename, CancellationToken ct = default)
+    {
+        return await _http.DeleteAsync<BoolResult>(
+            $"/api/v1/private/pipelines/{Uri.EscapeDataString(name)}/docs/retrieval/{Uri.EscapeDataString(filename)}",
+            ct: ct).ConfigureAwait(false);
+    }
+
+    // ── Tool-call audit ───────────────────────────────────────────────────────────
+    // Maps to /api/v1/private/projects/:project/tool-calls* and
+    // /api/v1/private/runs/:runId/tool-calls/:spanId — kept alongside traces since both
+    // read the same per-run execution history.
+
+    /// <summary>
+    /// Paginated tool-call audit log for a project. Filter with any combination of the
+    /// optional parameters; page backwards in time with <paramref name="beforeCreatedAt"/> +
+    /// <paramref name="beforeId"/> (from a previous page's <c>NextCursor</c>).
+    /// </summary>
+    /// <param name="project">Project name.</param>
+    /// <param name="beforeCreatedAt">Cursor: only calls created before this ISO timestamp.</param>
+    /// <param name="beforeId">Cursor: tie-breaker id paired with <paramref name="beforeCreatedAt"/>.</param>
+    /// <param name="limit">Page size, 1-100 (default 30).</param>
+    /// <param name="tool">Filter by tool name.</param>
+    /// <param name="agent">Filter by agent id.</param>
+    /// <param name="runId">Filter by run id.</param>
+    /// <param name="status">Filter by outcome: <c>"ok"</c> or <c>"error"</c>.</param>
+    /// <param name="search">Free-text search across tool input/output.</param>
+    /// <param name="connectorSource">Filter by connector source: <c>"project"</c> or <c>"personal"</c>.</param>
+    /// <param name="approval">Filter by approval: <c>"auto"</c>, <c>"approved"</c>, or <c>"by:&lt;username&gt;"</c>.</param>
+    /// <param name="provider">Filter by model provider.</param>
+    /// <param name="sort">Sort order: <c>"recent"</c> (default), <c>"oldest"</c>, <c>"slowest"</c>, or <c>"fastest"</c>.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<ToolCallListResult> ProjectToolCallsAsync(
+        string project,
+        string? beforeCreatedAt = null,
+        string? beforeId = null,
+        int? limit = null,
+        string? tool = null,
+        string? agent = null,
+        string? runId = null,
+        string? status = null,
+        string? search = null,
+        string? connectorSource = null,
+        string? approval = null,
+        string? provider = null,
+        string? sort = null,
+        CancellationToken ct = default)
+    {
+        var q = Q(
+            ("beforeCreatedAt", beforeCreatedAt),
+            ("beforeId", beforeId),
+            ("limit", limit?.ToString()),
+            ("tool", tool),
+            ("agent", agent),
+            ("runId", runId),
+            ("status", status),
+            ("search", search),
+            ("connectorSource", connectorSource),
+            ("approval", approval),
+            ("provider", provider),
+            ("sort", sort));
+        return await _http.GetAsync<ToolCallListResult>(
+            $"/api/v1/private/projects/{Uri.EscapeDataString(project)}/tool-calls", q, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Facet counts (tool names, agent ids) for filtering a project's tool-call audit log.</summary>
+    /// <param name="project">Project name.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<ToolCallFacets> ProjectToolCallFacetsAsync(string project, CancellationToken ct = default)
+    {
+        return await _http.GetAsync<ToolCallFacets>(
+            $"/api/v1/private/projects/{Uri.EscapeDataString(project)}/tool-calls/facets", ct: ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Get the full, untruncated input/output for one tool-call span.</summary>
+    /// <param name="runId">Run ID.</param>
+    /// <param name="spanId">Span ID, as returned in <see cref="ToolCallListResult.Items"/>.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<System.Text.Json.JsonElement> ToolCallDetailAsync(string runId, string spanId, CancellationToken ct = default)
+    {
+        return await _http.GetAsync<System.Text.Json.JsonElement>(
+            $"/api/v1/private/runs/{Uri.EscapeDataString(runId)}/tool-calls/{Uri.EscapeDataString(spanId)}",
+            ct: ct).ConfigureAwait(false);
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────

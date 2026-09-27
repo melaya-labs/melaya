@@ -7,10 +7,13 @@ import org.json.JSONObject
  * Billing API — subscription status, Stripe checkout/portal sessions, and pricing plans.
  *
  * Paths:
- *   - `GET  /api/v1/private/billing/subscription` — current Stripe subscription status
- *   - `POST /api/v1/private/billing/checkout`     — create Stripe Checkout session
- *   - `POST /api/v1/private/billing/portal`       — create Stripe Customer Portal session
- *   - `GET  /api/v1/billing/plans`                — public pricing plan details (no auth)
+ *   - `GET  /api/v1/private/billing/subscription`    — current Stripe subscription status
+ *   - `POST /api/v1/private/billing/checkout`        — create Stripe Checkout session
+ *   - `POST /api/v1/private/billing/portal`          — create Stripe Customer Portal session
+ *   - `GET  /api/v1/billing/plans`                   — public pricing plan details (no auth)
+ *   - `GET  /api/v1/private/billing/ambassador-perk`  — the caller's ambassador discount, if any
+ *   - `POST /api/v1/private/billing/redeem-code`      — redeem a single-use promo code
+ *   - `GET  /api/v1/private/billing/reserved-promo`   — the caller's active reserved promo, if any
  */
 class BillingAPI internal constructor(private val http: HttpClient) {
 
@@ -51,5 +54,20 @@ class BillingAPI internal constructor(private val http: HttpClient) {
             is JSONObject -> r.optJSONArray("plans") ?: JSONArray()
             else -> JSONArray()
         }
+    }
+
+    /** The ambassador discount the caller is entitled to, if any. */
+    fun ambassadorPerk(): JSONObject {
+        return http.get("/api/v1/private/billing/ambassador-perk").asObject()
+    }
+
+    /** Redeem a single-use promo [code] to the caller's account (discount applies on next checkout). */
+    fun redeemCode(code: String): JSONObject {
+        return http.post("/api/v1/private/billing/redeem-code", mapOf("code" to code)).asObject()
+    }
+
+    /** The caller's active reserved promo (for the subscription modal to reflect), if any. */
+    fun reservedPromo(): JSONObject {
+        return http.get("/api/v1/private/billing/reserved-promo").asObject()
     }
 }

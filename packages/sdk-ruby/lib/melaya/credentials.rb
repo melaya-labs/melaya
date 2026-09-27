@@ -242,6 +242,124 @@ module Melaya
       @http.post("/api/v1/private/credentials/telegram/auth/2fa", body)
     end
 
+    # ── Telegram user QR login (alternative to the phone-number flow above) ────
+
+    # POST /api/v1/private/credentials/telegram/auth/qr/start
+    # Start Telegram user QR login.
+    # @param api_id [Integer]
+    # @param api_hash [String]
+    # @return [Hash] { "handle" => String, ... } — handle starts with "tgauth_"
+    def telegram_qr_start(api_id, api_hash)
+      @http.post("/api/v1/private/credentials/telegram/auth/qr/start",
+        "api_id" => api_id, "api_hash" => api_hash)
+    end
+
+    # POST /api/v1/private/credentials/telegram/auth/qr/poll
+    # Poll Telegram user QR login.
+    # @param handle [String] starts with "tgauth_"
+    def telegram_qr_poll(handle)
+      @http.post("/api/v1/private/credentials/telegram/auth/qr/poll", "handle" => handle)
+    end
+
+    # ── Google OAuth (status / defaults / disconnect) ──────────────────────────
+
+    # GET /api/v1/private/credentials/google/status
+    # List the Google OAuth capabilities actually granted to the caller.
+    def google_status
+      @http.get("/api/v1/private/credentials/google/status")
+    end
+
+    # PUT /api/v1/private/credentials/google/default
+    # Select the connected Google account used by one capability.
+    # @param capability [String] e.g. "gmail", "calendar", "drive", "sheets",
+    #   "docs", "search_console", "youtube", "google_ads", "analytics", "meet", "slides"
+    # @param account_id [String] 24-hex-char connected-account id
+    def google_set_default(capability, account_id)
+      @http.put("/api/v1/private/credentials/google/default",
+        "capability" => capability, "accountId" => account_id)
+    end
+
+    # DELETE /api/v1/private/credentials/google/access
+    # Disconnect one Google product, or an entire Google account.
+    # @param account_id [String] 24-hex-char connected-account id
+    # @param capability [String, nil] omit to disconnect the whole account
+    def google_disconnect(account_id, capability: nil)
+      body = compact("accountId" => account_id, "capability" => capability)
+      @http.delete("/api/v1/private/credentials/google/access", {}, body)
+    end
+
+    # ── Database connector test (runner-probed) ────────────────────────────────
+
+    # POST /api/v1/private/credentials/db-test
+    # Test a database connector from the user's own runner (reaches
+    # IP-allow-listed / VPC hosts a cloud probe never could).
+    # @param service [String] one of "postgres", "mysql", "snowflake", "databricks", "sqlite"
+    # @param credentials [Hash, nil] freshly-typed credentials to test instead of the stored ones
+    # @return [Hash] { "sessionId" => String, ... }
+    def db_test_start(service, credentials: nil)
+      body = compact("service" => service, "credentials" => credentials)
+      @http.post("/api/v1/private/credentials/db-test", body)
+    end
+
+    # GET /api/v1/private/credentials/db-test/:sessionId
+    # Poll a DB connector runner-test result.
+    # @param session_id [String]
+    def db_test_status(session_id)
+      @http.get("/api/v1/private/credentials/db-test/#{enc(session_id)}")
+    end
+
+    # ── WhatsApp Embedded Signup ────────────────────────────────────────────────
+
+    # GET /api/v1/private/credentials/whatsapp/embedded-signup/config
+    # WhatsApp Embedded Signup config (appId/configId) for the client SDK.
+    def whatsapp_signup_config
+      @http.get("/api/v1/private/credentials/whatsapp/embedded-signup/config")
+    end
+
+    # POST /api/v1/private/credentials/whatsapp/embedded-signup/exchange
+    # Exchange a WhatsApp Embedded Signup code for a connected number.
+    # @param code [String]
+    # @param phone_number_id [String]
+    # @param waba_id [String]
+    # @param project [String, nil]
+    def whatsapp_signup_exchange(code:, phone_number_id:, waba_id:, project: nil)
+      body = compact(
+        "code"          => code,
+        "phoneNumberId" => phone_number_id,
+        "wabaId"        => waba_id,
+        "project"       => project
+      )
+      @http.post("/api/v1/private/credentials/whatsapp/embedded-signup/exchange", body)
+    end
+
+    # ── TikTok ──────────────────────────────────────────────────────────────────
+
+    # GET /api/v1/private/credentials/tiktok/creator-info
+    # The connected TikTok account's creator info (nickname, allowed privacy
+    # levels, interaction availability) for the compliant Post-to-TikTok
+    # approval UI.
+    def tiktok_creator_info
+      @http.get("/api/v1/private/credentials/tiktok/creator-info")
+    end
+
+    # ── Substack email-link sign-in ─────────────────────────────────────────────
+
+    # POST /api/v1/private/credentials/substack/email-link
+    # Ask Substack to email a sign-in link.
+    # @param email [String]
+    def substack_email_link_send(email)
+      @http.post("/api/v1/private/credentials/substack/email-link", "email" => email)
+    end
+
+    # POST /api/v1/private/credentials/substack/email-link/redeem
+    # Finish Substack sign-in with the emailed link.
+    # @param link [String]
+    # @param email [String, nil]
+    def substack_email_link_redeem(link, email: nil)
+      body = compact("link" => link, "email" => email)
+      @http.post("/api/v1/private/credentials/substack/email-link/redeem", body)
+    end
+
     private
 
     def enc(s)

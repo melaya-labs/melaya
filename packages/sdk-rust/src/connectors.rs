@@ -80,4 +80,116 @@ impl ConnectorsAPI {
             )
             .await
     }
+
+    /// Copy the caller's own personal connector credential into the
+    /// project's shared pool (requires editor or owner). Values stay
+    /// server-side. `google_capabilities` scopes which Google capabilities
+    /// to share when `service` is `"google"`.
+    pub async fn apply_personal(
+        &self,
+        project: &str,
+        service: &str,
+        google_capabilities: Option<&[&str]>,
+    ) -> Result<Value> {
+        let mut body = json!({});
+        if let Some(caps) = google_capabilities {
+            body["googleCapabilities"] = json!(caps);
+        }
+        self.http
+            .post(
+                &format!("/api/v1/private/projects/{project}/connectors/{service}/apply-personal"),
+                &body,
+            )
+            .await
+    }
+
+    /// Which member shared each connected project connector (usernames
+    /// only — never credential values).
+    pub async fn shared_by(&self, project: &str) -> Result<Value> {
+        let q = HashMap::new();
+        self.http
+            .get(
+                &format!("/api/v1/private/projects/{project}/connectors/shared-by"),
+                &q,
+            )
+            .await
+    }
+
+    /// List the Google OAuth capabilities actually granted to a project.
+    pub async fn google_status(&self, project: &str) -> Result<Value> {
+        let q = HashMap::new();
+        self.http
+            .get(
+                &format!("/api/v1/private/projects/{project}/connectors/google/status"),
+                &q,
+            )
+            .await
+    }
+
+    /// Select the project's connected Google account used by one capability.
+    pub async fn google_set_default(
+        &self,
+        project: &str,
+        capability: &str,
+        account_id: &str,
+    ) -> Result<Value> {
+        let body = json!({ "capability": capability, "accountId": account_id });
+        self.http
+            .put(
+                &format!("/api/v1/private/projects/{project}/connectors/google/default"),
+                &body,
+            )
+            .await
+    }
+
+    /// Disconnect one Google product, or an entire project Google account
+    /// when `capability` is omitted.
+    pub async fn google_disconnect(
+        &self,
+        project: &str,
+        account_id: &str,
+        capability: Option<&str>,
+    ) -> Result<Value> {
+        let mut body = json!({ "accountId": account_id });
+        if let Some(c) = capability {
+            body["capability"] = json!(c);
+        }
+        self.http
+            .delete_with_body(
+                &format!("/api/v1/private/projects/{project}/connectors/google/access"),
+                &body,
+            )
+            .await
+    }
+
+    /// Test a project database connector from the user's own runner
+    /// (reaches IP-allow-listed / VPC hosts). Returns `{ sessionId, ... }`.
+    pub async fn db_test_start(
+        &self,
+        project: &str,
+        service: &str,
+        credentials: Option<&Value>,
+    ) -> Result<Value> {
+        let mut body = json!({ "service": service });
+        if let Some(c) = credentials {
+            body["credentials"] = c.clone();
+        }
+        self.http
+            .post(
+                &format!("/api/v1/private/projects/{project}/connectors/db-test"),
+                &body,
+            )
+            .await
+    }
+
+    /// Poll a project database connector runner-test result.
+    pub async fn db_test_status(&self, project: &str, session_id: &str) -> Result<Value> {
+        let q = HashMap::new();
+        self.http
+            .get(
+                &format!("/api/v1/private/projects/{project}/connectors/db-test/{session_id}"),
+                &q,
+            )
+            .await
+    }
 }

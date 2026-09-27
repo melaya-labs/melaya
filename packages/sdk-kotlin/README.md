@@ -4,6 +4,8 @@
 
 Official SDK for the **[Melaya](https://melaya.org)** Agent Builder and flagship Mobile Device Control APIs. Trading namespaces are included only as a preview of a later product.
 
+**Melaya products:** [Melaya Agents](https://melaya.org/en/product/agentic-framework) · [Melaya Assistant](https://melaya.org/en/product/assistant) · [Device Control](https://melaya.org/en/product/agentic-device-control) · [Browser Control](https://melaya.org/en/product/agentic-browser-control) · [MCP Server](https://melaya.org/en/product/mcp) · [Melaya Marketing](https://melaya.org/en/product/marketing)
+
 ## Install
 
 The SDK is published to Maven Central as a standard Kotlin/JVM library (JVM 21+):
@@ -14,7 +16,7 @@ repositories {
     mavenCentral()
 }
 dependencies {
-    implementation("org.melaya:melaya-sdk-kotlin:0.2.0")
+    implementation("org.melaya:melaya-sdk-kotlin:0.3.0")
 }
 ```
 
@@ -24,7 +26,7 @@ Or with Maven:
 <dependency>
   <groupId>org.melaya</groupId>
   <artifactId>melaya-sdk-kotlin</artifactId>
-  <version>0.2.0</version>
+  <version>0.3.0</version>
 </dependency>
 ```
 
@@ -58,29 +60,33 @@ melaya.agents.phone.setAllowedApps(listOf("com.android.chrome"))
 
 Configure provider credentials through Melaya Connectors first. Never include a provider key in pipeline configuration or per-run overrides.
 
+A pipeline's run is generated ONLY from `steps[]` — a top-level `agents[]` array alone
+produces an EMPTY pipeline. Each step embeds its own full agent definition; there is no
+`prompt` field (the task goes in `instruction`, and `system_prompt_override` replaces the
+whole system prompt).
+
 ```kotlin
 melaya.agents.pipelines.create(
     name    = "mobile-review",
     project = "Operations",
     config  = mapOf(
-        "model_provider" to "anthropic",
-        "model_name"     to "claude-sonnet-4-6",
-        "agents" to listOf(mapOf(
-            "name"        to "mobile-operator",
-            "role"        to "Careful mobile operator",
-            "instruction" to "Read before acting. Never send, publish, or delete.",
-            "agent_tools" to listOf(
-                "phone_get_screen_tree",
-                "phone_current_app",
-                "phone_open_app",
-                "phone_click_text",
-                "phone_back",
-                "phone_wait",
-            ),
-        )),
         "steps" to listOf(mapOf(
-            "kind"  to "agent",
-            "agent" to mapOf("name" to "mobile-operator"),
+            "kind" to "agent",
+            "agent" to mapOf(
+                "name"        to "mobile-operator",
+                "role"        to "Careful mobile operator",
+                "instruction" to "Read before acting. Never send, publish, or delete.",
+                "model"       to mapOf("provider" to "anthropic", "name" to "claude-sonnet-4-6"),
+                "agent_tools" to listOf(
+                    "phone_get_screen_tree",
+                    "phone_current_app",
+                    "phone_open_app",
+                    "phone_click_text",
+                    "phone_back",
+                    "phone_wait",
+                ),
+                "human_approval_tools" to emptyList<String>(),
+            ),
         )),
         "maxCostUsd" to 1.00,
     ),
@@ -100,6 +106,76 @@ val unsub = melaya.platform.events.onRunUpdate(runId) { e ->
 }
 unsub()
 melaya.platform.events.close()
+```
+
+### Edit a pipeline (`get` → mutate `config` → `update`)
+
+`get()` returns the full envelope `{ name, client, config, code, docs }`. Edit the inner
+`config` object and pass THAT to `update()` — not the envelope itself.
+
+```kotlin
+val envelope = melaya.agents.pipelines.get("mobile-review", project = "Operations")
+val config   = envelope.getJSONObject("config")
+config.getJSONArray("steps").getJSONObject(0).getJSONObject("agent")
+    .put("model", mapOf("provider" to "anthropic", "name" to "claude-opus-4-8"))
+melaya.agents.pipelines.update("mobile-review", config.toMap(), project = "Operations")
+```
+
+### Run inputs, uploads, and documents
+
+```kotlin
+// Upload a file for a later run, then reference it via run_inputs.
+val upload = melaya.agents.pipelines.uploadRunFile(
+    name = "mobile-review", key = "screenshot", file = pngBytes, filename = "screen.png",
+)
+val run = melaya.agents.pipelines.run(
+    name = "mobile-review", project = "Operations",
+    runInputs = mapOf(
+        "brief"  to "Review the attached screenshot.",
+        "values" to mapOf("screenshot" to mapOf("file_id" to upload.getString("file_id"))),
+    ),
+)
+
+// Inspect what a run was started with, and download an attached input file's raw bytes.
+val inputs   = melaya.agents.pipelines.runInputs("mobile-review", run.getString("run_id"))
+val fileBytes: ByteArray = melaya.agents.pipelines.runInputFile("mobile-review", run.getString("run_id"), 0)
+
+// Static-context documents (RAG-lite context injected verbatim).
+melaya.agents.pipelines.uploadDoc("mobile-review", docBytes, filename = "policy.pdf")
+melaya.agents.pipelines.listDocs("mobile-review")
+melaya.agents.pipelines.deleteDoc("mobile-review", "policy.pdf")
+
+// Retrieval (RAG) documents — upload, then ingest (can take minutes; uses a 300s timeout).
+melaya.agents.pipelines.uploadRetrievalDoc("mobile-review", docBytes, filename = "manual.pdf")
+melaya.agents.pipelines.ingestRetrieval("mobile-review")
+melaya.agents.pipelines.deleteRetrievalDoc("mobile-review", "manual.pdf")
+```
+
+### Call a connector tool directly
+
+`melaya.connectorTools` (also `melaya.agents.connectorTools`) calls any unlocked connector
+tool — Gmail, Slack, Stripe, and the rest — the same surface the Melaya Assistant and MCP
+server use. Reads run immediately. A write defaults to an approval card in the Melaya app
+(`approval = "required"`); pass `approval = "none"` to run it immediately instead (still
+audit-logged). Tools that move money or trade are refused under both modes. No method here
+ever accepts or returns a credential value — for storing credentials, use `connectors` or
+`credentials` instead.
+
+```kotlin
+val hits = melaya.connectorTools.search("unread email").getJSONArray("tools")
+val tool = hits.getJSONObject(0).getString("name")
+val read = melaya.connectorTools.call(tool)
+println(read.getString("result"))
+
+// A write is staged as an approval card by default; block until the user decides.
+val outcome = melaya.connectorTools.callAndWait(
+    "gmail_send",
+    args = mapOf("to" to "a@b.com", "subject" to "Hi", "body" to "…"),
+)
+println(outcome.optString("status"))   // "done" or "rejected"
+
+// Or run it immediately (still audit-logged), skipping the approval card:
+melaya.connectorTools.call("gmail_send", args = mapOf("to" to "a@b.com"), approval = "none")
 ```
 
 ## Quick start — market data (trading preview)
@@ -218,22 +294,24 @@ Public market-data and account/strategy reads work with the key alone.  **Live**
 | Auth | `auth.me`, `login`, `register`, `refresh`, `check`, `permissions`, `changePassword`, `forgotPassword`, `resetPassword`, `verifyMfa`, `verifySignup`, `resendVerification`, `createMobileHandoff` |
 | MFA | `mfa.status`, `setup`, `confirmSetup` |
 | Projects | `projects.list`, `create`, `rename`, `runnerProjects` |
-| Connectors | `connectors.set`, `delete`, `connectedServices`, `envHandle`, `googleOAuthStart` |
-| Credentials | `credentials.list`, `set`, `get`, `delete`, `test`, `connectedServices`, `listModels`, plus OAuth / RAG / operator-profile helpers |
-| Pipelines | `pipelines.create`, `listPipelines`, `get`, `update`, `delete`, `run`, `runIds`, `runStatus`, `cancelRun`, `outputs`, `output`, `previewCode`, `tools`, `subagents`, `instantiateTemplate`, `buildWithAI`, `overview`, `list`, `recent`, `count`, `chartData`, `costBreakdown`, `modelPrices`, `traces`, `trace`, `traceStats`, `deleteTraces`, `listSchedules`, `getSchedule`, `upsertSchedule`, `pauseSchedule`, `resumeSchedule`, `serverVersion` |
+| Connectors | `connectors.set`, `delete`, `connectedServices`, `envHandle`, `googleOAuthStart`, `applyPersonal`, `sharedBy`, `googleStatus`, `googleSetDefault`, `googleDisconnect`, `dbTestStart`, `dbTestStatus` |
+| Connector Tools | `connectorTools.services`, `search`, `describe`, `test`, `connect`, `call`, `callStatus`, `callAndWait` |
+| Credentials | `credentials.list`, `set`, `get`, `delete`, `test`, `connectedServices`, `listModels`, `googleStatus`, `googleSetDefault`, `googleDisconnect`, `dbTestStart`, `dbTestStatus`, `telegramQrStart`, `telegramQrPoll`, `whatsappSignupConfig`, `whatsappSignupExchange`, `tiktokCreatorInfo`, `substackEmailLinkSend`, `substackEmailLinkRedeem`, plus OAuth / RAG / operator-profile helpers |
+| Pipelines | `pipelines.create`, `listPipelines`, `get`, `update`, `delete`, `run`, `runIds`, `runStatus`, `cancelRun`, `runActive`, `uploadRunFile`, `runInputs`, `runInputFile`, `listDocs`, `uploadDoc`, `deleteDoc`, `uploadRetrievalDoc`, `ingestRetrieval`, `deleteRetrievalDoc`, `outputs`, `output`, `previewCode`, `tools`, `subagents`, `instantiateTemplate`, `buildWithAI`, `overview`, `list`, `recent`, `count`, `chartData`, `costBreakdown`, `modelPrices`, `traces`, `trace`, `traceStats`, `deleteTraces`, `listSchedules`, `getSchedule`, `upsertSchedule`, `pauseSchedule`, `resumeSchedule`, `serverVersion` |
 | Templates | `templates.list`, `listGlobal`, `listValidated`, `save`, `update`, `duplicate`, `delete`, `share`, `listAssignments`, `assign(templateId, userId = … / projectId = …)`, `unassign(templateId, userId = … / projectId = …)`, `shareTargets` |
-| Phone (Device Control) | `phone.pair`, `listDevices`, `revokeDevice`, `screenTree`, `listApps`, `setAllowedApps`, `registerActiveRun` |
-| HITL | `hitl.pending`, `history`, `approve`, `reject`, `bulkDecide`, `runToolCalls`, `runToolStats`, `runToolStatsByAgent`, `runMessages` |
+| Phone (Device Control) | `phone.pair`, `listDevices`, `revokeDevice`, `screenTree`, `listApps`, `setAllowedApps`, `registerActiveRun`, `grantApp`, `requestCast` |
+| HITL | `hitl.pending`, `history`, `approve`, `reject`, `bulkDecide`, `runToolCalls`, `runToolStats`, `runToolStatsByAgent`, `runMessages`, `projectToolCalls`, `projectToolCallFacets`, `toolCallDetail` |
 | Evals | `evals.summary`, `listRuns`, `runDetail`, `compare`, `benchmarks`, `runMemory`, `crewMemory`, `memoryGraph` |
+| Memory | `memory.editEntry`, `deleteEntry` |
 | Events | `events.onRunUpdate`, `onInitPhase`, `onProjectEvent`, `onHitlApproval`, `onPipelineCreated`, `onPipelineUpdated`, `onPipelineDeleted`, `leaveRun`, `leaveProject`, `close` |
-| Billing | `billing.subscription`, `plans`, `createCheckout`, `createPortal` |
-| Accounts | `accounts.exportMyData`, `updateProfile`, `removeKey`, `credits`, `aiCredits`, `portfolioIdeasCredits`, `riskMonitoringCredits` |
+| Billing | `billing.subscription`, `plans`, `createCheckout`, `createPortal`, `ambassadorPerk`, `redeemCode`, `reservedPromo` |
+| Accounts | `accounts.exportMyData`, `updateProfile`, `removeKey`, `credits`, `aiCredits`, `portfolioIdeasCredits`, `riskMonitoringCredits`, `resendEmailVerification`, `verifyEmail` |
 | Runner | `runner.createToken`, `listTokens`, `revokeToken` |
-| Team | `team.listMembers`, `invite`, `createInviteLink`, `acceptInvite`, `updateMemberRole`, `removeMember`, `getPipelineVisibility`, `setPipelineVisibility` |
+| Team | `team.listMembers`, `invite`, `createInviteLink`, `acceptInvite`, `updateMemberRole`, `removeMember`, `getPipelineVisibility`, `setPipelineVisibility`, `transferOwnership` |
 | Assistant | `assistant.getProfile`, `setProfile` |
 | Bugs | `bugs.create`, `get`, `listMine`, `addComment`, `listNotifications`, `markNotificationsRead` |
 
-All modules are also grouped by plane: `melaya.agents.*` (pipelines, hitl, assistant, phone, evals), `melaya.platform.*` (projects, credentials, connectors, billing, team, templates, runner, auth, mfa, accounts, bugs, events), and `melaya.trading.*`.
+All modules are also grouped by plane: `melaya.agents.*` (pipelines, hitl, assistant, phone, evals, memory, connectorTools), `melaya.platform.*` (projects, credentials, connectors, billing, team, templates, runner, auth, mfa, accounts, bugs, events), and `melaya.trading.*`.
 
 ### Trading (preview)
 

@@ -43,3 +43,15 @@ class BillingAPI:
     def plans(self) -> List[JsonDict]:
         """Return public pricing plan details (price IDs for forge/bastion/citadel tiers). Public endpoint."""
         return self._request("GET", "/api/v1/billing/plans")
+
+    def ambassador_perk(self) -> JsonDict:
+        """Get the caller's ambassador-program perk status (if enrolled)."""
+        return self._request("GET", "/api/v1/private/billing/ambassador-perk")
+
+    def redeem_code(self, code: str) -> JsonDict:
+        """Redeem a promo/credit code against the caller's account."""
+        return self._request("POST", "/api/v1/private/billing/redeem-code", json={"code": code})
+
+    def reserved_promo(self) -> JsonDict:
+        """Get the caller's reserved promotional offer, if any."""
+        return self._request("GET", "/api/v1/private/billing/reserved-promo")

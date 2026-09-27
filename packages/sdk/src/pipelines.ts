@@ -5,7 +5,7 @@
  * counting runs, plus `/api/v1/private/runs/:runId/traces` for trace access
  * and `/api/v1/private/pipeline-schedule` for cron scheduling.
  */
-import type { HttpClient } from "./client.js";
+import type { FileInput, HttpClient } from "./client.js";
 import type {
   DeleteTracesResult,
   OverviewSummary,
@@ -23,11 +23,84 @@ import type {
 // These cover the `/api/v1/private/pipelines/*` surface that lets you build,
 // run, and read agent pipelines end to end from your own app.
 
-/** Full pipeline configuration (agents, prompts, models, tools, wiring). */
-export type PipelineConfig = Record<string, unknown> & { name?: string; project?: string };
+/**
+ * One agent's model reference inside a step. `provider` + `name` identify the
+ * model exactly as configured in Melaya Connectors (e.g. `{ provider:
+ * "anthropic", name: "claude-sonnet-4-6" }`).
+ */
+export interface PipelineAgentModel {
+  provider: string;
+  name: string;
+}
+
+/**
+ * Full definition of one agent, embedded inside a `steps[]` entry.
+ * There is no `prompt` field — `instruction` is the task, and
+ * `system_prompt_override` replaces the agent's default system prompt.
+ */
+export interface PipelineAgentDef {
+  name: string;
+  role?: string;
+  /** The task given to the agent. There is no `prompt` field — this is it. */
+  instruction: string;
+  model: PipelineAgentModel;
+  agent_tools?: string[];
+  /** Tool names that require human approval. Only honoured when the
+   *  pipeline's `hitl_mode` is `"safe"` (the default). */
+  human_approval_tools?: string[];
+  /** Replaces the agent's default system prompt entirely, when set. */
+  system_prompt_override?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * One step in a pipeline's `steps[]` array — the ONLY source codegen reads to
+ * generate a run. An `agents[]` array with no matching `steps[]` entries
+ * produces an EMPTY pipeline.
+ */
+export interface PipelineStep {
+  kind: "agent" | (string & {});
+  agent?: PipelineAgentDef;
+  [key: string]: unknown;
+}
+
+/** Full pipeline configuration (steps, models, tools, wiring). */
+export type PipelineConfig = Record<string, unknown> & {
+  name?: string;
+  project?: string;
+  /**
+   * Steps executed in order. This is the ONLY thing codegen reads to build
+   * the run — a top-level `agents[]` array is not enough on its own.
+   */
+  steps?: PipelineStep[];
+  /**
+   * Human-in-the-loop mode. `"safe"` (the default) honours each agent's
+   * `human_approval_tools`; `"autonomous"` and `"payments_only"` do not.
+   */
+  hitl_mode?: "safe" | "autonomous" | "payments_only";
+  /** Where connector credentials are sourced from for this pipeline's tool calls. */
+  connector_source?: "personal" | "project";
+  /** Force this pipeline to always execute on the caller's local runner. */
+  force_local_runner?: boolean;
+  /** Declared run-time inputs (brief/value/file schema) surfaced via `run_inputs`. */
+  inputs?: unknown[];
+};
+
+/**
+ * Envelope returned by `get()`. Edit `.config` and pass it back to
+ * `update()` — do not construct a new config from scratch.
+ */
+export interface PipelineGetEnvelope {
+  name: string;
+  client?: string;
+  config: PipelineConfig;
+  code?: string;
+  docs?: unknown;
+  [key: string]: unknown;
+}
 
 /** Body for `create()`. `name` + `project` are required; the rest is the
- *  pipeline config (agents, prompts, models, wiring). */
+ *  pipeline config (`steps[]`, models, wiring). */
 export interface PipelineCreateBody {
   name: string;
   project: string;
@@ -35,22 +108,124 @@ export interface PipelineCreateBody {
   [key: string]: unknown;
 }
 
+/**
+ * A file reference inside `run_inputs.values`. Exactly one of `file_id`,
+ * `url`, or `base64` should be set:
+ * - `{ file_id }` — from `uploadRunFile()` (single-use, valid 24h).
+ * - `{ url }` — fetched server-side (≤ 25 MB).
+ * - `{ base64, name }` — inlined in the request (≤ 7 MB).
+ */
+export type PipelineRunFileValue =
+  | { file_id: string }
+  | { url: string }
+  | { base64: string; name: string };
+
+/** Run-time brief/values threaded into a pipeline's declared `inputs[]`. */
+export interface PipelineRunInputs {
+  /** Free-text brief handed to the pipeline's brief-shaped input, if declared. */
+  brief?: string;
+  /** Named input values — plain JSON values or a `PipelineRunFileValue`. */
+  values?: Record<string, unknown>;
+}
+
 /** Options for `run()`. All optional — omit for a plain cloud-spawn run. */
 export interface PipelineRunOptions {
   /** Project the pipeline belongs to (narrows tenant scope). */
   project?: string;
-  /** Where the run executes. Defaults to the pipeline's own setting. */
+  /**
+   * Used ONLY for the tier check at run time (e.g. gating cloud-spawn by
+   * plan). It does NOT decide where the run actually executes — that is
+   * controlled by the pipeline's stored config (its configured local model
+   * providers, or `force_local_runner`).
+   */
   executionTarget?: "local-runner" | "cloud-spawn";
   /** Optional studio URL for run-event callbacks. */
   studio_url?: string;
-  /** Per-run env var overrides layered over the caller's stored credentials. */
+  /**
+   * Per-run env var overrides layered over the caller's stored credentials.
+   * Any `MEL_*` / `MELAYA_*` key is stripped server-side and never applied.
+   */
   env_overrides?: Record<string, string>;
+  /**
+   * Brief/values for this run's declared `inputs[]`. File values may be
+   * `{ file_id }` (from `uploadRunFile()`), `{ url }` (≤ 25 MB), or
+   * `{ base64, name }` (≤ 7 MB).
+   */
+  run_inputs?: PipelineRunInputs;
 }
 
 /** Accepted-run envelope returned by `run()`. */
 export interface PipelineRunAccepted {
   run_id: string;
   queued: boolean;
+  /** Echoed back only when `run_inputs` was sent on the request. */
+  run_inputs?: PipelineRunInputs;
+}
+
+/** Result of `uploadRunFile()`. `file_id` is single-use and valid 24h. */
+export interface RunFileUploadResult {
+  file_id: string;
+  [key: string]: unknown;
+}
+
+/** Result of `runInputs()` — the brief/values/files recorded for one run. */
+export interface PipelineRunInputsRecord {
+  brief?: string;
+  values?: Record<string, unknown>;
+  files?: unknown[];
+  [key: string]: unknown;
+}
+
+/** One recorded tool call, as returned by `projectToolCalls()` / `toolCallDetail()`. */
+export interface ToolCall {
+  spanId: string;
+  runId: string;
+  tool: string;
+  agent?: string;
+  status: "ok" | "error";
+  provider?: string;
+  connectorSource?: "project" | "personal";
+  /** `"auto"`, `"approved"`, or `"by:<username>"`. */
+  approval?: string;
+  createdAt: string;
+  [key: string]: unknown;
+}
+
+/** Opaque pagination cursor for `projectToolCalls()`. */
+export interface ToolCallCursor {
+  beforeCreatedAt: string;
+  beforeId: string;
+}
+
+/** Query params for `projectToolCalls()`. */
+export interface ToolCallListParams {
+  beforeCreatedAt?: string;
+  beforeId?: string;
+  /** 1-100, default 30. */
+  limit?: number;
+  tool?: string;
+  agent?: string;
+  runId?: string;
+  status?: "ok" | "error";
+  search?: string;
+  connectorSource?: "project" | "personal";
+  /** `"auto"`, `"approved"`, or `"by:<username>"`. */
+  approval?: string;
+  provider?: string;
+  sort?: "recent" | "oldest" | "slowest" | "fastest";
+}
+
+/** Page of tool-call history returned by `projectToolCalls()`. */
+export interface ToolCallListResult {
+  items: ToolCall[];
+  nextCursor: ToolCallCursor | null;
+  capped: boolean;
+}
+
+/** Facet counts for the tool-call audit filters. */
+export interface ToolCallFacets {
+  tools: { name: string; count: number }[];
+  agents: string[];
 }
 
 /** Run status + best-effort cost returned by `runStatus()`. */
@@ -88,14 +263,34 @@ export class PipelinesAPI {
   }
 
   /**
-   * Create a pipeline. `name` + `project` are required; include the agent
-   * config (agents, prompts, models, wiring) in the same body.
+   * Create a pipeline. `name` + `project` are required; include the pipeline
+   * config in the same body. The run is generated ONLY from `steps[]` — a
+   * top-level `agents[]` array with no matching steps produces an EMPTY
+   * pipeline. There is no `prompt` field on an agent: `instruction` is the
+   * task, and `system_prompt_override` replaces its system prompt entirely.
+   *
+   * See `PipelineConfig` for other config fields: `hitl_mode` (default
+   * `"safe"`, which is the only mode that honours `human_approval_tools`),
+   * `connector_source`, `force_local_runner`, and declared `inputs[]`.
    *
    * @example
    * ```ts
    * await melaya.agents.pipelines.create({
-   *   name: "daily-digest", project: "acme",
-   *   agents: [{ id: "researcher", model: "claude-sonnet-4-6", prompt: "..." }],
+   *   name: "daily-digest",
+   *   project: "acme",
+   *   steps: [
+   *     {
+   *       kind: "agent",
+   *       agent: {
+   *         name: "researcher",
+   *         role: "Research analyst",
+   *         instruction: "Summarize today's top industry news into 5 bullets.",
+   *         model: { provider: "anthropic", name: "claude-sonnet-4-6" },
+   *         agent_tools: ["web_search"],
+   *         human_approval_tools: [],
+   *       },
+   *     },
+   *   ],
    * });
    * ```
    */
@@ -103,23 +298,28 @@ export class PipelinesAPI {
     return this.http.post<PipelineConfig>("/api/v1/private/pipelines", body);
   }
 
-  /** Get one pipeline's full config. */
-  async get(name: string, project?: string): Promise<PipelineConfig> {
-    return this.http.get<PipelineConfig>(
+  /**
+   * Get one pipeline's full config, wrapped in an envelope
+   * `{ name, client, config, code, docs }`. Edit `.config` and pass it back
+   * to `update()` — see its example.
+   */
+  async get(name: string, project?: string): Promise<PipelineGetEnvelope> {
+    return this.http.get<PipelineGetEnvelope>(
       `/api/v1/private/pipelines/${enc(name)}`,
       project ? { project } : undefined,
     );
   }
 
   /**
-   * Update a pipeline's config — the path for editing per-agent prompts or
-   * swapping a model on one or all agents. Pass the full config plus `project`.
+   * Update a pipeline's config — the path for editing a step's instruction or
+   * swapping a model. Pass the full config plus `project`. `get()` returns an
+   * ENVELOPE, not a bare config — edit `envelope.config` and pass THAT back.
    *
    * @example
    * ```ts
-   * const cfg = await melaya.agents.pipelines.get("daily-digest", "acme");
-   * cfg.agents = cfg.agents.map(a => ({ ...a, model: "claude-opus-4-8" })); // all agents
-   * await melaya.agents.pipelines.update("daily-digest", cfg, "acme");
+   * const envelope = await melaya.agents.pipelines.get("daily-digest", "acme");
+   * envelope.config.steps![0].agent!.model = { provider: "anthropic", name: "claude-opus-4-8" };
+   * await melaya.agents.pipelines.update("daily-digest", envelope.config, "acme");
    * ```
    */
   async update(name: string, config: PipelineConfig, project: string): Promise<PipelineConfig> {
@@ -143,11 +343,66 @@ export class PipelinesAPI {
    * const { run_id } = await melaya.agents.pipelines.run("daily-digest", { project: "acme" });
    * melaya.platform.events.onRunUpdate(run_id, (e) => console.log(e.event_type, e.status));
    * ```
+   *
+   * @example Run-time inputs (brief + a previously uploaded file)
+   * ```ts
+   * const { file_id } = await melaya.agents.pipelines.uploadRunFile("daily-digest", "sourceDoc", bytes, {
+   *   filename: "notes.pdf",
+   * });
+   * const { run_id, run_inputs } = await melaya.agents.pipelines.run("daily-digest", {
+   *   project: "acme",
+   *   run_inputs: { brief: "Focus on Q3 numbers", values: { sourceDoc: { file_id } } },
+   * });
+   * ```
    */
   async run(name: string, opts?: PipelineRunOptions): Promise<PipelineRunAccepted> {
     return this.http.post<PipelineRunAccepted>(
       `/api/v1/private/pipelines/${enc(name)}/run`,
       opts ?? {},
+    );
+  }
+
+  /**
+   * Upload a file for a subsequent `run()` call. Returns a single-use
+   * `file_id` (valid 24h) to reference in `run_inputs.values.<key>`.
+   */
+  async uploadRunFile(
+    name: string,
+    key: string,
+    file: FileInput,
+    opts?: { project?: string; filename?: string; contentType?: string },
+  ): Promise<RunFileUploadResult> {
+    return this.http.postMultipart<RunFileUploadResult>(
+      `/api/v1/private/pipelines/${enc(name)}/run-files`,
+      { key, project: opts?.project },
+      "file",
+      file,
+      opts?.filename ?? "file",
+      opts?.contentType,
+    );
+  }
+
+  /** Read back the brief/values/files recorded for one run's `run_inputs`. */
+  async runInputs(name: string, runId: string): Promise<PipelineRunInputsRecord> {
+    return this.http.get<PipelineRunInputsRecord>(
+      `/api/v1/private/pipelines/${enc(name)}/runs/${enc(runId)}/inputs`,
+    );
+  }
+
+  /**
+   * Download one run-input file by its index (0-99) in `run_inputs.values`.
+   * Returns raw bytes — this is a binary download, not JSON.
+   */
+  async runInputFile(name: string, runId: string, index: number): Promise<Uint8Array> {
+    return this.http.getBytes(
+      `/api/v1/private/pipelines/${enc(name)}/runs/${enc(runId)}/inputs/files/${index}`,
+    );
+  }
+
+  /** Check whether a run is still active (queued or in progress). */
+  async runActive(name: string, runId: string): Promise<{ active: boolean }> {
+    return this.http.get<{ active: boolean }>(
+      `/api/v1/private/pipelines/${enc(name)}/runs/${enc(runId)}/active`,
     );
   }
 
@@ -183,6 +438,78 @@ export class PipelinesAPI {
       `/api/v1/private/pipelines/${enc(name)}/outputs/${rel}`,
       opts?.download ? { download: "1" } : undefined,
     );
+  }
+
+  // ── Static-context documents ─────────────────────────────────────────────────
+  // Documents an agent reads as static context (not embedded/retrieved).
+
+  /** List static-context documents uploaded for a pipeline. */
+  async listDocs(name: string): Promise<unknown> {
+    return this.http.get(`/api/v1/private/pipelines/${enc(name)}/docs`);
+  }
+
+  /**
+   * Upload a static-context document. Allowed extensions: `.txt` `.md` `.pdf`
+   * `.csv` `.json` `.docx` `.doc` `.pptx` `.xlsx`.
+   */
+  async uploadDoc(
+    name: string,
+    file: FileInput,
+    opts?: { filename?: string; contentType?: string },
+  ): Promise<unknown> {
+    return this.http.postMultipart(
+      `/api/v1/private/pipelines/${enc(name)}/docs`,
+      undefined,
+      "file",
+      file,
+      opts?.filename ?? "file",
+      opts?.contentType,
+    );
+  }
+
+  /** Delete a static-context document by filename. */
+  async deleteDoc(name: string, filename: string): Promise<{ ok?: boolean } & Record<string, unknown>> {
+    return this.http.delete(`/api/v1/private/pipelines/${enc(name)}/docs/${enc(filename)}`);
+  }
+
+  // ── RAG (retrieval) documents ────────────────────────────────────────────────
+  // Documents embedded and retrieved at run time, as opposed to static context.
+
+  /** Upload a document into the pipeline's retrieval corpus (not yet embedded — see `ingestRetrieval()`). */
+  async uploadRetrievalDoc(
+    name: string,
+    file: FileInput,
+    opts?: { filename?: string; contentType?: string },
+  ): Promise<unknown> {
+    return this.http.postMultipart(
+      `/api/v1/private/pipelines/${enc(name)}/docs/retrieval`,
+      undefined,
+      "file",
+      file,
+      opts?.filename ?? "file",
+      opts?.contentType,
+    );
+  }
+
+  /**
+   * Embed changed retrieval documents with the pipeline's configured
+   * embedder. Can take minutes for a large corpus, so this call uses a 300s
+   * timeout instead of the client default.
+   */
+  async ingestRetrieval(name: string, body: Record<string, unknown> = {}): Promise<unknown> {
+    return this.http.post(
+      `/api/v1/private/pipelines/${enc(name)}/docs/retrieval/ingest`,
+      body,
+      { timeoutMs: 300_000 },
+    );
+  }
+
+  /** Delete a document from the pipeline's retrieval corpus by filename. */
+  async deleteRetrievalDoc(
+    name: string,
+    filename: string,
+  ): Promise<{ ok?: boolean } & Record<string, unknown>> {
+    return this.http.delete(`/api/v1/private/pipelines/${enc(name)}/docs/retrieval/${enc(filename)}`);
   }
 
   /** Read-only codegen preview for a config (no persistence, no tier gate). */
@@ -284,6 +611,34 @@ export class PipelinesAPI {
 
   async serverVersion(): Promise<Record<string, unknown>> {
     return this.http.get("/api/v1/version");
+  }
+
+  // ── Tool calls (audit) ────────────────────────────────────────────────────────
+  // Per-project tool-call history/audit trail. Lives alongside traces since
+  // both are run-observability surfaces over `/api/v1/private/{projects,runs}/*`.
+
+  /**
+   * Paginated tool-call audit trail for a project. Sort/filter server-side;
+   * page with `nextCursor` (pass its `beforeCreatedAt`/`beforeId` back in
+   * `params` for the next page).
+   */
+  async projectToolCalls(project: string, params?: ToolCallListParams): Promise<ToolCallListResult> {
+    return this.http.get<ToolCallListResult>(
+      `/api/v1/private/projects/${enc(project)}/tool-calls`,
+      params as Record<string, string | number | boolean | undefined | null>,
+    );
+  }
+
+  /** Facet counts (tool names + agents) for the tool-call audit filters. */
+  async projectToolCallFacets(project: string): Promise<ToolCallFacets> {
+    return this.http.get<ToolCallFacets>(`/api/v1/private/projects/${enc(project)}/tool-calls/facets`);
+  }
+
+  /** Full, untruncated input/output for one tool call by run + span id. */
+  async toolCallDetail(runId: string, spanId: string): Promise<ToolCall> {
+    return this.http.get<ToolCall>(
+      `/api/v1/private/runs/${enc(runId)}/tool-calls/${enc(spanId)}`,
+    );
   }
 
   // ── Traces ──────────────────────────────────────────────────────────────────

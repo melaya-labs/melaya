@@ -1,3 +1,53 @@
+//! # Pipeline configuration
+//!
+//! A run is generated ONLY from `config.steps[]`. `agents[]` alone (with no
+//! matching `steps[]` entries) produces an EMPTY pipeline — every step must
+//! embed its own agent inline:
+//!
+//! ```no_run
+//! # use serde_json::json;
+//! let config = json!({
+//!     "steps": [{
+//!         "kind": "agent",
+//!         "agent": {
+//!             "name": "researcher",
+//!             "role": "Careful web researcher",
+//!             "instruction": "Summarize today's top AI news in 5 bullets.",
+//!             "model": { "provider": "anthropic", "name": "claude-sonnet-4-6" },
+//!             "agent_tools": ["web_search"],
+//!             "human_approval_tools": []
+//!         }
+//!     }]
+//! });
+//! ```
+//!
+//! There is no `prompt` field. The prompt fields are `instruction` (the
+//! task) and `system_prompt_override` (a system-level override).
+//!
+//! Other config fields worth knowing:
+//! - `hitl_mode`: `"safe"` (default) | `"autonomous"` | `"payments_only"` —
+//!   only `"safe"` honours `human_approval_tools`.
+//! - `connector_source`: `"personal"` | `"project"` — which credential pool
+//!   the run draws from.
+//! - `force_local_runner`: pin execution to the caller's own runner.
+//! - `inputs[]`: declares the run-time inputs that `run()`'s `run_inputs`
+//!   supplies (see [`RunInputs`]).
+//!
+//! [`get`](PipelinesAPI::get) returns an ENVELOPE `{ name, client, config,
+//! code, docs }`. To edit a pipeline, mutate the `config` field of that
+//! envelope and pass THAT to [`update`](PipelinesAPI::update):
+//!
+//! ```no_run
+//! # use melaya::Melaya;
+//! # #[tokio::main] async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! # let m = Melaya::new(&std::env::var("MK")?)?;
+//! let mut envelope = m.pipelines.get("daily-digest", Some("acme")).await?;
+//! envelope["config"]["steps"][0]["agent"]["model"] =
+//!     serde_json::json!({ "provider": "anthropic", "name": "claude-opus-4-8" });
+//! m.pipelines.update("daily-digest", &envelope["config"], "acme").await?;
+//! # Ok(()) }
+//! ```
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -56,15 +106,40 @@ pub struct PipelineRunOptions {
     /// Project the pipeline belongs to.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub project: Option<String>,
-    /// Where to execute: local-runner or cloud-spawn.
+    /// Target label: local-runner or cloud-spawn.
+    /// Used for the TIER CHECK only. Where the run actually executes is
+    /// decided by the pipeline's stored config (local model providers /
+    /// `force_local_runner`), never by this field.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub execution_target: Option<String>,
     /// Studio URL used for cloud executions (injected by the Studio).
     #[serde(rename = "studio_url", skip_serializing_if = "Option::is_none")]
     pub studio_url: Option<String>,
-    /// Per-run environment variable overrides.
+    /// Per-run environment variable overrides layered over the caller's
+    /// stored credentials. `MEL_*` / `MELAYA_*` keys are stripped
+    /// server-side — identity and tier are always stamped by the platform,
+    /// never accepted from the client.
     #[serde(rename = "env_overrides", skip_serializing_if = "Option::is_none")]
     pub env_overrides: Option<Value>,
+    /// Run-time brief/values for the inputs declared by the pipeline's
+    /// `inputs[]` config. See [`RunInputs`].
+    #[serde(rename = "run_inputs", skip_serializing_if = "Option::is_none")]
+    pub run_inputs: Option<RunInputs>,
+}
+
+/// Run-time inputs for [`PipelinesAPI::run`]: a free-form brief and/or
+/// keyed values declared by the pipeline's `inputs[]` config.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RunInputs {
+    /// Free-form instruction text for this run.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub brief: Option<String>,
+    /// Values keyed by the pipeline's declared input name. A file value may
+    /// be `{ "file_id": ... }` (from [`PipelinesAPI::upload_run_file`]),
+    /// `{ "url": ... }` (≤25 MB), or `{ "base64": ..., "name": ... }`
+    /// (≤7 MB).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub values: Option<HashMap<String, Value>>,
 }
 
 /// Response returned by the pipeline run endpoint.
@@ -76,6 +151,16 @@ pub struct PipelineRunAccepted {
     pub run_id: String,
     /// Whether the run was queued successfully.
     pub queued: bool,
+    /// Echoed back when the run was started with `run_inputs`.
+    #[serde(rename = "run_inputs", skip_serializing_if = "Option::is_none")]
+    pub run_inputs: Option<Value>,
+}
+
+/// Response from [`PipelinesAPI::run_active`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RunActiveStatus {
+    /// Whether the run is still active on the executing runner/process.
+    pub active: bool,
 }
 
 /// Live status of a pipeline run.
@@ -369,6 +454,10 @@ impl PipelinesAPI {
     }
 
     /// Get a pipeline by name, optionally scoped to a project.
+    ///
+    /// Returns an ENVELOPE `{ name, client, config, code, docs }` — see the
+    /// module docs above for the "edit then update" pattern (mutate the
+    /// `config` field, then pass it to [`update`](Self::update)).
     pub async fn get(&self, name: &str, project: Option<&str>) -> Result<Value> {
         let mut q: HashMap<&str, Option<String>> = HashMap::new();
         q.insert("project", project.map(str::to_owned));
@@ -380,7 +469,9 @@ impl PipelinesAPI {
 
     /// Update a pipeline's configuration.
     ///
-    /// `config` is the full pipeline config object; `project` scopes the lookup.
+    /// `config` is the full pipeline config object — normally the `config`
+    /// field taken from [`get`](Self::get)'s envelope and mutated in place;
+    /// `project` scopes the lookup.
     pub async fn update(&self, name: &str, config: &Value, project: &str) -> Result<Value> {
         let body = json!({ "config": config, "project": project });
         let encoded = encode_segment(name);
@@ -414,6 +505,37 @@ impl PipelinesAPI {
             .post(&format!("/api/v1/private/pipelines/{encoded}/run"), &body)
             .await?;
         Ok(serde_json::from_value(raw)?)
+    }
+
+    /// Upload one file for a later `run()` call.
+    ///
+    /// `key` names the pipeline input this file is for. Single-use; the
+    /// returned `{ file_id, ... }` is valid for 24 h — pass it back as
+    /// `run_inputs.values.<key> = { "file_id": ... }`.
+    pub async fn upload_run_file(
+        &self,
+        name: &str,
+        key: &str,
+        file: &[u8],
+        project: Option<&str>,
+        filename: Option<&str>,
+        content_type: Option<&str>,
+    ) -> Result<Value> {
+        let enc_name = encode_segment(name);
+        let mut query: Vec<(&str, &str)> = vec![("key", key)];
+        if let Some(p) = project {
+            query.push(("project", p));
+        }
+        self.http
+            .post_multipart(
+                &format!("/api/v1/private/pipelines/{enc_name}/run-files"),
+                Some(&query),
+                "file",
+                filename.unwrap_or("file"),
+                content_type.unwrap_or("application/octet-stream"),
+                file,
+            )
+            .await
     }
 
     /// List all run IDs for a pipeline.
@@ -450,6 +572,232 @@ impl PipelinesAPI {
         self.http
             .delete(
                 &format!("/api/v1/private/pipelines/{enc_name}/runs/{enc_run}"),
+                &q,
+            )
+            .await
+    }
+
+    /// What a run was started with: `{ brief, values, files }`.
+    ///
+    /// `run_id` is the 16-hex-char run identifier.
+    pub async fn run_inputs(&self, name: &str, run_id: &str) -> Result<Value> {
+        let q = HashMap::new();
+        let enc_name = encode_segment(name);
+        let enc_run = encode_segment(run_id);
+        self.http
+            .get(
+                &format!("/api/v1/private/pipelines/{enc_name}/runs/{enc_run}/inputs"),
+                &q,
+            )
+            .await
+    }
+
+    /// Download one input file from a run by index.
+    ///
+    /// Returns the RAW BYTES of the file — do not JSON-parse the result.
+    /// `run_id` is the 16-hex-char run identifier; `index` is 0..99.
+    pub async fn run_input_file(&self, name: &str, run_id: &str, index: u32) -> Result<Vec<u8>> {
+        let enc_name = encode_segment(name);
+        let enc_run = encode_segment(run_id);
+        self.http
+            .get_bytes(&format!(
+                "/api/v1/private/pipelines/{enc_name}/runs/{enc_run}/inputs/files/{index}"
+            ))
+            .await
+    }
+
+    /// Liveness poll for a run: whether it is still active on the executing
+    /// runner/process.
+    pub async fn run_active(&self, name: &str, run_id: &str) -> Result<RunActiveStatus> {
+        let q = HashMap::new();
+        let enc_name = encode_segment(name);
+        let enc_run = encode_segment(run_id);
+        let raw = self
+            .http
+            .get(
+                &format!("/api/v1/private/pipelines/{enc_name}/runs/{enc_run}/active"),
+                &q,
+            )
+            .await?;
+        Ok(serde_json::from_value(raw)?)
+    }
+
+    // ── Static-context documents (DocsTab) ───────────────────────────────────
+
+    /// List static-context documents attached to a pipeline.
+    pub async fn list_docs(&self, name: &str) -> Result<Value> {
+        let q = HashMap::new();
+        let enc_name = encode_segment(name);
+        self.http
+            .get(&format!("/api/v1/private/pipelines/{enc_name}/docs"), &q)
+            .await
+    }
+
+    /// Upload one static-context document.
+    ///
+    /// Allowed extensions: `.txt .md .pdf .csv .json .docx .doc .pptx .xlsx`.
+    pub async fn upload_doc(
+        &self,
+        name: &str,
+        file: &[u8],
+        filename: Option<&str>,
+        content_type: Option<&str>,
+    ) -> Result<Value> {
+        let enc_name = encode_segment(name);
+        self.http
+            .post_multipart(
+                &format!("/api/v1/private/pipelines/{enc_name}/docs"),
+                None,
+                "file",
+                filename.unwrap_or("file"),
+                content_type.unwrap_or("application/octet-stream"),
+                file,
+            )
+            .await
+    }
+
+    /// Delete one static-context document by filename.
+    pub async fn delete_doc(&self, name: &str, filename: &str) -> Result<Value> {
+        let q = HashMap::new();
+        let enc_name = encode_segment(name);
+        let enc_file = encode_segment(filename);
+        self.http
+            .delete(
+                &format!("/api/v1/private/pipelines/{enc_name}/docs/{enc_file}"),
+                &q,
+            )
+            .await
+    }
+
+    // ── RAG (retrieval) documents ─────────────────────────────────────────────
+
+    /// Upload one retrieval-mode (RAG) document.
+    pub async fn upload_retrieval_doc(
+        &self,
+        name: &str,
+        file: &[u8],
+        filename: Option<&str>,
+        content_type: Option<&str>,
+    ) -> Result<Value> {
+        let enc_name = encode_segment(name);
+        self.http
+            .post_multipart(
+                &format!("/api/v1/private/pipelines/{enc_name}/docs/retrieval"),
+                None,
+                "file",
+                filename.unwrap_or("file"),
+                content_type.unwrap_or("application/octet-stream"),
+                file,
+            )
+            .await
+    }
+
+    /// Embed changed retrieval documents with the pipeline's configured
+    /// embedder. `body` defaults to `{}`.
+    ///
+    /// This can take minutes — a 300 s timeout is used regardless of the
+    /// client's configured default.
+    pub async fn ingest_retrieval(&self, name: &str, body: Option<&Value>) -> Result<Value> {
+        let enc_name = encode_segment(name);
+        let payload = body.cloned().unwrap_or_else(|| json!({}));
+        self.http
+            .post_with_timeout(
+                &format!("/api/v1/private/pipelines/{enc_name}/docs/retrieval/ingest"),
+                &payload,
+                300_000,
+            )
+            .await
+    }
+
+    /// Delete one retrieval-mode document (and its chunks) by filename.
+    pub async fn delete_retrieval_doc(&self, name: &str, filename: &str) -> Result<Value> {
+        let q = HashMap::new();
+        let enc_name = encode_segment(name);
+        let enc_file = encode_segment(filename);
+        self.http
+            .delete(
+                &format!("/api/v1/private/pipelines/{enc_name}/docs/retrieval/{enc_file}"),
+                &q,
+            )
+            .await
+    }
+
+    // ── Project / run tool-call audit ledger ─────────────────────────────────
+
+    /// Project tool-call audit ledger: every tool invocation across the
+    /// project's runs (tool, invoking agent, pipeline + run, who ran it,
+    /// status, latency, HITL approval provenance, truncated input/output).
+    /// Keyset-paginated — pass the previous page's `nextCursor` fields back
+    /// as `before_created_at` / `before_id` to continue.
+    ///
+    /// `limit` is 1-100 (server default 30). `status` is `"ok"` | `"error"`.
+    /// `connector_source` is `"project"` | `"personal"`. `approval` is
+    /// `"auto"`, `"approved"`, or `"by:<username>"`. `sort` is one of
+    /// `"recent"`, `"oldest"`, `"slowest"`, `"fastest"` (server default
+    /// `"recent"`).
+    ///
+    /// Returns `{ items, nextCursor: { beforeCreatedAt, beforeId } | null, capped }`.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn project_tool_calls(
+        &self,
+        project: &str,
+        before_created_at: Option<&str>,
+        before_id: Option<&str>,
+        limit: Option<u32>,
+        tool: Option<&str>,
+        agent: Option<&str>,
+        run_id: Option<&str>,
+        status: Option<&str>,
+        search: Option<&str>,
+        connector_source: Option<&str>,
+        approval: Option<&str>,
+        provider: Option<&str>,
+        sort: Option<&str>,
+    ) -> Result<Value> {
+        let mut q: HashMap<&str, Option<String>> = HashMap::new();
+        q.insert("beforeCreatedAt", before_created_at.map(str::to_owned));
+        q.insert("beforeId", before_id.map(str::to_owned));
+        q.insert("limit", limit.map(|v| v.to_string()));
+        q.insert("tool", tool.map(str::to_owned));
+        q.insert("agent", agent.map(str::to_owned));
+        q.insert("runId", run_id.map(str::to_owned));
+        q.insert("status", status.map(str::to_owned));
+        q.insert("search", search.map(str::to_owned));
+        q.insert("connectorSource", connector_source.map(str::to_owned));
+        q.insert("approval", approval.map(str::to_owned));
+        q.insert("provider", provider.map(str::to_owned));
+        q.insert("sort", sort.map(str::to_owned));
+        let enc_project = encode_segment(project);
+        self.http
+            .get(
+                &format!("/api/v1/private/projects/{enc_project}/tool-calls"),
+                &q,
+            )
+            .await
+    }
+
+    /// Distinct tools (with call counts) and agents seen in the project's
+    /// tool-call ledger — powers the audit filters UI.
+    pub async fn project_tool_call_facets(&self, project: &str) -> Result<Value> {
+        let q = HashMap::new();
+        let enc_project = encode_segment(project);
+        self.http
+            .get(
+                &format!("/api/v1/private/projects/{enc_project}/tool-calls/facets"),
+                &q,
+            )
+            .await
+    }
+
+    /// Full (untruncated) arguments + result for a single tool-call span in
+    /// a run (access-checked).
+    pub async fn tool_call_detail(&self, run_id: &str, span_id: &str) -> Result<Value> {
+        let q = HashMap::new();
+        let enc_run = encode_segment(run_id);
+        let enc_span = encode_segment(span_id);
+        self.http
+            .get(
+                &format!("/api/v1/private/runs/{enc_run}/tool-calls/{enc_span}"),
                 &q,
             )
             .await

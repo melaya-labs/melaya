@@ -33,4 +33,14 @@ export class AccountsAPI {
   riskMonitoringCredits(): Promise<AccountPlatformResult> {
     return this.http.get("/api/v1/private/accounts/credits/risk-monitoring");
   }
+
+  /** Resend the account's email verification link. */
+  resendEmailVerification(): Promise<AccountPlatformResult> {
+    return this.http.post("/api/v1/private/accounts/resend-email-verification");
+  }
+
+  /** Verify the account's email using the token from the verification link (64 hex chars). */
+  verifyEmail(token: string): Promise<AccountPlatformResult> {
+    return this.http.post("/api/v1/private/accounts/verify-email", { token });
+  }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@melaya/sdk",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Official SDK for Melaya Agent Builder and Mobile Device Control. Includes preview Melaya Trading namespaces that are not yet generally available.",
   "license": "Apache-2.0",
   "type": "module",
@@ -20,6 +20,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "test": "npm run build && node --test tests/*.test.mjs",
     "prepublishOnly": "npm run build"
   },
   "engines": {

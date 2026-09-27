@@ -115,6 +115,66 @@ module Melaya
       @http.delete("/api/v1/private/runs/#{enc(run_id)}/traces")
     end
 
+    # ── Tool-call audit ──────────────────────────────────────────────────────────
+    # Project-wide tool-invocation ledger — the same feed behind the Logs page.
+    # Every tool call across the project's runs, with HITL/connector/provider
+    # provenance. Argument/result previews are 4KB-truncated here; use
+    # +tool_call_detail+ for the untruncated pair on one call.
+
+    # GET /api/v1/private/projects/:project/tool-calls
+    # Keyset-paginated; pass the previous page's +nextCursor+ fields back as
+    # +before_created_at+/+before_id+ to continue.
+    # @param project [String]
+    # @param before_created_at [String, nil] keyset cursor (paired with before_id)
+    # @param before_id [String, nil]
+    # @param limit [Integer, nil] 1..100, default 30
+    # @param tool [String, nil] exact tool name
+    # @param agent [String, nil] invoking agent name (substring match)
+    # @param run_id [String, nil]
+    # @param status [String, nil] "ok" | "error"
+    # @param search [String, nil] tool-name search
+    # @param connector_source [String, nil] "project" | "personal"
+    # @param approval [String, nil] "auto" | "approved" | "by:<username>"
+    # @param provider [String, nil] AI provider that produced the tool call
+    # @param sort [String, nil] "recent" | "oldest" | "slowest" | "fastest"
+    # @return [Hash] { "items" => Array<Hash>, "nextCursor" => Hash|nil, "capped" => Boolean }
+    def project_tool_calls(project, before_created_at: nil, before_id: nil, limit: nil,
+                            tool: nil, agent: nil, run_id: nil, status: nil, search: nil,
+                            connector_source: nil, approval: nil, provider: nil, sort: nil)
+      params = compact(
+        "beforeCreatedAt" => before_created_at,
+        "beforeId"        => before_id,
+        "limit"           => limit,
+        "tool"            => tool,
+        "agent"           => agent,
+        "runId"           => run_id,
+        "status"          => status,
+        "search"          => search,
+        "connectorSource" => connector_source,
+        "approval"        => approval,
+        "provider"        => provider,
+        "sort"            => sort
+      )
+      @http.get("/api/v1/private/projects/#{enc(project)}/tool-calls", params)
+    end
+
+    # GET /api/v1/private/projects/:project/tool-calls/facets
+    # Distinct tools (with call counts) and agents seen in the project's
+    # tool-call ledger — powers the audit UI's filter dropdowns.
+    # @param project [String]
+    # @return [Hash] { "tools" => [{ "name" => String, "count" => Integer }], "agents" => Array<String> }
+    def project_tool_call_facets(project)
+      @http.get("/api/v1/private/projects/#{enc(project)}/tool-calls/facets")
+    end
+
+    # GET /api/v1/private/runs/:runId/tool-calls/:spanId
+    # Full (untruncated) arguments + result for a single tool-call span.
+    # @param run_id [String]
+    # @param span_id [String]
+    def tool_call_detail(run_id, span_id)
+      @http.get("/api/v1/private/runs/#{enc(run_id)}/tool-calls/#{enc(span_id)}")
+    end
+
     # ── Schedule ───────────────────────────────────────────────────────────────
 
     # GET /api/v1/private/pipeline-schedule
@@ -180,19 +240,52 @@ module Melaya
     end
 
     # GET /api/v1/private/pipelines/:name
-    # Fetch a single pipeline config by name.
+    # Fetch a single pipeline by name.
+    #
+    # Returns an ENVELOPE, not a bare config:
+    #   { "name" => String, "client" => ..., "config" => Hash, "code" => String, "docs" => ... }
+    # To edit and save, mutate +envelope["config"]+ and pass THAT to +update+ —
+    # see the example below.
+    #
     # @param name [String] pipeline name
     # @param project [String, nil] owning project (disambiguates when multiple projects share a name)
-    # @return [Hash] pipeline config
+    # @return [Hash] envelope: { "name", "client", "config", "code", "docs" }
+    #
+    # @example Edit one agent's model, then save
+    #   envelope = melaya.pipelines.get("daily-digest", project: "acme")
+    #   config   = envelope["config"]
+    #   config["steps"][0]["agent"]["model"] = { "provider" => "anthropic", "name" => "claude-opus-4-8" }
+    #   melaya.pipelines.update("daily-digest", config: config, project: "acme")
     def get(name, project: nil)
       params = compact("project" => project)
       @http.get("/api/v1/private/pipelines/#{enc(name)}", params)
     end
 
     # PUT /api/v1/private/pipelines/:name
-    # Replace a pipeline's config.
+    # Replace a pipeline's config. Pass the FULL config Hash — typically
+    # +envelope["config"]+ returned by +get+, mutated in place. This is the
+    # path for editing a per-agent prompt/instruction or swapping a model on
+    # one or all agents.
+    #
+    # The run is generated ONLY from +config["steps"]+ — a top-level
+    # +config["agents"]+ list alone produces an EMPTY pipeline. Every agent a
+    # step runs must be embedded inline on that step, e.g.:
+    #   { "kind" => "agent", "agent" => {
+    #       "name" => "researcher", "role" => "...", "instruction" => "...",
+    #       "model" => { "provider" => "anthropic", "name" => "claude-sonnet-4-6" },
+    #       "agent_tools" => [...], "human_approval_tools" => [...] } }
+    # There is no +prompt+ field — the two prompt fields are +instruction+
+    # (the task) and, optionally, +system_prompt_override+.
+    #
+    # Other config fields worth knowing:
+    #   "hitl_mode"          — "safe" (default) | "autonomous" | "payments_only".
+    #                          Only "safe" honours each agent's +human_approval_tools+.
+    #   "connector_source"   — "personal" | "project"
+    #   "force_local_runner" — Boolean
+    #   "inputs"             — Array of declared run-input fields (see +run+)
+    #
     # @param name [String] pipeline name
-    # @param config [Hash] full pipeline config payload
+    # @param config [Hash] full pipeline config payload (see +get+)
     # @param project [String, nil] owning project
     # @return [Hash] updated pipeline config
     def update(name, config:, project: nil)
@@ -214,18 +307,82 @@ module Melaya
     # Enqueue a pipeline run.
     # @param name [String] pipeline name
     # @param project [String, nil]
-    # @param execution_target [String, nil] runner target identifier
+    # @param execution_target [String, nil] used ONLY for the tier check made
+    #   at enqueue time. Where the run actually EXECUTES is decided by the
+    #   pipeline's own stored config (local model providers / +force_local_runner+),
+    #   not by this value.
     # @param studio_url [String, nil] override studio URL
-    # @param env_overrides [Hash, nil] environment variable overrides
-    # @return [Hash] { "run_id" => String, "queued" => Boolean }
-    def run(name, project: nil, execution_target: nil, studio_url: nil, env_overrides: nil)
+    # @param env_overrides [Hash, nil] per-run environment variable overrides,
+    #   layered over the caller's stored credentials. +MEL_*+ and +MELAYA_*+
+    #   keys are always stripped server-side — they can never be overridden
+    #   from the client.
+    # @param run_inputs [Hash, nil] free-form run inputs:
+    #   +{ brief: String, values: { key => value_or_file_ref } }+.
+    #   A file value inside +values+ may be +{ "file_id" => ... }+ (from
+    #   +upload_run_file+), +{ "url" => ... }+ (≤25 MB, https only), or
+    #   +{ "base64" => ..., "name" => ... }+ (≤7 MB).
+    # @return [Hash] { "run_id" => String, "queued" => Boolean, "run_inputs" => Hash (optional echo) }
+    def run(name, project: nil, execution_target: nil, studio_url: nil, env_overrides: nil, run_inputs: nil)
       body = compact(
         "project"         => project,
         "executionTarget" => execution_target,
         "studio_url"      => studio_url,
-        "env_overrides"   => env_overrides
+        "env_overrides"   => env_overrides,
+        "run_inputs"      => run_inputs
       )
       @http.post("/api/v1/private/pipelines/#{enc(name)}/run", body.empty? ? nil : body)
+    end
+
+    # POST /api/v1/private/pipelines/:name/run-files?key=...[&project=...]
+    # Upload a file for a LATER run (before calling +run+), as
+    # +multipart/form-data+ with a single field "file". Returns
+    # +{ "file_id" => String, ... }+ — single-use, valid 24 h. Reference it
+    # from +run+'s +run_inputs+ as +values: { <key> => { "file_id" => file_id } }+.
+    # @param name [String] pipeline name
+    # @param key [String] the declared run-input key this file is for
+    # @param file [String, IO] raw file bytes, or an IO/File-like object (must respond to +#read+)
+    # @param project [String, nil]
+    # @param filename [String, nil] defaults to the file's own name, else "file"
+    # @param content_type [String, nil] defaults to "application/octet-stream"
+    # @return [Hash] { "file_id" => String, ... }
+    def upload_run_file(name, key, file, project: nil, filename: nil, content_type: nil)
+      bytes, fname = file_payload(file, filename)
+      query = compact("key" => key, "project" => project)
+      @http.post_multipart(
+        "/api/v1/private/pipelines/#{enc(name)}/run-files", query,
+        "file", bytes, fname, content_type
+      )
+    end
+
+    # GET /api/v1/private/pipelines/:name/runs/:runId/inputs
+    # What a run was started with (brief, values, files echo).
+    # @param name [String] pipeline name
+    # @param run_id [String] 16 hex-char run id
+    # @return [Hash]
+    def run_inputs(name, run_id)
+      @http.get("/api/v1/private/pipelines/#{enc(name)}/runs/#{enc(run_id)}/inputs")
+    end
+
+    # GET /api/v1/private/pipelines/:name/runs/:runId/inputs/files/:index
+    # Download one input file attached to a run.
+    #
+    # Returns RAW BYTES — do not JSON-parse the result.
+    #
+    # @param name [String] pipeline name
+    # @param run_id [String] 16 hex-char run id
+    # @param index [Integer] file index, 0..99
+    # @return [String] raw binary file content
+    def run_input_file(name, run_id, index)
+      @http.get_bytes("/api/v1/private/pipelines/#{enc(name)}/runs/#{enc(run_id)}/inputs/files/#{index}")
+    end
+
+    # GET /api/v1/private/pipelines/:name/runs/:runId/active
+    # Liveness poll for a run (cloud-spawn process presence).
+    # @param name [String] pipeline name
+    # @param run_id [String] run identifier
+    # @return [Hash] { "active" => Boolean }
+    def run_active(name, run_id)
+      @http.get("/api/v1/private/pipelines/#{enc(name)}/runs/#{enc(run_id)}/active")
     end
 
     # GET /api/v1/private/pipelines/:name/runs
@@ -317,6 +474,71 @@ module Melaya
       @http.post("/api/v1/private/ai/build-pipeline/sync", brief)
     end
 
+    # ── Static-context documents ────────────────────────────────────────────────
+    # Files an agent reads as part of its context (never chunked/embedded).
+    # See also "RAG (retrieval) documents" below for the embedded-search store.
+
+    # GET /api/v1/private/pipelines/:name/docs
+    # List static-context documents attached to a pipeline.
+    # @param name [String] pipeline name
+    def list_docs(name)
+      @http.get("/api/v1/private/pipelines/#{enc(name)}/docs")
+    end
+
+    # POST /api/v1/private/pipelines/:name/docs
+    # Upload one static-context document as +multipart/form-data+ (field
+    # "file"). Allowed extensions: .txt .md .pdf .csv .json .docx .doc .pptx .xlsx.
+    # @param name [String] pipeline name
+    # @param file [String, IO] raw file bytes, or an IO/File-like object
+    # @param filename [String, nil] defaults to the file's own name, else "file"
+    # @param content_type [String, nil] defaults to "application/octet-stream"
+    def upload_doc(name, file, filename: nil, content_type: nil)
+      bytes, fname = file_payload(file, filename)
+      @http.post_multipart("/api/v1/private/pipelines/#{enc(name)}/docs", {}, "file", bytes, fname, content_type)
+    end
+
+    # DELETE /api/v1/private/pipelines/:name/docs/:filename
+    # Remove one static-context document.
+    # @param name [String] pipeline name
+    # @param filename [String]
+    def delete_doc(name, filename)
+      @http.delete("/api/v1/private/pipelines/#{enc(name)}/docs/#{enc(filename)}")
+    end
+
+    # ── RAG (retrieval) documents ────────────────────────────────────────────────
+    # Files chunked and embedded into the pipeline's own retrieval store, for
+    # agents that search over a document set rather than reading it whole.
+
+    # POST /api/v1/private/pipelines/:name/docs/retrieval
+    # Upload one retrieval-mode document as +multipart/form-data+ (field "file").
+    # @param name [String] pipeline name
+    # @param file [String, IO] raw file bytes, or an IO/File-like object
+    # @param filename [String, nil] defaults to the file's own name, else "file"
+    # @param content_type [String, nil] defaults to "application/octet-stream"
+    def upload_retrieval_doc(name, file, filename: nil, content_type: nil)
+      bytes, fname = file_payload(file, filename)
+      @http.post_multipart("/api/v1/private/pipelines/#{enc(name)}/docs/retrieval", {}, "file", bytes, fname, content_type)
+    end
+
+    # POST /api/v1/private/pipelines/:name/docs/retrieval/ingest
+    # Embed changed retrieval documents with the pipeline's configured
+    # embedder. Can take minutes, so this defaults to a 300 s request timeout —
+    # pass +timeout_s:+ to override.
+    # @param name [String] pipeline name
+    # @param body [Hash] request body (empty by default)
+    # @param timeout_s [Numeric] per-call timeout override (default 300)
+    def ingest_retrieval(name, body: {}, timeout_s: 300)
+      @http.post("/api/v1/private/pipelines/#{enc(name)}/docs/retrieval/ingest", body, timeout_s)
+    end
+
+    # DELETE /api/v1/private/pipelines/:name/docs/retrieval/:filename
+    # Remove one retrieval-mode document (and its chunks).
+    # @param name [String] pipeline name
+    # @param filename [String]
+    def delete_retrieval_doc(name, filename)
+      @http.delete("/api/v1/private/pipelines/#{enc(name)}/docs/retrieval/#{enc(filename)}")
+    end
+
     # ── Misc ───────────────────────────────────────────────────────────────────
 
     # GET /api/v1/version (public)
@@ -337,6 +559,21 @@ module Melaya
 
     def stringify_keys(hash)
       hash.transform_keys(&:to_s)
+    end
+
+    # Resolves a caller-supplied +file+ (raw bytes String, or an IO/File-like
+    # object responding to +#read+) into [bytes, filename] for a multipart
+    # upload. +filename_override+ wins when given; otherwise an IO's own
+    # +#path+ basename is used, falling back to "file".
+    def file_payload(file, filename_override)
+      if file.respond_to?(:read)
+        bytes = file.read
+        name  = filename_override || (file.respond_to?(:path) ? File.basename(file.path) : "file")
+      else
+        bytes = file.to_s
+        name  = filename_override || "file"
+      end
+      [bytes, name]
     end
   end
 end

@@ -19,6 +19,19 @@ module Melaya
       @http.post("/api/v1/private/accounts/export")
     end
 
+    # POST /api/v1/private/accounts/resend-email-verification
+    # Send a verification email to the signed-in account's saved address.
+    def resend_email_verification
+      @http.post("/api/v1/private/accounts/resend-email-verification")
+    end
+
+    # POST /api/v1/private/accounts/verify-email
+    # Confirm saved-email ownership without creating a login session.
+    # @param token [String] 64 hex-char verification token
+    def verify_email(token)
+      @http.post("/api/v1/private/accounts/verify-email", "token" => token)
+    end
+
     # DELETE /api/v1/private/keys/:keyId
     # Remove a stored CEX API key.
     # @param key_id [String]

@@ -34,6 +34,7 @@ namespace Melaya;
  * $m->agents->hitl->approve($pending[0]['requestId']);
  * $tree     = $m->agents->phone->screenTree();
  * $summary  = $m->agents->evals->summary();
+ * $result   = $m->agents->connectorTools->call('gmail_list_messages');
  *
  * // Platform namespace
  * $projects = $m->platform->projects->list();
@@ -72,7 +73,7 @@ class Melaya
     public readonly TradingNamespace $trading;
 
     /**
-     * Agents plane: pipelines (runs), hitl, assistant, phone, evals.
+     * Agents plane: pipelines (runs), hitl, assistant, phone, evals, connectorTools.
      *
      * @see AgentsNamespace
      */
@@ -138,6 +139,8 @@ class Melaya
     public readonly AssistantAPI   $assistant;
     /** @see AgentsNamespace::$evals */
     public readonly EvalsAPI       $evals;
+    /** @see AgentsNamespace::$connectorTools */
+    public readonly ConnectorToolsAPI $connectorTools;
     /** @see PlatformNamespace::$bugs */
     public readonly BugsAPI        $bugs;
     /**
@@ -202,23 +205,24 @@ class Melaya
         $optimize   = new OptimizeAPI($http);
 
         // Platform / agents plane
-        $auth        = new AuthAPI($http);
-        $accounts    = new AccountsAPI($http);
-        $billing     = new BillingAPI($http);
-        $runner      = new RunnerAPI($http);
-        $projects    = new ProjectsAPI($http);
-        $pipelines   = new PipelinesAPI($http);
-        $overview    = new OverviewAPI($http);
-        $hitl        = new HitlAPI($http);
-        $credentials = new CredentialsAPI($http);
-        $connectors  = new ConnectorsAPI($http);
-        $phone       = new PhoneAPI($http);
-        $team        = new TeamAPI($http);
-        $templates   = new TemplatesAPI($http);
-        $assistant   = new AssistantAPI($http);
-        $evals       = new EvalsAPI($http);
-        $bugs        = new BugsAPI($http);
-        $events      = new EventsClient($bearer, $baseUrl);
+        $auth           = new AuthAPI($http);
+        $accounts       = new AccountsAPI($http);
+        $billing        = new BillingAPI($http);
+        $runner         = new RunnerAPI($http);
+        $projects       = new ProjectsAPI($http);
+        $pipelines      = new PipelinesAPI($http);
+        $overview       = new OverviewAPI($http);
+        $hitl           = new HitlAPI($http);
+        $credentials    = new CredentialsAPI($http);
+        $connectors     = new ConnectorsAPI($http);
+        $phone          = new PhoneAPI($http);
+        $team           = new TeamAPI($http);
+        $templates      = new TemplatesAPI($http);
+        $assistant      = new AssistantAPI($http);
+        $evals          = new EvalsAPI($http);
+        $connectorTools = new ConnectorToolsAPI($http);
+        $bugs           = new BugsAPI($http);
+        $events         = new EventsClient($bearer, $baseUrl);
 
         // ── Namespaced accessors ──────────────────────────────────────────────
         $this->trading  = new TradingNamespace(
@@ -233,11 +237,12 @@ class Melaya
         );
 
         $this->agents   = new AgentsNamespace(
-            pipelines: $pipelines,
-            hitl:      $hitl,
-            assistant: $assistant,
-            phone:     $phone,
-            evals:     $evals,
+            pipelines:      $pipelines,
+            hitl:           $hitl,
+            assistant:      $assistant,
+            phone:          $phone,
+            evals:          $evals,
+            connectorTools: $connectorTools,
         );
 
         $this->platform = new PlatformNamespace(
@@ -265,22 +270,23 @@ class Melaya
         $this->stream     = $stream;
         $this->optimize   = $optimize;
 
-        $this->auth        = $auth;
-        $this->accounts    = $accounts;
-        $this->billing     = $billing;
-        $this->runner      = $runner;
-        $this->projects    = $projects;
-        $this->pipelines   = $pipelines;
-        $this->overview    = $overview;
-        $this->hitl        = $hitl;
-        $this->credentials = $credentials;
-        $this->connectors  = $connectors;
-        $this->phone       = $phone;
-        $this->team        = $team;
-        $this->templates   = $templates;
-        $this->assistant   = $assistant;
-        $this->evals       = $evals;
-        $this->bugs        = $bugs;
-        $this->events      = $events;
+        $this->auth           = $auth;
+        $this->accounts       = $accounts;
+        $this->billing        = $billing;
+        $this->runner         = $runner;
+        $this->projects       = $projects;
+        $this->pipelines      = $pipelines;
+        $this->overview       = $overview;
+        $this->hitl           = $hitl;
+        $this->credentials    = $credentials;
+        $this->connectors     = $connectors;
+        $this->phone          = $phone;
+        $this->team           = $team;
+        $this->templates      = $templates;
+        $this->assistant      = $assistant;
+        $this->evals          = $evals;
+        $this->connectorTools = $connectorTools;
+        $this->bugs           = $bugs;
+        $this->events         = $events;
     }
 }

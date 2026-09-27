@@ -108,6 +108,24 @@ func (t *TeamAPI) RemoveMember(ctx context.Context, project, userID string) (boo
 	return v.Ok, nil
 }
 
+// TransferOwnership transfers project ownership (creator) to another active
+// member. Only the current project owner may call this. newOwnerUserID
+// is a UUID and must already be an active member of the project.
+//
+// POST /api/v1/private/projects/:project/transfer-ownership
+func (t *TeamAPI) TransferOwnership(ctx context.Context, project, newOwnerUserID string) (bool, error) {
+	path := "/api/v1/private/projects/" + url.PathEscape(project) + "/transfer-ownership"
+	data, err := t.h.post(ctx, path, map[string]string{"newOwnerUserId": newOwnerUserID})
+	if err != nil {
+		return false, err
+	}
+	var v successResult
+	if err := unmarshal(data, &v); err != nil {
+		return false, err
+	}
+	return v.Success, nil
+}
+
 // GetPipelineVisibility returns visibility settings for a pipeline within a project.
 //
 // GET /api/v1/private/projects/:project/pipelines/:pipeline/visibility

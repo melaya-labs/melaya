@@ -58,4 +58,35 @@ public class BillingAPI {
     public JsonNode plans() {
         return http.get("/api/v1/billing/plans", null);
     }
+
+    /**
+     * The ambassador discount the caller is entitled to, or {@code null}.
+     *
+     * <p>Maps to {@code GET /api/v1/private/billing/ambassador-perk}.
+     */
+    public JsonNode ambassadorPerk() {
+        return http.get("/api/v1/private/billing/ambassador-perk", null);
+    }
+
+    /**
+     * Redeem a single-use promo code to the caller's account (the discount
+     * applies on the next checkout).
+     *
+     * <p>Maps to {@code POST /api/v1/private/billing/redeem-code}.
+     *
+     * @param code the promo code
+     */
+    public JsonNode redeemCode(String code) {
+        return http.post("/api/v1/private/billing/redeem-code", Map.of("code", code));
+    }
+
+    /**
+     * The caller's active reserved promo (for the subscription modal to
+     * reflect), or {@code null}.
+     *
+     * <p>Maps to {@code GET /api/v1/private/billing/reserved-promo}.
+     */
+    public JsonNode reservedPromo() {
+        return http.get("/api/v1/private/billing/reserved-promo", null);
+    }
 }

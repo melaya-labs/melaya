@@ -84,4 +84,28 @@ impl PhoneAPI {
             )
             .await
     }
+
+    /// Grant ONE app into the agent allowlist (atomic append). `label` is an
+    /// optional human-readable name for the app.
+    pub async fn grant_app(&self, package: &str, label: Option<&str>) -> Result<Value> {
+        let mut body = json!({ "package": package });
+        if let Some(l) = label {
+            body["label"] = json!(l);
+        }
+        self.http
+            .post("/api/v1/private/phone/apps/grant", &body)
+            .await
+    }
+
+    /// Re-cast the phone screen (re-triggers MediaProjection consent) from
+    /// the desktop mirror. `device_id` scopes the request to one device.
+    pub async fn request_cast(&self, device_id: Option<&str>) -> Result<Value> {
+        let mut body = json!({});
+        if let Some(d) = device_id {
+            body["deviceId"] = json!(d);
+        }
+        self.http
+            .post("/api/v1/private/phone/request-cast", &body)
+            .await
+    }
 }

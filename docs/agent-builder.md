@@ -51,28 +51,30 @@ await melaya.agents.pipelines.create({
   description: "Summarize unread items in an authorized mobile inbox.",
   model_provider: "anthropic",
   model_name: "claude-sonnet-4-6",
-  agents: [{
-    name: "mobile-operator",
-    role: "Careful mobile operator",
-    instruction: "Orient before acting. Read only; never send, publish, or delete.",
-    agent_tools: [
-      "phone_get_screen_tree",
-      "phone_current_app",
-      "phone_open_app",
-      "phone_click_text",
-      "phone_back",
-      "phone_wait"
-    ],
-    maxCostUsd: 1.00
-  }],
+  hitl_mode: "safe",
   steps: [{
     kind: "agent",
-    agent: { name: "mobile-operator" }
+    agent: {
+      name: "mobile-operator",
+      role: "Careful mobile operator",
+      instruction: "Orient before acting. Read only; never send, publish, or delete.",
+      agent_tools: [
+        "phone_get_screen_tree",
+        "phone_current_app",
+        "phone_open_app",
+        "phone_click_text",
+        "phone_back",
+        "phone_wait"
+      ],
+      maxCostUsd: 1.00
+    }
   }],
   loopPolicy: { mode: "observe_only" },
   maxCostUsd: 1.50
 });
 ~~~
+
+The run is generated from `steps[]` only, so each step carries its full agent: `instruction` is the task and `system_prompt_override` replaces the composed prompt (there is no `prompt` field). A config with a top-level `agents[]` and no `steps[]` produces an empty pipeline. Other config fields worth knowing: `hitl_mode` (`"safe"` pauses every tool listed in an agent's `human_approval_tools`; `"autonomous"` and `"payments_only"` do not), `connector_source` (`"personal"` or the project's shared `"project"` connectors), `force_local_runner`, and `inputs[]` (values each run can be given, passed as `run_inputs` on `run()`).
 
 ## Run, track, and collect
 
@@ -124,12 +126,14 @@ await melaya.agents.pipelines.cancelRun(
 Updates send the complete pipeline configuration together with its project:
 
 ~~~ts
-const config = await melaya.agents.pipelines.get(
+// get() returns an envelope: { name, client, config, code, docs }
+const { config } = await melaya.agents.pipelines.get(
   "mobile-inbox-review",
   "Operations"
 );
 
 config.description = "Updated description";
+config.steps[0].agent.model = { provider: "anthropic", name: "claude-opus-4-8" }; // this agent only
 
 await melaya.agents.pipelines.update(
   "mobile-inbox-review",

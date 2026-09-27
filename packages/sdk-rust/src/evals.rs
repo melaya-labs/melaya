@@ -46,16 +46,14 @@ impl EvalsAPI {
     /// Get memory graph visualization data for eval runs.
     pub async fn memory_graph(&self) -> Result<Value> {
         let q = HashMap::new();
-        self.http
-            .get("/api/v1/private/evals/memory-graph", &q)
-            .await
+        self.http.get("/api/v1/private/memory/graph", &q).await
     }
 
     /// Get memory usage for a specific eval run.
     pub async fn run_memory(&self, run_id: &str) -> Result<Value> {
         let q = HashMap::new();
         self.http
-            .get(&format!("/api/v1/private/evals/runs/{run_id}/memory"), &q)
+            .get(&format!("/api/v1/private/memory/runs/{run_id}"), &q)
             .await
     }
 
@@ -68,7 +66,7 @@ impl EvalsAPI {
         let mut q: HashMap<&str, Option<String>> = HashMap::new();
         q.insert("pipeline", pipeline.map(str::to_owned));
         q.insert("project", project.map(str::to_owned));
-        self.http.get("/api/v1/private/evals/crew-memory", &q).await
+        self.http.get("/api/v1/private/memory/crew", &q).await
     }
 
     /// Get benchmark scores across eval runs.

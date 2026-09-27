@@ -38,12 +38,24 @@ import org.json.JSONObject
  *   - `DELETE /api/v1/private/credentials/luma/connect`             — cancel Luma OAuth
  *   - `GET    /api/v1/private/credentials/luma/schema`              — Luma registration schema
  *   - `POST   /api/v1/private/credentials/google/oauth`             — start Google OAuth
+ *   - `GET    /api/v1/private/credentials/google/status`            — granted Google capabilities
+ *   - `PUT    /api/v1/private/credentials/google/default`           — set default Google account
+ *   - `DELETE /api/v1/private/credentials/google/access`            — disconnect Google product/account
  *   - `POST   /api/v1/private/credentials/cli-auth`                 — start CLI auth
  *   - `POST   /api/v1/private/credentials/notebooklm/login`         — store NotebookLM creds
  *   - `GET    /api/v1/private/credentials/notebooklm/status`        — NotebookLM status
  *   - `POST   /api/v1/private/credentials/telegram/auth`            — start Telegram auth
  *   - `POST   /api/v1/private/credentials/telegram/auth/code`       — submit SMS code
  *   - `POST   /api/v1/private/credentials/telegram/auth/2fa`        — submit 2FA password
+ *   - `POST   /api/v1/private/credentials/telegram/auth/qr/start`   — start Telegram QR login
+ *   - `POST   /api/v1/private/credentials/telegram/auth/qr/poll`    — poll Telegram QR login
+ *   - `POST   /api/v1/private/credentials/db-test`                  — start a runner DB test
+ *   - `GET    /api/v1/private/credentials/db-test/:sessionId`       — poll a runner DB test
+ *   - `GET    /api/v1/private/credentials/whatsapp/embedded-signup/config`   — WhatsApp Embedded Signup config
+ *   - `POST   /api/v1/private/credentials/whatsapp/embedded-signup/exchange` — WhatsApp Embedded Signup code exchange
+ *   - `GET    /api/v1/private/credentials/tiktok/creator-info`      — connected TikTok creator info
+ *   - `POST   /api/v1/private/credentials/substack/email-link`      — request Substack sign-in link
+ *   - `POST   /api/v1/private/credentials/substack/email-link/redeem` — redeem Substack sign-in link
  *
  * @example
  * ```kotlin
@@ -282,6 +294,116 @@ class CredentialsAPI internal constructor(private val http: HttpClient) {
             "/api/v1/private/credentials/telegram/auth/2fa",
             mapOf("password" to password)
         ).asObject()
+    }
+
+    /** Start Telegram user QR login. Returns a `handle` to poll with [telegramQrPoll]. */
+    fun telegramQrStart(apiId: Int, apiHash: String): JSONObject {
+        return http.post(
+            "/api/v1/private/credentials/telegram/auth/qr/start",
+            mapOf("api_id" to apiId, "api_hash" to apiHash)
+        ).asObject()
+    }
+
+    /** Poll a Telegram QR login by [handle] (starts with `"tgauth_"`). */
+    fun telegramQrPoll(handle: String): JSONObject {
+        return http.post(
+            "/api/v1/private/credentials/telegram/auth/qr/poll",
+            mapOf("handle" to handle)
+        ).asObject()
+    }
+
+    // ── Google OAuth (capability-level) ──────────────────────────────────────
+
+    /** List the Google OAuth capabilities actually granted to the caller. */
+    fun googleStatus(): JSONObject {
+        return http.get("/api/v1/private/credentials/google/status").asObject()
+    }
+
+    /** Select the connected Google account used for one [capability]. */
+    fun googleSetDefault(capability: String, accountId: String): JSONObject {
+        return http.put(
+            "/api/v1/private/credentials/google/default",
+            mapOf("capability" to capability, "accountId" to accountId)
+        ).asObject()
+    }
+
+    /**
+     * Disconnect one Google product, or an entire Google account.
+     *
+     * @param accountId  24-hex-char connected-account id.
+     * @param capability Optional single capability to disconnect; omit to disconnect the whole account.
+     */
+    fun googleDisconnect(accountId: String, capability: String? = null): JSONObject {
+        val body = buildMap<String, Any?> {
+            put("accountId", accountId)
+            if (capability != null) put("capability", capability)
+        }
+        return http.delete("/api/v1/private/credentials/google/access", body = body).asObject()
+    }
+
+    // ── Database connector test ──────────────────────────────────────────────
+
+    /** Probe a database connector from the user's own runner. Returns `{ sessionId, ... }` to poll. */
+    fun dbTestStart(service: String, credentials: Map<String, String>? = null): JSONObject {
+        val body = buildMap<String, Any?> {
+            put("service", service)
+            if (credentials != null) put("credentials", credentials)
+        }
+        return http.post("/api/v1/private/credentials/db-test", body).asObject()
+    }
+
+    /** Poll a DB connector runner-test result by [sessionId]. */
+    fun dbTestStatus(sessionId: String): JSONObject {
+        return http.get("/api/v1/private/credentials/db-test/${enc(sessionId)}").asObject()
+    }
+
+    // ── WhatsApp Embedded Signup ──────────────────────────────────────────────
+
+    /** Get the WhatsApp Embedded Signup config (`appId` / `configId`). */
+    fun whatsappSignupConfig(): JSONObject {
+        return http.get("/api/v1/private/credentials/whatsapp/embedded-signup/config").asObject()
+    }
+
+    /** Exchange a WhatsApp Embedded Signup authorization code for connected credentials. */
+    fun whatsappSignupExchange(
+        code: String,
+        phoneNumberId: String,
+        wabaId: String,
+        project: String? = null,
+    ): JSONObject {
+        val body = buildMap<String, Any?> {
+            put("code", code)
+            put("phoneNumberId", phoneNumberId)
+            put("wabaId", wabaId)
+            if (project != null) put("project", project)
+        }
+        return http.post("/api/v1/private/credentials/whatsapp/embedded-signup/exchange", body).asObject()
+    }
+
+    // ── TikTok ────────────────────────────────────────────────────────────────
+
+    /** Get the connected TikTok account's creator info (nickname, allowed privacy levels, interaction availability). */
+    fun tiktokCreatorInfo(): JSONObject {
+        return http.get("/api/v1/private/credentials/tiktok/creator-info").asObject()
+    }
+
+    // ── Substack email-link sign-in ──────────────────────────────────────────
+
+    /** Ask Substack to email a sign-in link to [email]. */
+    fun substackEmailLinkSend(email: String): JSONObject {
+        return http.post(
+            "/api/v1/private/credentials/substack/email-link",
+            mapOf("email" to email)
+        ).asObject()
+    }
+
+    /** Finish Substack sign-in with the emailed [link]. */
+    fun substackEmailLinkRedeem(link: String, email: String? = null): JSONObject {
+        val body = buildMap<String, Any?> {
+            put("link", link)
+            if (email != null) put("email", email)
+        }
+        return http.post("/api/v1/private/credentials/substack/email-link/redeem", body).asObject()
     }
 
     private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8")

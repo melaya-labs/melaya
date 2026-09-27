@@ -10,7 +10,9 @@ package melaya
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -43,8 +45,11 @@ func (p *PipelinesAPI) ListPipelines(ctx context.Context) ([]PipelineConfig, err
 	return env.Pipelines, nil
 }
 
-// Create creates a new pipeline. name and project are required; include the
-// full agent config (agents, prompts, models, wiring) in the same body map.
+// Create creates a new pipeline. name and project are required. The pipeline
+// itself is generated ONLY from the config's steps[] — a top-level agents[]
+// array alone produces an EMPTY pipeline, so embed each agent's full
+// definition (role, instruction, model, agent_tools, human_approval_tools)
+// inside its own step. See PipelineConfig for the field reference.
 //
 // POST /api/v1/private/pipelines
 func (p *PipelinesAPI) Create(ctx context.Context, body PipelineConfig) (PipelineConfig, error) {
@@ -59,8 +64,20 @@ func (p *PipelinesAPI) Create(ctx context.Context, body PipelineConfig) (Pipelin
 	return v, nil
 }
 
-// Get returns the full config for one pipeline. project is optional and narrows
+// Get returns the server's ENVELOPE for one pipeline:
+// { name, client, config, code, docs } — NOT the bare pipeline config. The
+// editable pipeline configuration (steps[], hitl_mode, connector_source, …)
+// lives under the envelope's "config" key. project is optional and narrows
 // the tenant scope.
+//
+// To edit and save a pipeline, mutate envelope["config"] and pass THAT to
+// Update — not the envelope itself:
+//
+//	envelope, _ := m.Pipelines.Get(ctx, "daily-digest", "acme")
+//	config := envelope["config"].(map[string]interface{}) // mutate steps[], etc. here
+//	_, err := m.Pipelines.Update(ctx, "daily-digest", melaya.PipelineUpdateBody{
+//	    Config: config, Project: "acme",
+//	})
 //
 // GET /api/v1/private/pipelines/{name}?project=
 func (p *PipelinesAPI) Get(ctx context.Context, name, project string) (PipelineConfig, error) {
@@ -81,7 +98,10 @@ func (p *PipelinesAPI) Get(ctx context.Context, name, project string) (PipelineC
 }
 
 // Update replaces a pipeline's config. Pass the full config plus the owning
-// project. This is the path for editing per-agent prompts or swapping models.
+// project. This is the path for editing per-agent prompts or swapping models
+// — body.Config should be the "config" key from a prior Get() envelope
+// (mutated as needed), not the envelope itself. See Get's doc comment for a
+// full edit-then-update example.
 //
 // PUT /api/v1/private/pipelines/{name}
 func (p *PipelinesAPI) Update(ctx context.Context, name string, body PipelineUpdateBody) (PipelineConfig, error) {
@@ -111,7 +131,10 @@ func (p *PipelinesAPI) Delete(ctx context.Context, name, project string) error {
 }
 
 // Run triggers a pipeline run. Returns immediately with a run_id; subscribe to
-// progress via Platform.Events.OnRunUpdate or poll RunStatus.
+// progress via Platform.Events.OnRunUpdate or poll RunStatus. Pass
+// opts.RunInputs to thread a brief and/or named input values (including
+// uploaded files — see UploadRunFile) through to the run; the response echoes
+// the resolved RunInputs back when any were sent.
 //
 // POST /api/v1/private/pipelines/{name}/run
 func (p *PipelinesAPI) Run(ctx context.Context, name string, opts *PipelineRunOptions) (*PipelineRunAccepted, error) {
@@ -172,6 +195,206 @@ func (p *PipelinesAPI) CancelRun(ctx context.Context, name, runID string) error 
 	path := "/api/v1/private/pipelines/" + url.PathEscape(name) + "/runs/" + url.PathEscape(runID)
 	_, err := p.h.del(ctx, path, nil)
 	return err
+}
+
+// UploadRunFile uploads a file for use in a future Run call, returning a
+// single-use file_id (valid 24h) to pass as a RunInputs.Values entry:
+// map[string]interface{}{"file_id": result.FileID}. key identifies which
+// run-input slot the file fills (matches one of the pipeline's declared
+// inputs[]).
+//
+// POST /api/v1/private/pipelines/{name}/run-files?key={key}[&project=]
+// multipart/form-data, single field "file".
+func (p *PipelinesAPI) UploadRunFile(ctx context.Context, name, key string, file io.Reader, filename string, opts *UploadRunFileOptions) (*RunFileUploadResult, error) {
+	q := map[string]string{"key": key}
+	contentType := ""
+	if opts != nil {
+		if opts.Project != "" {
+			q["project"] = opts.Project
+		}
+		contentType = opts.ContentType
+	}
+	path := "/api/v1/private/pipelines/" + url.PathEscape(name) + "/run-files"
+	data, err := p.h.postMultipart(ctx, path, q, "file", filename, contentType, file, nil)
+	if err != nil {
+		return nil, err
+	}
+	var v RunFileUploadResult
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+// RunInputs returns the persisted run-inputs record for a run: the brief,
+// values, and file references originally passed to Run. runID is 16 hex
+// characters.
+//
+// GET /api/v1/private/pipelines/{name}/runs/{runId}/inputs
+func (p *PipelinesAPI) RunInputs(ctx context.Context, name, runID string) (*PipelineRunInputs, error) {
+	path := "/api/v1/private/pipelines/" + url.PathEscape(name) + "/runs/" + url.PathEscape(runID) + "/inputs"
+	data, err := p.h.get(ctx, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	var v PipelineRunInputs
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+// RunInputFile downloads one uploaded run-input file by its position (0-99)
+// in the run's original run_inputs.values file list. Returns the raw file
+// bytes — this is a binary download, do NOT JSON-decode the result.
+//
+// GET /api/v1/private/pipelines/{name}/runs/{runId}/inputs/files/{index}
+func (p *PipelinesAPI) RunInputFile(ctx context.Context, name, runID string, index int) ([]byte, error) {
+	path := "/api/v1/private/pipelines/" + url.PathEscape(name) + "/runs/" + url.PathEscape(runID) +
+		"/inputs/files/" + strconv.Itoa(index)
+	return p.h.getBytes(ctx, path, nil)
+}
+
+// RunActive reports whether a run is still active (a liveness poll for
+// cloud-spawn runs).
+//
+// GET /api/v1/private/pipelines/{name}/runs/{runId}/active
+func (p *PipelinesAPI) RunActive(ctx context.Context, name, runID string) (bool, error) {
+	path := "/api/v1/private/pipelines/" + url.PathEscape(name) + "/runs/" + url.PathEscape(runID) + "/active"
+	data, err := p.h.get(ctx, path, nil)
+	if err != nil {
+		return false, err
+	}
+	var v struct {
+		Active bool `json:"active"`
+	}
+	if err := unmarshal(data, &v); err != nil {
+		return false, err
+	}
+	return v.Active, nil
+}
+
+// ── Static-context documents ────────────────────────────────────────────────
+// Documents injected verbatim into an agent's context. Allowed extensions:
+// .txt .md .pdf .csv .json .docx .doc .pptx .xlsx.
+
+// ListDocs lists the static-context documents attached to a pipeline.
+//
+// GET /api/v1/private/pipelines/{name}/docs
+func (p *PipelinesAPI) ListDocs(ctx context.Context, name string) (interface{}, error) {
+	path := "/api/v1/private/pipelines/" + url.PathEscape(name) + "/docs"
+	data, err := p.h.get(ctx, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	var v interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// UploadDoc uploads a static-context document for a pipeline. Allowed
+// extensions: .txt .md .pdf .csv .json .docx .doc .pptx .xlsx.
+//
+// POST /api/v1/private/pipelines/{name}/docs, multipart field "file".
+func (p *PipelinesAPI) UploadDoc(ctx context.Context, name string, file io.Reader, filename string, opts *UploadDocOptions) (interface{}, error) {
+	contentType := ""
+	if opts != nil {
+		contentType = opts.ContentType
+	}
+	path := "/api/v1/private/pipelines/" + url.PathEscape(name) + "/docs"
+	data, err := p.h.postMultipart(ctx, path, nil, "file", filename, contentType, file, nil)
+	if err != nil {
+		return nil, err
+	}
+	var v interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// DeleteDoc deletes a static-context document by filename. The response shape
+// is whatever the builder reports (proxied as-is), so it is returned untyped.
+//
+// DELETE /api/v1/private/pipelines/{name}/docs/{filename}
+func (p *PipelinesAPI) DeleteDoc(ctx context.Context, name, filename string) (interface{}, error) {
+	path := "/api/v1/private/pipelines/" + url.PathEscape(name) + "/docs/" + url.PathEscape(filename)
+	data, err := p.h.del(ctx, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	var v interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// ── RAG (retrieval) documents ───────────────────────────────────────────────
+// Documents embedded and queried by similarity, rather than injected verbatim.
+
+// UploadRetrievalDoc uploads a RAG (retrieval-mode) document for a pipeline.
+//
+// POST /api/v1/private/pipelines/{name}/docs/retrieval, multipart field "file".
+func (p *PipelinesAPI) UploadRetrievalDoc(ctx context.Context, name string, file io.Reader, filename string, opts *UploadDocOptions) (interface{}, error) {
+	contentType := ""
+	if opts != nil {
+		contentType = opts.ContentType
+	}
+	path := "/api/v1/private/pipelines/" + url.PathEscape(name) + "/docs/retrieval"
+	data, err := p.h.postMultipart(ctx, path, nil, "file", filename, contentType, file, nil)
+	if err != nil {
+		return nil, err
+	}
+	var v interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// IngestRetrieval embeds changed retrieval documents with the pipeline's
+// configured embedder. This can take minutes on a large corpus — if you have
+// many or large documents, construct the Client with a longer
+// Options.Timeout (e.g. 300s) before calling this method, since every request
+// on a Client shares its HTTP timeout. body is sent as-is (an empty/nil body
+// is sent as {}).
+//
+// POST /api/v1/private/pipelines/{name}/docs/retrieval/ingest
+func (p *PipelinesAPI) IngestRetrieval(ctx context.Context, name string, body map[string]interface{}) (interface{}, error) {
+	if body == nil {
+		body = map[string]interface{}{}
+	}
+	path := "/api/v1/private/pipelines/" + url.PathEscape(name) + "/docs/retrieval/ingest"
+	data, err := p.h.post(ctx, path, body)
+	if err != nil {
+		return nil, err
+	}
+	var v interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// DeleteRetrievalDoc deletes a RAG retrieval document by filename. The
+// response shape is whatever the builder reports (proxied as-is), so it is
+// returned untyped.
+//
+// DELETE /api/v1/private/pipelines/{name}/docs/retrieval/{filename}
+func (p *PipelinesAPI) DeleteRetrievalDoc(ctx context.Context, name, filename string) (interface{}, error) {
+	path := "/api/v1/private/pipelines/" + url.PathEscape(name) + "/docs/retrieval/" + url.PathEscape(filename)
+	data, err := p.h.del(ctx, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	var v interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
 }
 
 // Outputs lists the artifacts a pipeline has produced.
@@ -445,6 +668,104 @@ func (p *PipelinesAPI) DeleteTraces(ctx context.Context, runID string) (*DeleteT
 		return nil, err
 	}
 	var v DeleteTracesResult
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+// ── Tool-call audit ──────────────────────────────────────────────────────────
+
+// ProjectToolCalls returns a project's tool-call audit ledger: every tool
+// invocation across the project's runs (tool, invoking agent, pipeline + run,
+// who ran it, status, latency, HITL approval provenance, 4KB-truncated
+// input/output). Keyset-paginated for the "recent"/"oldest" sorts — pass the
+// result's NextCursor fields back as params.BeforeCreatedAt/BeforeID to page
+// further. The "slowest"/"fastest" sorts return a bounded top-N snapshot
+// instead (Capped=true, no cursor). params may be nil for the defaults.
+//
+// GET /api/v1/private/projects/{project}/tool-calls
+func (p *PipelinesAPI) ProjectToolCalls(ctx context.Context, project string, params *ProjectToolCallsParams) (*ProjectToolCallsResult, error) {
+	q := map[string]string{}
+	if params != nil {
+		if params.BeforeCreatedAt != "" {
+			q["beforeCreatedAt"] = params.BeforeCreatedAt
+		}
+		if params.BeforeID != "" {
+			q["beforeId"] = params.BeforeID
+		}
+		if params.Limit > 0 {
+			q["limit"] = strconv.Itoa(params.Limit)
+		}
+		if params.Tool != "" {
+			q["tool"] = params.Tool
+		}
+		if params.Agent != "" {
+			q["agent"] = params.Agent
+		}
+		if params.RunID != "" {
+			q["runId"] = params.RunID
+		}
+		if params.Status != "" {
+			q["status"] = params.Status
+		}
+		if params.Search != "" {
+			q["search"] = params.Search
+		}
+		if params.ConnectorSource != "" {
+			q["connectorSource"] = params.ConnectorSource
+		}
+		if params.Approval != "" {
+			q["approval"] = params.Approval
+		}
+		if params.Provider != "" {
+			q["provider"] = params.Provider
+		}
+		if params.Sort != "" {
+			q["sort"] = params.Sort
+		}
+	}
+	path := "/api/v1/private/projects/" + url.PathEscape(project) + "/tool-calls"
+	data, err := p.h.get(ctx, path, q)
+	if err != nil {
+		return nil, err
+	}
+	var v ProjectToolCallsResult
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+// ProjectToolCallFacets returns the distinct tools (with call counts),
+// agents, approvers, and providers seen in a project's tool-call ledger —
+// powers the audit UI's filter dropdowns.
+//
+// GET /api/v1/private/projects/{project}/tool-calls/facets
+func (p *PipelinesAPI) ProjectToolCallFacets(ctx context.Context, project string) (*ProjectToolCallFacets, error) {
+	path := "/api/v1/private/projects/" + url.PathEscape(project) + "/tool-calls/facets"
+	data, err := p.h.get(ctx, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	var v ProjectToolCallFacets
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+// ToolCallDetail returns the full, untruncated input/output for one tool-call
+// span within a run (access-checked against the run).
+//
+// GET /api/v1/private/runs/{runId}/tool-calls/{spanId}
+func (p *PipelinesAPI) ToolCallDetail(ctx context.Context, runID, spanID string) (*ToolCallDetail, error) {
+	path := "/api/v1/private/runs/" + url.PathEscape(runID) + "/tool-calls/" + url.PathEscape(spanID)
+	data, err := p.h.get(ctx, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	var v ToolCallDetail
 	if err := unmarshal(data, &v); err != nil {
 		return nil, err
 	}

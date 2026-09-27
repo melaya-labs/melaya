@@ -7,7 +7,7 @@ plugins {
 }
 
 group = 'org.melaya'
-version = '0.2.0'
+version = '0.3.0'
 
 java {
     toolchain {
@@ -37,9 +37,17 @@ jar {
 }
 
 // e2e smoke lives under e2e/ (separate source set; uses the main library output + deps)
+// unittest is the same pattern: no test framework dependency (no new deps) — a
+// mock-transport suite (embedded com.sun.net.httpserver.HttpServer, JDK-only)
+// run as a plain main() via its own JavaExec task, exiting non-zero on failure.
 sourceSets {
     e2e {
         java.srcDirs = ['e2e']
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+    unittest {
+        java.srcDirs = ['unittest']
         compileClasspath += sourceSets.main.output
         runtimeClasspath += sourceSets.main.output
     }
@@ -47,10 +55,21 @@ sourceSets {
 configurations {
     e2eImplementation.extendsFrom implementation
     e2eRuntimeOnly.extendsFrom runtimeOnly
+    unittestImplementation.extendsFrom implementation
+    unittestRuntimeOnly.extendsFrom runtimeOnly
 }
 tasks.named('run', JavaExec) {
     classpath = sourceSets.e2e.runtimeClasspath
     mainClass = 'org.melaya.E2E'
+}
+tasks.register('unitTest', JavaExec) {
+    group = 'verification'
+    description = 'Mock-transport unit tests (no network, no API key required).'
+    classpath = sourceSets.unittest.runtimeClasspath
+    mainClass = 'org.melaya.UnitTests'
+}
+tasks.named('test') {
+    dependsOn 'unitTest'
 }
 
 mavenPublishing {

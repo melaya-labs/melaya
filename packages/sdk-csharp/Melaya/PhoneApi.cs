@@ -69,4 +69,23 @@ public sealed class PhoneApi
         var body = new { runId };
         return await _http.PostAsync<BoolResult>("/api/v1/private/phone/active-run", body, ct).ConfigureAwait(false);
     }
+
+    /// <summary>Grant an app package to the phone's agent-accessible allowlist.</summary>
+    /// <param name="package">Android package name (e.g. <c>com.android.chrome</c>).</param>
+    /// <param name="label">Optional human-readable label for the app.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<BoolResult> GrantAppAsync(string package, string? label = null, CancellationToken ct = default)
+    {
+        var body = new { package, label };
+        return await _http.PostAsync<BoolResult>("/api/v1/private/phone/apps/grant", body, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Request the phone start (or refresh) a screen-cast session.</summary>
+    /// <param name="deviceId">Optional device id; omit to target the caller's default paired device.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<BoolResult> RequestCastAsync(string? deviceId = null, CancellationToken ct = default)
+    {
+        var body = new { deviceId };
+        return await _http.PostAsync<BoolResult>("/api/v1/private/phone/request-cast", body, ct).ConfigureAwait(false);
+    }
 }

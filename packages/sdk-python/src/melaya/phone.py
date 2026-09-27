@@ -14,7 +14,7 @@ Example
 """
 from __future__ import annotations
 
-from typing import Any, List
+from typing import Any, Dict, List, Optional
 from urllib.parse import quote
 
 from .platform_types import JsonDict
@@ -56,3 +56,32 @@ class PhoneAPI:
     def register_active_run(self, run_id: str) -> JsonDict:
         """Register the currently active pipeline run on the phone (used by agents)."""
         return self._request("POST", "/api/v1/private/phone/active-run", json={"runId": run_id})
+
+    def grant_app(self, package: str, label: Optional[str] = None) -> JsonDict:
+        """Grant agent access to one app package on the paired phone.
+
+        Parameters
+        ----------
+        package:
+            Android package name (e.g. ``"com.android.chrome"``).
+        label:
+            Optional human-readable label for the app.
+        """
+        body: Dict[str, Any] = {"package": package}
+        if label is not None:
+            body["label"] = label
+        return self._request("POST", "/api/v1/private/phone/apps/grant", json=body)
+
+    def request_cast(self, device_id: Optional[str] = None) -> JsonDict:
+        """Request screen casting from the paired phone.
+
+        Parameters
+        ----------
+        device_id:
+            Optional device ID to target when the caller has more than one
+            paired phone.
+        """
+        body: Dict[str, Any] = {}
+        if device_id is not None:
+            body["deviceId"] = device_id
+        return self._request("POST", "/api/v1/private/phone/request-cast", json=body)

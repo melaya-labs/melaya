@@ -86,6 +86,20 @@ class TeamAPI
         );
     }
 
+    /**
+     * Transfer project ownership (creator) to another active member.
+     *
+     * @param string $project      Project name.
+     * @param string $newOwnerUserId The new owner's user ID (uuid).
+     */
+    public function transferOwnership(string $project, string $newOwnerUserId): array
+    {
+        return $this->http->post(
+            '/api/v1/private/projects/' . rawurlencode($project) . '/transfer-ownership',
+            ['newOwnerUserId' => $newOwnerUserId]
+        );
+    }
+
     // ── Pipeline visibility ──────────────────────────────────────────────────
 
     /** Get visibility settings for a pipeline within a project. */

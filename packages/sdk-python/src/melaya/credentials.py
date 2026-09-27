@@ -165,3 +165,87 @@ class CredentialsAPI:
         if capability is not None:
             params["capability"] = capability
         return self._request("GET", "/api/v1/private/credentials/models", params=params if params else None)
+
+    def google_status(self) -> JsonDict:
+        """Get Google account connection status (personal, user-scoped)."""
+        return self._request("GET", "/api/v1/private/credentials/google/status")
+
+    def google_set_default(self, capability: str, account_id: str) -> JsonDict:
+        """Set the default connected Google account for one capability (personal, user-scoped).
+
+        ``capability`` is one of: gmail, calendar, drive, sheets, docs,
+        search_console, youtube, google_ads, analytics, meet, slides.
+        ``account_id`` is a 24-hex-char id.
+        """
+        return self._request(
+            "PUT",
+            "/api/v1/private/credentials/google/default",
+            json={"capability": capability, "accountId": account_id},
+        )
+
+    def google_disconnect(self, account_id: str, *, capability: Optional[str] = None) -> JsonDict:
+        """Disconnect a Google account (or one capability of it), user-scoped.
+
+        Omit ``capability`` to disconnect the account entirely.
+        """
+        body: Dict[str, Any] = {"accountId": account_id}
+        if capability is not None:
+            body["capability"] = capability
+        return self._request("DELETE", "/api/v1/private/credentials/google/access", json=body)
+
+    def db_test_start(self, service: str, *, credentials: Optional[Dict[str, str]] = None) -> JsonDict:
+        """Start a database connectivity probe from the user's runner (personal, user-scoped).
+
+        Returns ``{"sessionId": ...}``; poll with ``db_test_status()``.
+        """
+        body: Dict[str, Any] = {"service": service}
+        if credentials is not None:
+            body["credentials"] = credentials
+        return self._request("POST", "/api/v1/private/credentials/db-test", json=body)
+
+    def db_test_status(self, session_id: str) -> JsonDict:
+        """Poll a personal database connectivity probe session."""
+        return self._request("GET", f"/api/v1/private/credentials/db-test/{session_id}")
+
+    def telegram_qr_start(self, api_id: int, api_hash: str) -> JsonDict:
+        """Start Telegram QR-code login. Returns ``{"handle": ...}`` to poll with ``telegram_qr_poll()``."""
+        return self._request(
+            "POST",
+            "/api/v1/private/credentials/telegram/auth/qr/start",
+            json={"api_id": api_id, "api_hash": api_hash},
+        )
+
+    def telegram_qr_poll(self, handle: str) -> JsonDict:
+        """Poll a Telegram QR-code login started with ``telegram_qr_start()``.
+
+        ``handle`` starts with ``"tgauth_"``.
+        """
+        return self._request("POST", "/api/v1/private/credentials/telegram/auth/qr/poll", json={"handle": handle})
+
+    def whatsapp_signup_config(self) -> JsonDict:
+        """Get the WhatsApp Embedded Signup config (App ID, config ID, etc.) needed to start the flow."""
+        return self._request("GET", "/api/v1/private/credentials/whatsapp/embedded-signup/config")
+
+    def whatsapp_signup_exchange(
+        self, code: str, phone_number_id: str, waba_id: str, *, project: Optional[str] = None
+    ) -> JsonDict:
+        """Complete WhatsApp Embedded Signup by exchanging the flow's auth code."""
+        body: Dict[str, Any] = {"code": code, "phoneNumberId": phone_number_id, "wabaId": waba_id}
+        if project is not None:
+            body["project"] = project
+        return self._request("POST", "/api/v1/private/credentials/whatsapp/embedded-signup/exchange", json=body)
+
+    def tiktok_creator_info(self) -> JsonDict:
+        """Get the connected TikTok account's creator info (posting permissions, privacy options)."""
+        return self._request("GET", "/api/v1/private/credentials/tiktok/creator-info")
+
+    def substack_email_link_send(self, email: str) -> JsonDict:
+        """Send a Substack sign-in link to ``email`` (start of the Substack connect flow)."""
+        return self._request("POST", "/api/v1/private/credentials/substack/email-link", json={"email": email})
+
+    def substack_email_link_redeem(self, link: str, *, email: Optional[str] = None) -> JsonDict:
+        """Redeem a Substack sign-in link sent via ``substack_email_link_send()``."""
+        body: Dict[str, Any] = {"link": link}
+        if email is not None:
+            body["email"] = email
+        return self._request("POST", "/api/v1/private/credentials/substack/email-link/redeem", json=body)

@@ -189,4 +189,97 @@ export class CredentialsAPI {
       ...(params as Record<string, string | undefined | null>),
     });
   }
+
+  // ── Google account management (personal scope) ─────────────────────────────────
+
+  /** Status of the caller's connected Google accounts and default assignment per capability. */
+  async googleStatus(): Promise<Record<string, unknown>> {
+    return this.http.get("/api/v1/private/credentials/google/status");
+  }
+
+  /**
+   * Set the default connected Google account for one capability (`gmail`,
+   * `calendar`, `drive`, `sheets`, `docs`, `search_console`, `youtube`,
+   * `google_ads`, `analytics`, `meet`, `slides`).
+   */
+  async googleSetDefault(capability: string, accountId: string): Promise<{ ok: boolean }> {
+    return this.http.put("/api/v1/private/credentials/google/default", { capability, accountId });
+  }
+
+  /** Disconnect a connected Google account, optionally scoped to one capability. `accountId` is a 24-hex-char id. */
+  async googleDisconnect(accountId: string, capability?: string): Promise<{ ok: boolean }> {
+    return this.http.delete("/api/v1/private/credentials/google/access", undefined, {
+      accountId,
+      capability,
+    });
+  }
+
+  // ── Database connection test (personal scope) ───────────────────────────────────
+
+  /** Probe a database connection from the caller's runner. Poll with `dbTestStatus()`. */
+  async dbTestStart(
+    service: string,
+    credentials?: Record<string, string>,
+  ): Promise<{ sessionId: string } & Record<string, unknown>> {
+    return this.http.post("/api/v1/private/credentials/db-test", { service, credentials });
+  }
+
+  /** Poll a database connection test started with `dbTestStart()`. */
+  async dbTestStatus(sessionId: string): Promise<Record<string, unknown>> {
+    return this.http.get(`/api/v1/private/credentials/db-test/${encodeURIComponent(sessionId)}`);
+  }
+
+  // ── Telegram QR login ────────────────────────────────────────────────────────────
+
+  /** Start a Telegram QR-code login. Returns a `handle` (starts with `"tgauth_"`) to poll with `telegramQrPoll()`. */
+  async telegramQrStart(
+    apiId: number,
+    apiHash: string,
+  ): Promise<{ handle: string } & Record<string, unknown>> {
+    return this.http.post("/api/v1/private/credentials/telegram/auth/qr/start", {
+      api_id: apiId,
+      api_hash: apiHash,
+    });
+  }
+
+  /** Poll a Telegram QR login started with `telegramQrStart()`. */
+  async telegramQrPoll(handle: string): Promise<Record<string, unknown>> {
+    return this.http.post("/api/v1/private/credentials/telegram/auth/qr/poll", { handle });
+  }
+
+  // ── WhatsApp embedded signup ─────────────────────────────────────────────────────
+
+  /** Config needed to render the WhatsApp Embedded Signup flow client-side. */
+  async whatsappSignupConfig(): Promise<Record<string, unknown>> {
+    return this.http.get("/api/v1/private/credentials/whatsapp/embedded-signup/config");
+  }
+
+  /** Exchange a completed WhatsApp Embedded Signup for a stored connection. */
+  async whatsappSignupExchange(body: {
+    code: string;
+    phoneNumberId: string;
+    wabaId: string;
+    project?: string;
+  }): Promise<Record<string, unknown>> {
+    return this.http.post("/api/v1/private/credentials/whatsapp/embedded-signup/exchange", body);
+  }
+
+  // ── TikTok ───────────────────────────────────────────────────────────────────────
+
+  /** The caller's TikTok creator info (used to validate posting eligibility). */
+  async tiktokCreatorInfo(): Promise<Record<string, unknown>> {
+    return this.http.get("/api/v1/private/credentials/tiktok/creator-info");
+  }
+
+  // ── Substack email-link auth ─────────────────────────────────────────────────────
+
+  /** Send a Substack sign-in link to the given email. */
+  async substackEmailLinkSend(email: string): Promise<Record<string, unknown>> {
+    return this.http.post("/api/v1/private/credentials/substack/email-link", { email });
+  }
+
+  /** Redeem a Substack sign-in link (from `substackEmailLinkSend()`) to complete the connection. */
+  async substackEmailLinkRedeem(link: string, email?: string): Promise<Record<string, unknown>> {
+    return this.http.post("/api/v1/private/credentials/substack/email-link/redeem", { link, email });
+  }
 }

@@ -76,22 +76,21 @@ await melaya.agents.pipelines.create({
   description: "Open an authorized inbox and summarize unread items.",
   model_provider: "anthropic",
   model_name: "claude-sonnet-4-6",
-  agents: [{
-    name: "mobile-operator",
-    role: "Careful mobile operator",
-    instruction: "Read the screen before every action. Do not send, publish, or delete anything.",
-    agent_tools: [
-      "phone_get_screen_tree",
-      "phone_current_app",
-      "phone_open_app",
-      "phone_click_text",
-      "phone_back",
-      "phone_wait"
-    ]
-  }],
   steps: [{
     kind: "agent",
-    agent: { name: "mobile-operator" }
+    agent: {
+      name: "mobile-operator",
+      role: "Careful mobile operator",
+      instruction: "Read the screen before every action. Do not send, publish, or delete anything.",
+      agent_tools: [
+        "phone_get_screen_tree",
+        "phone_current_app",
+        "phone_open_app",
+        "phone_click_text",
+        "phone_back",
+        "phone_wait"
+      ]
+    }
   }]
 });
 

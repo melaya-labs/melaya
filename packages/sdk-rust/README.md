@@ -1,4 +1,4 @@
-# melaya — Official Rust SDK v0.2.0
+# melaya — Official Rust SDK v0.3.0
 
 > **Product status:** Agent Builder and Mobile Device Control are the current public products. Melaya Trading namespaces are preview-only and planned for later public release; do not use them with real funds.
 
@@ -6,6 +6,8 @@ Idiomatic async Rust client for the [Melaya](https://melaya.org) platform:
 market data, trading, strategies, backtests, WebSocket streaming, agent projects,
 HITL approvals, credentials, billing, phone control, templates, evals, and
 real-time Socket.IO events.
+
+**Melaya products:** [Melaya Agents](https://melaya.org/en/product/agentic-framework) · [Melaya Assistant](https://melaya.org/en/product/assistant) · [Device Control](https://melaya.org/en/product/agentic-device-control) · [Browser Control](https://melaya.org/en/product/agentic-browser-control) · [MCP Server](https://melaya.org/en/product/mcp) · [Melaya Marketing](https://melaya.org/en/product/marketing)
 
 ---
 
@@ -17,7 +19,7 @@ discoverable via IDE autocomplete:
 | Namespace | Modules |
 |---|---|
 | `melaya.trading` | `market`, `account`, `sim`, `strategies`, `trade`, `backtest`, `stream` |
-| `melaya.agents`  | `pipelines`, `hitl`, `assistant`, `phone`, `evals` |
+| `melaya.agents`  | `pipelines`, `hitl`, `assistant`, `phone`, `evals`, `memory`, `connector_tools` |
 | `melaya.platform`| `projects`, `credentials`, `connectors`, `billing`, `team`, `templates`, `runner`, `auth`, `mfa`, `accounts`, `bugs`, `events` |
 
 Flat accessors (`melaya.market`, `melaya.pipelines`, …) remain available for
@@ -67,7 +69,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-melaya = "0.2"
+melaya = "0.3"
 tokio = { version = "1", features = ["full"] }
 ```
 
@@ -130,27 +132,35 @@ use serde_json::json;
 async fn main() {
     let m = Melaya::new(&std::env::var("MELAYA_API_KEY").unwrap()).unwrap();
 
+    // A run is generated ONLY from `steps[]` — a top-level `agents[]` array
+    // with no matching `steps[]` entry produces an EMPTY pipeline. Each step
+    // embeds its own agent inline (name, role, instruction, model,
+    // agent_tools, human_approval_tools). There is no `prompt` field: the
+    // prompt fields are `instruction` (the task) and `system_prompt_override`.
     m.agents.pipelines.create(
         "mobile-review",
         "Operations",
         None,
         Some(&json!({
-            "model_provider": "anthropic",
-            "model_name": "claude-sonnet-4-6",
-            "agents": [{
-                "name": "mobile-operator",
-                "role": "Careful mobile operator",
-                "instruction": "Read before acting. Never send, publish, or delete.",
-                "agent_tools": [
-                    "phone_get_screen_tree",
-                    "phone_current_app",
-                    "phone_open_app",
-                    "phone_click_text",
-                    "phone_back",
-                    "phone_wait"
-                ]
+            "steps": [{
+                "kind": "agent",
+                "agent": {
+                    "name": "mobile-operator",
+                    "role": "Careful mobile operator",
+                    "instruction": "Read before acting. Never send, publish, or delete.",
+                    "model": { "provider": "anthropic", "name": "claude-sonnet-4-6" },
+                    "agent_tools": [
+                        "phone_get_screen_tree",
+                        "phone_current_app",
+                        "phone_open_app",
+                        "phone_click_text",
+                        "phone_back",
+                        "phone_wait"
+                    ],
+                    "human_approval_tools": []
+                }
             }],
-            "steps": [{ "kind": "agent", "agent": { "name": "mobile-operator" } }],
+            "hitl_mode": "safe",
             "maxCostUsd": 1.00
         })),
     ).await.unwrap();
@@ -170,6 +180,57 @@ async fn main() {
         .await
         .unwrap();
     println!("run {} → {}", status.run_id, status.status);
+}
+```
+
+### Edit a pipeline (get → mutate `config` → update)
+
+`get()` returns an ENVELOPE `{ name, client, config, code, docs }`. Mutate the
+`config` field and pass THAT to `update()` — never pass the envelope itself:
+
+```rust
+use melaya::Melaya;
+use serde_json::json;
+
+#[tokio::main]
+async fn main() {
+    let m = Melaya::new(&std::env::var("MELAYA_API_KEY").unwrap()).unwrap();
+
+    let mut envelope = m.pipelines.get("mobile-review", Some("Operations")).await.unwrap();
+    envelope["config"]["steps"][0]["agent"]["model"] =
+        json!({ "provider": "anthropic", "name": "claude-opus-4-8" });
+    m.pipelines.update("mobile-review", &envelope["config"], "Operations").await.unwrap();
+}
+```
+
+### Run inputs, file uploads, and docs/RAG
+
+```rust
+use melaya::{Melaya, PipelineRunOptions, RunInputs};
+use std::collections::HashMap;
+
+#[tokio::main]
+async fn main() {
+    let m = Melaya::new(&std::env::var("MELAYA_API_KEY").unwrap()).unwrap();
+
+    // Upload a file for a run, then reference it by file_id in run_inputs.
+    let uploaded = m.pipelines
+        .upload_run_file("mobile-review", "report", b"...pdf bytes...", None, Some("q3.pdf"), None)
+        .await.unwrap();
+    let file_id = uploaded["file_id"].as_str().unwrap().to_owned();
+
+    let mut values = HashMap::new();
+    values.insert("report".to_owned(), serde_json::json!({ "file_id": file_id }));
+    let accepted = m.pipelines.run("mobile-review", Some(PipelineRunOptions {
+        project: Some("Operations".into()),
+        run_inputs: Some(RunInputs { brief: Some("Summarize the report".into()), values: Some(values) }),
+        ..Default::default()
+    })).await.unwrap();
+
+    // Static-context + retrieval (RAG) documents.
+    m.pipelines.upload_doc("mobile-review", b"# Notes", Some("notes.md"), Some("text/markdown")).await.unwrap();
+    m.pipelines.upload_retrieval_doc("mobile-review", b"...pdf bytes...", Some("manual.pdf"), None).await.unwrap();
+    m.pipelines.ingest_retrieval("mobile-review", None).await.unwrap(); // can take minutes
 }
 ```
 
@@ -378,6 +439,8 @@ the public Web PKI root set.
 | `ai_credits()` | AI/LLM credit balance |
 | `portfolio_ideas_credits()` | Portfolio-ideas credit balance |
 | `risk_monitoring_credits()` | Risk-monitoring credit balance |
+| `resend_email_verification()` | Send verification email to the saved account email |
+| `verify_email(token)` | Confirm saved email ownership (64-hex-char token) |
 
 ### `client.platform.auth` / `client.auth`
 
@@ -413,6 +476,9 @@ the public Web PKI root set.
 | `create_checkout(price_id, tier)` | Stripe Checkout session URL |
 | `create_portal()` | Stripe Customer Portal session URL |
 | `plans()` | Public pricing plan details |
+| `ambassador_perk()` | Ambassador discount the caller is entitled to, or `null` |
+| `redeem_code(code)` | Redeem a single-use promo code to the caller's account |
+| `reserved_promo()` | Caller's active reserved promo, or `null` |
 
 ### `client.platform.runner` / `client.runner`
 
@@ -456,10 +522,20 @@ the public Web PKI root set.
 | `get(name, project)` | Single pipeline |
 | `update(name, config, project)` | Update a pipeline's configuration |
 | `delete_pipeline(name, project)` | Delete a pipeline |
-| `run(name, opts)` | Enqueue a run; returns the run ID |
+| `run(name, opts)` | Enqueue a run (accepts `run_inputs`); returns the run ID |
+| `upload_run_file(name, key, file, project, filename, content_type)` | Upload a file for a later run; returns `{ file_id, ... }` (24 h, single-use) |
 | `run_ids(name)` | All run IDs for a pipeline |
 | `run_status(name, run_id)` | Status of a specific run |
 | `cancel_run(name, run_id)` | Cancel a running or queued run |
+| `run_inputs(name, run_id)` | What a run was started with (`brief`/`values`/`files`) |
+| `run_input_file(name, run_id, index)` | Download one run input file (raw bytes) |
+| `run_active(name, run_id)` | Liveness poll for a run |
+| `list_docs(name)` | List static-context documents |
+| `upload_doc(name, file, filename, content_type)` | Upload one static-context document |
+| `delete_doc(name, filename)` | Delete one static-context document |
+| `upload_retrieval_doc(name, file, filename, content_type)` | Upload one RAG (retrieval) document |
+| `ingest_retrieval(name, body)` | Embed changed retrieval documents (can take minutes) |
+| `delete_retrieval_doc(name, filename)` | Delete one retrieval document |
 | `outputs(name)` | List output artifacts |
 | `output(name, output_path, download)` | Get one output artifact |
 | `preview_code(config)` | Preview generated code without persisting |
@@ -468,6 +544,9 @@ the public Web PKI root set.
 | `instantiate_template(template_id, name, project, overrides)` | Instantiate a pipeline from a template |
 | `build_with_ai(brief)` | Generate a pipeline config from a brief |
 | `server_version()` | Current public server version |
+| `project_tool_calls(project, ...)` | Project tool-call audit ledger (keyset-paginated) |
+| `project_tool_call_facets(project)` | Distinct tools/agents seen in the project's tool-call ledger |
+| `tool_call_detail(run_id, span_id)` | Full untruncated input/output for one tool-call span |
 
 ### `client.agents.hitl` / `client.hitl`
 
@@ -517,6 +596,18 @@ the public Web PKI root set.
 | `telegram_auth_code(code)` | Submit Telegram SMS code |
 | `telegram_auth_2fa(password)` | Submit Telegram 2FA |
 | `melaya_accounts()` | List Melaya sub-accounts |
+| `google_status()` | Google OAuth capabilities granted to the caller |
+| `google_set_default(capability, account_id)` | Select the connected Google account for one capability |
+| `google_disconnect(account_id, capability)` | Disconnect one Google product or an entire account |
+| `db_test_start(service, credentials)` | Test a database connector from the user's runner |
+| `db_test_status(session_id)` | Poll a database connector test result |
+| `telegram_qr_start(api_id, api_hash)` | Start Telegram user QR login |
+| `telegram_qr_poll(handle)` | Poll Telegram user QR login |
+| `whatsapp_signup_config()` | WhatsApp Embedded Signup config |
+| `whatsapp_signup_exchange(code, phone_number_id, waba_id, project)` | Complete WhatsApp Embedded Signup |
+| `tiktok_creator_info()` | Connected TikTok account's creator info |
+| `substack_email_link_send(email)` | Ask Substack to email a sign-in link |
+| `substack_email_link_redeem(link, email)` | Finish Substack sign-in with the emailed link |
 
 ### `client.platform.connectors` / `client.connectors`
 
@@ -527,6 +618,13 @@ the public Web PKI root set.
 | `delete(project, service)` | Delete project-scoped credential |
 | `env_handle(project)` | Short-lived env-handle token |
 | `google_oauth_start(project, body)` | Project-scoped Google OAuth |
+| `apply_personal(project, service, google_capabilities)` | Share the caller's own personal connector into the project |
+| `shared_by(project)` | Who shared each connected project connector |
+| `google_status(project)` | Google OAuth capabilities granted to the project |
+| `google_set_default(project, capability, account_id)` | Select the project's connected Google account for one capability |
+| `google_disconnect(project, account_id, capability)` | Disconnect one Google product or an entire project account |
+| `db_test_start(project, service, credentials)` | Test a project database connector from the user's runner |
+| `db_test_status(project, session_id)` | Poll a project database connector test result |
 
 ### `client.agents.phone` / `client.phone`
 
@@ -539,6 +637,38 @@ the public Web PKI root set.
 | `list_apps()` | Installed apps |
 | `set_allowed_apps(package_names)` | Set agent-accessible app allowlist |
 | `register_active_run(run_id)` | Register active pipeline run on phone |
+| `grant_app(package, label)` | Grant one app into the agent allowlist |
+| `request_cast(device_id)` | Re-cast the phone screen from the desktop mirror |
+
+### `client.agents.memory` / `client.memory`
+
+| Method | Description |
+|---|---|
+| `edit_entry(pipeline, entry_id, project, patch)` | Edit one persisted crew-memory entry |
+| `delete_entry(pipeline, entry_id, project)` | Delete one persisted crew-memory entry |
+
+### `client.agents.connector_tools` / `client.connector_tools`
+
+Discover and call connector tools directly — the same surface the MCP server
+exposes to models. Not to be confused with `client.connectors` (project
+credential storage): this module discovers and CALLS tools once a service is
+connected, and never accepts or returns a credential value.
+
+Reads run immediately. Writes default to an approval card raised in the
+Melaya app (`approval: "required"`, the same card the Assistant raises);
+`approval: "none"` runs the write immediately and is audit-logged. Tools that
+move money or trade are always refused, under both approval modes.
+
+| Method | Description |
+|---|---|
+| `services()` | Connected services + tool counts |
+| `search(q, limit)` | Discover tools by plain business keywords |
+| `describe(tool)` | Full description + parameters for one tool |
+| `test(service)` | Test the stored credential for a service |
+| `connect(service)` | Start connecting a service (never accepts a secret) |
+| `call(tool, args, approval)` | Call a tool; a staged write returns HTTP 202, not an error |
+| `call_status(request_id)` | Outcome of a staged write |
+| `call_and_wait(tool, args, approval, poll_interval_ms, timeout_ms)` | `call()` and block until a staged write settles |
 
 ### `client.platform.team` / `client.team`
 
@@ -550,6 +680,7 @@ the public Web PKI root set.
 | `accept_invite(token)` | Accept invite |
 | `update_member_role(project, user_id, role)` | Update member role |
 | `remove_member(project, user_id)` | Remove team member |
+| `transfer_ownership(project, new_owner_user_id)` | Transfer project ownership to another member |
 | `get_pipeline_visibility(project, pipeline)` | Get pipeline visibility |
 | `set_pipeline_visibility(project, pipeline, body)` | Set pipeline visibility |
 

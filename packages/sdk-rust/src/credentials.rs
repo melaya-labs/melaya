@@ -290,4 +290,164 @@ impl CredentialsAPI {
             .get("/api/v1/private/credentials/melaya-accounts", &q)
             .await
     }
+
+    // ── Google OAuth (account status) ────────────────────────────────────────
+
+    /// List the Google OAuth capabilities actually granted to the caller.
+    pub async fn google_status(&self) -> Result<Value> {
+        let q = HashMap::new();
+        self.http
+            .get("/api/v1/private/credentials/google/status", &q)
+            .await
+    }
+
+    /// Select the connected Google account used by one capability.
+    pub async fn google_set_default(&self, capability: &str, account_id: &str) -> Result<Value> {
+        let body = json!({ "capability": capability, "accountId": account_id });
+        self.http
+            .put("/api/v1/private/credentials/google/default", &body)
+            .await
+    }
+
+    /// Disconnect one Google product, or an entire Google account when
+    /// `capability` is omitted.
+    pub async fn google_disconnect(
+        &self,
+        account_id: &str,
+        capability: Option<&str>,
+    ) -> Result<Value> {
+        let mut body = json!({ "accountId": account_id });
+        if let Some(c) = capability {
+            body["capability"] = json!(c);
+        }
+        self.http
+            .delete_with_body("/api/v1/private/credentials/google/access", &body)
+            .await
+    }
+
+    // ── Database connector test ───────────────────────────────────────────────
+
+    /// Test a database connector from the user's own runner (reaches
+    /// IP-allow-listed / VPC hosts). Returns `{ sessionId, ... }`.
+    pub async fn db_test_start(&self, service: &str, credentials: Option<&Value>) -> Result<Value> {
+        let mut body = json!({ "service": service });
+        if let Some(c) = credentials {
+            body["credentials"] = c.clone();
+        }
+        self.http
+            .post("/api/v1/private/credentials/db-test", &body)
+            .await
+    }
+
+    /// Poll a database connector runner-test result.
+    pub async fn db_test_status(&self, session_id: &str) -> Result<Value> {
+        let q = HashMap::new();
+        self.http
+            .get(
+                &format!("/api/v1/private/credentials/db-test/{session_id}"),
+                &q,
+            )
+            .await
+    }
+
+    // ── Telegram QR login ────────────────────────────────────────────────────
+
+    /// Start Telegram user QR login.
+    pub async fn telegram_qr_start(&self, api_id: i64, api_hash: &str) -> Result<Value> {
+        self.http
+            .post(
+                "/api/v1/private/credentials/telegram/auth/qr/start",
+                &json!({ "api_id": api_id, "api_hash": api_hash }),
+            )
+            .await
+    }
+
+    /// Poll Telegram user QR login. `handle` starts with `"tgauth_"`.
+    pub async fn telegram_qr_poll(&self, handle: &str) -> Result<Value> {
+        self.http
+            .post(
+                "/api/v1/private/credentials/telegram/auth/qr/poll",
+                &json!({ "handle": handle }),
+            )
+            .await
+    }
+
+    // ── WhatsApp Embedded Signup ─────────────────────────────────────────────
+
+    /// Get the WhatsApp Embedded Signup config (`appId` / `configId`).
+    pub async fn whatsapp_signup_config(&self) -> Result<Value> {
+        let q = HashMap::new();
+        self.http
+            .get(
+                "/api/v1/private/credentials/whatsapp/embedded-signup/config",
+                &q,
+            )
+            .await
+    }
+
+    /// Complete WhatsApp Embedded Signup by exchanging the returned code.
+    pub async fn whatsapp_signup_exchange(
+        &self,
+        code: &str,
+        phone_number_id: &str,
+        waba_id: &str,
+        project: Option<&str>,
+    ) -> Result<Value> {
+        let mut body = json!({
+            "code": code,
+            "phoneNumberId": phone_number_id,
+            "wabaId": waba_id,
+        });
+        if let Some(p) = project {
+            body["project"] = json!(p);
+        }
+        self.http
+            .post(
+                "/api/v1/private/credentials/whatsapp/embedded-signup/exchange",
+                &body,
+            )
+            .await
+    }
+
+    // ── TikTok ────────────────────────────────────────────────────────────────
+
+    /// Get the connected TikTok account's creator info (nickname, allowed
+    /// privacy levels, interaction availability) for the compliant
+    /// Post-to-TikTok approval UI.
+    pub async fn tiktok_creator_info(&self) -> Result<Value> {
+        let q = HashMap::new();
+        self.http
+            .get("/api/v1/private/credentials/tiktok/creator-info", &q)
+            .await
+    }
+
+    // ── Substack ──────────────────────────────────────────────────────────────
+
+    /// Ask Substack to email a sign-in link.
+    pub async fn substack_email_link_send(&self, email: &str) -> Result<Value> {
+        self.http
+            .post(
+                "/api/v1/private/credentials/substack/email-link",
+                &json!({ "email": email }),
+            )
+            .await
+    }
+
+    /// Finish Substack sign-in with the emailed link.
+    pub async fn substack_email_link_redeem(
+        &self,
+        link: &str,
+        email: Option<&str>,
+    ) -> Result<Value> {
+        let mut body = json!({ "link": link });
+        if let Some(e) = email {
+            body["email"] = json!(e);
+        }
+        self.http
+            .post(
+                "/api/v1/private/credentials/substack/email-link/redeem",
+                &body,
+            )
+            .await
+    }
 }

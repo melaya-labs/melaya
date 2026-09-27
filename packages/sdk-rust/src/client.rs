@@ -19,6 +19,21 @@ const DEFAULT_TIMEOUT_MS: u64 = 30_000;
 /// Maximum GET retries on network error / 429 / 5xx.
 const MAX_GET_RETRIES: u32 = 2;
 
+/// Generate a multipart boundary that will not collide with typical file
+/// content: a fixed prefix plus the process id and current time in
+/// nanoseconds plus a per-process call counter (in case two uploads race
+/// within the same nanosecond tick).
+fn multipart_boundary() -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    format!("melaya-{}-{nanos}-{n}", std::process::id())
+}
+
 /// HTTP client that injects the API key on every call and unwraps the
 /// `{ ok, <data> }` envelope.
 ///
@@ -129,6 +144,43 @@ impl HttpClient {
             .collect();
         let str_pairs: Vec<(&str, &str)> = pairs.iter().map(|(k, v)| (*k, v.as_str())).collect();
         let url = self.build_url(path, Some(&str_pairs))?;
+        let resp = self.get_raw(url).await?;
+        self.parse(resp).await
+    }
+
+    /// GET a path with no query params and return the raw response body as
+    /// bytes (no JSON parsing) — for binary downloads such as a run's input
+    /// file. Shares the same retry policy as [`get`](Self::get); a non-2xx
+    /// response is still decoded and surfaced as [`MelayaError::Api`].
+    pub async fn get_bytes(&self, path: &str) -> Result<Vec<u8>> {
+        let url = self.build_url(path, None)?;
+        let resp = self.get_raw(url).await?;
+        let status = resp.status().as_u16();
+        if status >= 400 {
+            let text = resp.text().await?;
+            let data: Value = if text.is_empty() {
+                Value::Null
+            } else {
+                serde_json::from_str(&text).unwrap_or(Value::String(text))
+            };
+            let code = data
+                .get("error")
+                .and_then(|v| v.as_str())
+                .map(str::to_owned);
+            return Err(MelayaError::Api {
+                status,
+                code,
+                body: Some(data),
+            });
+        }
+        Ok(resp.bytes().await?.to_vec())
+    }
+
+    /// Shared GET retry loop: sends the request, retrying on network error,
+    /// 429 (honoring `Retry-After`), or 5xx, and returns the first response
+    /// that should NOT be retried (any other status, success or failure) for
+    /// the caller to parse.
+    async fn get_raw(&self, url: Url) -> Result<reqwest::Response> {
         let timeout = Duration::from_millis(self.timeout_ms);
 
         let mut last_err: Option<MelayaError> = None;
@@ -184,7 +236,7 @@ impl HttpClient {
                         });
                         continue;
                     }
-                    return self.parse(resp).await;
+                    return Ok(resp);
                 }
             }
         }
@@ -200,6 +252,72 @@ impl HttpClient {
             .post(url)
             .header(CONTENT_TYPE, "application/json")
             .json(body)
+            .timeout(timeout)
+            .send()
+            .await?;
+        self.parse(resp).await
+    }
+
+    /// POST with a JSON body and a caller-supplied timeout override (no
+    /// retry — non-idempotent). For calls that may legitimately run far
+    /// longer than the client's default timeout (e.g. RAG ingestion, which
+    /// embeds documents server-side and can take minutes).
+    pub async fn post_with_timeout(
+        &self,
+        path: &str,
+        body: &Value,
+        timeout_ms: u64,
+    ) -> Result<Value> {
+        let url = self.build_url(path, None)?;
+        let timeout = Duration::from_millis(timeout_ms);
+        let resp = self
+            .inner
+            .post(url)
+            .header(CONTENT_TYPE, "application/json")
+            .json(body)
+            .timeout(timeout)
+            .send()
+            .await?;
+        self.parse(resp).await
+    }
+
+    /// POST a single file as `multipart/form-data` (no retry —
+    /// non-idempotent). The multipart body is built by hand (the `reqwest`
+    /// `multipart` feature is not enabled in this crate) with exactly one
+    /// file part named `field_name`.
+    pub async fn post_multipart(
+        &self,
+        path: &str,
+        query: Option<&[(&str, &str)]>,
+        field_name: &str,
+        filename: &str,
+        content_type: &str,
+        bytes: &[u8],
+    ) -> Result<Value> {
+        let url = self.build_url(path, query)?;
+        let boundary = multipart_boundary();
+
+        let mut body = Vec::with_capacity(bytes.len() + 256);
+        body.extend_from_slice(
+            format!(
+                "--{boundary}\r\n\
+                 Content-Disposition: form-data; name=\"{field_name}\"; filename=\"{filename}\"\r\n\
+                 Content-Type: {content_type}\r\n\r\n"
+            )
+            .as_bytes(),
+        );
+        body.extend_from_slice(bytes);
+        body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+
+        let timeout = Duration::from_millis(self.timeout_ms);
+        let resp = self
+            .inner
+            .post(url)
+            .header(
+                CONTENT_TYPE,
+                format!("multipart/form-data; boundary={boundary}"),
+            )
+            .body(body)
             .timeout(timeout)
             .send()
             .await?;
@@ -246,6 +364,23 @@ impl HttpClient {
         let url = self.build_url(path, Some(&str_pairs))?;
         let timeout = Duration::from_millis(self.timeout_ms);
         let resp = self.inner.delete(url).timeout(timeout).send().await?;
+        self.parse(resp).await
+    }
+
+    /// DELETE with a JSON body (no query, no retry — non-idempotent). Some
+    /// bridged routes (e.g. disconnecting one Google account/capability)
+    /// take their payload as a DELETE body rather than query params.
+    pub async fn delete_with_body(&self, path: &str, body: &Value) -> Result<Value> {
+        let url = self.build_url(path, None)?;
+        let timeout = Duration::from_millis(self.timeout_ms);
+        let resp = self
+            .inner
+            .delete(url)
+            .header(CONTENT_TYPE, "application/json")
+            .json(body)
+            .timeout(timeout)
+            .send()
+            .await?;
         self.parse(resp).await
     }
 

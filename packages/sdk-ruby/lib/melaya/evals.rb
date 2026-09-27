@@ -40,27 +40,53 @@ module Melaya
       @http.get("/api/v1/private/evals/compare", params)
     end
 
-    # GET /api/v1/private/evals/memory-graph
+    # GET /api/v1/private/memory/graph
     # Get memory graph visualization data for eval runs.
     def memory_graph(params = {})
-      @http.get("/api/v1/private/evals/memory-graph", params)
+      @http.get("/api/v1/private/memory/graph", params)
     end
 
-    # GET /api/v1/private/evals/runs/:runId/memory
+    # GET /api/v1/private/memory/runs/:runId
     # Get memory usage for a specific eval run.
     # @param run_id [String]
     def run_memory(run_id)
-      @http.get("/api/v1/private/evals/runs/#{enc(run_id)}/memory")
+      @http.get("/api/v1/private/memory/runs/#{enc(run_id)}")
     end
 
-    # GET /api/v1/private/evals/crew-memory
+    # GET /api/v1/private/memory/crew
     # Get agent crew memory for a pipeline.
     # @param pipeline [String]
     # @param project [String]
     def crew_memory(pipeline:, project:)
-      @http.get("/api/v1/private/evals/crew-memory",
+      @http.get("/api/v1/private/memory/crew",
         "pipeline" => pipeline,
         "project"  => project)
+    end
+
+    # POST /api/v1/private/memory/crew/edit
+    # Edit one persisted crew-memory entry (editor/owner-gated, tenant-scoped).
+    # @param pipeline [String]
+    # @param entry_id [String]
+    # @param patch [Hash] any of "topic", "content", "tags" (partial update)
+    # @param project [String, nil]
+    def edit_crew_memory_entry(pipeline:, entry_id:, patch:, project: nil)
+      body = compact(
+        "pipeline" => pipeline,
+        "entryId"  => entry_id,
+        "project"  => project,
+        "patch"    => patch
+      )
+      @http.post("/api/v1/private/memory/crew/edit", body)
+    end
+
+    # POST /api/v1/private/memory/crew/delete
+    # Delete one persisted crew-memory entry (editor/owner-gated, tenant-scoped).
+    # @param pipeline [String]
+    # @param entry_id [String]
+    # @param project [String, nil]
+    def delete_crew_memory_entry(pipeline:, entry_id:, project: nil)
+      body = compact("pipeline" => pipeline, "entryId" => entry_id, "project" => project)
+      @http.post("/api/v1/private/memory/crew/delete", body)
     end
 
     # GET /api/v1/private/evals/benchmarks
@@ -73,6 +99,10 @@ module Melaya
 
     def enc(s)
       URI.encode_www_form_component(s.to_s)
+    end
+
+    def compact(hash)
+      hash.reject { |_, v| v.nil? }
     end
   end
 end

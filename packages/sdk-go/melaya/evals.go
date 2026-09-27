@@ -81,9 +81,9 @@ func (e *EvalsAPI) Compare(ctx context.Context, runIDs []string) (map[string]int
 
 // MemoryGraph returns memory graph visualization data for eval runs.
 //
-// GET /api/v1/private/evals/memory-graph
+// GET /api/v1/private/memory/graph
 func (e *EvalsAPI) MemoryGraph(ctx context.Context) (map[string]interface{}, error) {
-	data, err := e.h.get(ctx, "/api/v1/private/evals/memory-graph", nil)
+	data, err := e.h.get(ctx, "/api/v1/private/memory/graph", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -96,9 +96,9 @@ func (e *EvalsAPI) MemoryGraph(ctx context.Context) (map[string]interface{}, err
 
 // RunMemory returns memory usage for a specific eval run.
 //
-// GET /api/v1/private/evals/runs/:runId/memory
+// GET /api/v1/private/memory/runs/:runId
 func (e *EvalsAPI) RunMemory(ctx context.Context, runID string) (map[string]interface{}, error) {
-	path := "/api/v1/private/evals/runs/" + url.PathEscape(runID) + "/memory"
+	path := "/api/v1/private/memory/runs/" + url.PathEscape(runID)
 	data, err := e.h.get(ctx, path, nil)
 	if err != nil {
 		return nil, err
@@ -113,7 +113,7 @@ func (e *EvalsAPI) RunMemory(ctx context.Context, runID string) (map[string]inte
 // CrewMemory returns agent crew memory for a pipeline.
 // Pass pipeline name and project name as query parameters.
 //
-// GET /api/v1/private/evals/crew-memory
+// GET /api/v1/private/memory/crew
 func (e *EvalsAPI) CrewMemory(ctx context.Context, pipeline, project string) (map[string]interface{}, error) {
 	q := map[string]string{}
 	if pipeline != "" {
@@ -122,7 +122,40 @@ func (e *EvalsAPI) CrewMemory(ctx context.Context, pipeline, project string) (ma
 	if project != "" {
 		q["project"] = project
 	}
-	data, err := e.h.get(ctx, "/api/v1/private/evals/crew-memory", q)
+	data, err := e.h.get(ctx, "/api/v1/private/memory/crew", q)
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// EditMemoryEntry edits one persisted crew-memory entry (editor/owner-gated,
+// tenant-scoped). Only the fields set on body.Patch are changed; edited text
+// is re-redacted and re-sanitized server-side.
+//
+// POST /api/v1/private/memory/crew/edit
+func (e *EvalsAPI) EditMemoryEntry(ctx context.Context, body MemoryEditEntryBody) (map[string]interface{}, error) {
+	data, err := e.h.post(ctx, "/api/v1/private/memory/crew/edit", body)
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// DeleteMemoryEntry deletes one persisted crew-memory entry (e.g. a stale or
+// poisoned note). Editor/owner-gated, tenant-scoped.
+//
+// POST /api/v1/private/memory/crew/delete
+func (e *EvalsAPI) DeleteMemoryEntry(ctx context.Context, body MemoryDeleteEntryBody) (map[string]interface{}, error) {
+	data, err := e.h.post(ctx, "/api/v1/private/memory/crew/delete", body)
 	if err != nil {
 		return nil, err
 	}

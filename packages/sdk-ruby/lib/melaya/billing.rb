@@ -40,6 +40,29 @@ module Melaya
       @http.get("/api/v1/billing/plans")
     end
 
+    # ── Promos ────────────────────────────────────────────────────────────────
+
+    # GET /api/v1/private/billing/ambassador-perk
+    # The ambassador discount the caller is entitled to, or nil.
+    def ambassador_perk
+      @http.get("/api/v1/private/billing/ambassador-perk")
+    end
+
+    # POST /api/v1/private/billing/redeem-code
+    # Redeem a single-use promo code to the caller's account; the discount
+    # applies on the next checkout.
+    # @param code [String]
+    def redeem_code(code)
+      @http.post("/api/v1/private/billing/redeem-code", "code" => code)
+    end
+
+    # GET /api/v1/private/billing/reserved-promo
+    # The caller's active reserved promo (for the subscription modal to
+    # reflect), or nil.
+    def reserved_promo
+      @http.get("/api/v1/private/billing/reserved-promo")
+    end
+
     # ── Credits ───────────────────────────────────────────────────────────────
 
     # GET /api/v1/private/accounts/credits

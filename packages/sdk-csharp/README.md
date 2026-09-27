@@ -6,11 +6,13 @@ Official SDK for the **[Melaya](https://melaya.org)** Agent Builder and flagship
 Normalized market data, paper/live strategies, backtesting, and WebSocket streaming
 across 70+ venues — with zero external NuGet dependencies.
 
+**Melaya products:** [Melaya Agents](https://melaya.org/en/product/agentic-framework) · [Melaya Assistant](https://melaya.org/en/product/assistant) · [Device Control](https://melaya.org/en/product/agentic-device-control) · [Browser Control](https://melaya.org/en/product/agentic-browser-control) · [MCP Server](https://melaya.org/en/product/mcp) · [Melaya Marketing](https://melaya.org/en/product/marketing)
+
 ## Installation
 
 ```xml
 <!-- In your .csproj, once the package is published to NuGet -->
-<PackageReference Include="Melaya.SDK" Version="0.2.0" />
+<PackageReference Include="Melaya.SDK" Version="0.3.0" />
 ```
 
 Or reference the project directly during development:
@@ -62,42 +64,56 @@ provider key in pipeline configuration or per-run overrides.
 ```csharp
 using System.Text.Json;
 
-// 2. Create a pipeline (extra config fields go through Config extension data)
+// 2. Create a pipeline (extra config fields go through Config extension data).
+//
+//    The run is generated ONLY from `steps` — a top-level `agents` array by itself
+//    produces an EMPTY pipeline. Each step embeds its own full agent definition.
+//    There is no `prompt` field: the task goes in `instruction`, and
+//    `system_prompt_override` replaces the persona prompt entirely.
 await m.Pipelines.CreateAsync(new PipelineCreateRequest
 {
     Name    = "mobile-review",
     Project = "Operations",
     Config  = new Dictionary<string, JsonElement>
     {
-        ["model_provider"] = JsonSerializer.SerializeToElement("anthropic"),
-        ["model_name"]     = JsonSerializer.SerializeToElement("claude-sonnet-4-6"),
-        ["agents"]         = JsonSerializer.SerializeToElement(new[]
+        ["steps"] = JsonSerializer.SerializeToElement(new object[]
         {
             new
             {
-                name        = "mobile-operator",
-                role        = "Careful mobile operator",
-                instruction = "Read before acting. Never send, publish, or delete.",
-                agent_tools = new[]
+                kind  = "agent",
+                agent = new
                 {
-                    "phone_get_screen_tree",
-                    "phone_current_app",
-                    "phone_open_app",
-                    "phone_click_text",
-                    "phone_back",
-                    "phone_wait",
+                    name        = "mobile-operator",
+                    role        = "Careful mobile operator",
+                    instruction = "Read before acting. Never send, publish, or delete.",
+                    model       = new { provider = "anthropic", name = "claude-sonnet-4-6" },
+                    agent_tools = new[]
+                    {
+                        "phone_get_screen_tree",
+                        "phone_current_app",
+                        "phone_open_app",
+                        "phone_click_text",
+                        "phone_back",
+                        "phone_wait",
+                    },
+                    human_approval_tools = Array.Empty<string>(),
                 },
             },
         }),
-        ["steps"]      = JsonSerializer.SerializeToElement(new[]
-        {
-            new { kind = "agent", agent = new { name = "mobile-operator" } },
-        }),
         ["maxCostUsd"] = JsonSerializer.SerializeToElement(1.00),
+        // Other config knobs worth knowing:
+        //   hitl_mode         "safe" (default) | "autonomous" | "payments_only" —
+        //                     only "safe" honours each agent's human_approval_tools.
+        //   connector_source  "personal" | "project"
+        //   force_local_runner  bool — force execution on the caller's own runner.
+        //   inputs[]          declares the run_inputs schema accepted by RunAsync().
     },
 });
 
-// 3. Run it, hand the phone to the run, and watch status
+// 3. Run it, hand the phone to the run, and watch status.
+//    `executionTarget` below is used ONLY for the tier/capacity check — it does NOT
+//    decide where the run executes (that's the stored config: local model providers,
+//    force_local_runner). env_overrides' MEL_* / MELAYA_* keys are stripped server-side.
 var run = await m.Pipelines.RunAsync("mobile-review", new PipelineRunRequest { Project = "Operations" });
 await m.Phone.RegisterActiveRunAsync(run.RunId!);
 
@@ -105,6 +121,53 @@ m.Events.OnRunUpdate(run.RunId!, e => Console.WriteLine($"{e.EventType}: {e.Mess
 
 var status = await m.Pipelines.RunStatusAsync("mobile-review", run.RunId!);
 Console.WriteLine(status.Status);
+```
+
+### Read → edit → save a pipeline config
+
+`GetAsync` returns the full envelope `{ name, client, config, code, docs }` — the editable
+pipeline config lives under `config`. Mutate it (e.g. via `JsonNode`) and pass it straight
+back to `UpdateAsync`:
+
+```csharp
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
+var envelope = await m.Pipelines.GetAsync("mobile-review", "Operations");
+var config   = JsonNode.Parse(envelope.GetProperty("config").GetRawText())!;
+
+// Swap the model on the first (and only) step's agent.
+config["steps"]![0]!["agent"]!["model"] = JsonNode.Parse("""{"provider":"anthropic","name":"claude-opus-4-8"}""");
+
+await m.Pipelines.UpdateAsync("mobile-review", new PipelineUpdateRequest
+{
+    Config  = JsonSerializer.SerializeToElement(config),
+    Project = "Operations",
+});
+```
+
+### Run inputs and file uploads
+
+```csharp
+// Upload a file first (single-use, valid 24h), then reference it by file_id.
+var upload = await m.Pipelines.UploadRunFileAsync(
+    "mobile-review", key: "screenshot", file: File.ReadAllBytes("shot.png"), filename: "shot.png");
+
+var run = await m.Pipelines.RunAsync("mobile-review", new PipelineRunRequest
+{
+    Project    = "Operations",
+    RunInputs  = new PipelineRunInputs
+    {
+        Brief  = "Review the attached screenshot and summarize any issues.",
+        Values = new Dictionary<string, object>
+        {
+            ["screenshot"] = new { file_id = upload.FileId },
+        },
+    },
+});
+
+var inputs = await m.Pipelines.RunInputsAsync("mobile-review", run.RunId!);
+var active = await m.Pipelines.RunActiveAsync("mobile-review", run.RunId!);
 ```
 
 The platform catalogs currently expose **1,500+ scoped tools**, **100+ specialized
@@ -156,6 +219,12 @@ domain accessors (`m.Agents.Pipelines`, `m.Platform.Projects`, …) point to the
 | `DeleteAsync(project, service)` | Remove a connector credential |
 | `EnvHandleAsync(project)` | Env-handle summary for pipeline config |
 | `GoogleOAuthStartAsync(project, body?)` | Start project-scoped Google OAuth |
+| `ApplyPersonalAsync(project, service, googleCapabilities?)` | Share the caller's own personal connector into a project |
+| `SharedByAsync(project)` | Connectors shared into a project by other members |
+| `GoogleStatusAsync(project)` | Project-scoped Google connector status |
+| `GoogleSetDefaultAsync(project, capability, accountId)` | Set default Google account for a capability |
+| `GoogleDisconnectAsync(project, accountId, capability?)` | Disconnect a Google account (or one capability) |
+| `DbTestStartAsync(project, service, credentials?)` / `DbTestStatusAsync(project, sessionId)` | Probe a database from the user's runner |
 
 ### credentials (`m.Credentials`)
 
@@ -172,6 +241,14 @@ domain accessors (`m.Agents.Pipelines`, `m.Platform.Projects`, …) point to the
 | `RagIngestStartAsync(body)` / `RagIngestStatusAsync(sessionId)` | RAG ingestion |
 | `RagRetrieveStartAsync(body)` / `RagRetrieveStatusAsync(sessionId)` | RAG retrieval |
 | `GoogleOAuthStartAsync(body?)`, `CliAuthStartAsync()`, `LinkedInConnect*`, `LumaConnect*`, `TelegramAuth*`, `NotebookLM*` | Guided connect flows |
+| `GoogleStatusAsync()` | Caller's Google connector status |
+| `GoogleSetDefaultAsync(capability, accountId)` | Set default Google account for a capability |
+| `GoogleDisconnectAsync(accountId, capability?)` | Disconnect a Google account (or one capability) |
+| `DbTestStartAsync(service, credentials?)` / `DbTestStatusAsync(sessionId)` | Probe a database from the user's runner |
+| `TelegramQrStartAsync(apiId, apiHash)` / `TelegramQrPollAsync(handle)` | Telegram QR-code login |
+| `WhatsappSignupConfigAsync()` / `WhatsappSignupExchangeAsync(body)` | WhatsApp embedded signup |
+| `TiktokCreatorInfoAsync()` | TikTok creator account info |
+| `SubstackEmailLinkSendAsync(email)` / `SubstackEmailLinkRedeemAsync(link, email?)` | Substack email-link sign-in |
 
 ### pipelines (`m.Pipelines`)
 
@@ -182,9 +259,13 @@ domain accessors (`m.Agents.Pipelines`, `m.Platform.Projects`, …) point to the
 | `GetAsync(name, project?)` | One pipeline definition |
 | `UpdateAsync(name, body)` | Update a pipeline |
 | `DeleteAsync(name, project?)` | Delete a pipeline |
-| `RunAsync(name, body?)` | Enqueue a run |
+| `RunAsync(name, body?)` | Enqueue a run (`body.RunInputs` for a brief/values) |
+| `UploadRunFileAsync(name, key, file, filename, contentType?, project?)` | Upload a file for `run_inputs.values` (24h, single-use) |
 | `RunIdsAsync(name)` | Run IDs for a pipeline |
 | `RunStatusAsync(name, runId)` | Status + cost of a run |
+| `RunInputsAsync(name, runId)` | Read back a run's brief/values/file metadata |
+| `RunInputFileAsync(name, runId, index)` | Download one run-input file's raw bytes |
+| `RunActiveAsync(name, runId)` | Whether a run is still queued/running |
 | `CancelRunAsync(name, runId)` | Cancel a run |
 | `OutputsAsync(name)` / `OutputAsync(name, path, download?)` | Run artifacts |
 | `ToolsAsync()` | Scoped tool catalog (1,500+ tools) |
@@ -193,8 +274,12 @@ domain accessors (`m.Agents.Pipelines`, `m.Platform.Projects`, …) point to the
 | `PreviewCodeAsync(body)` / `BuildWithAIAsync(body)` | Authoring helpers |
 | `OverviewAsync()`, `CountAsync()`, `ListAsync(...)`, `RecentAsync()` | Run overview |
 | `TracesAsync(runId)`, `TraceAsync(runId, traceId)`, `TraceStatsAsync(runId, traceId)`, `DeleteTracesAsync(runId)` | Traces |
+| `ProjectToolCallsAsync(project, ...)` / `ProjectToolCallFacetsAsync(project)` | Tool-call audit log + filter facets |
+| `ToolCallDetailAsync(runId, spanId)` | Full untruncated tool-call input/output |
 | `ListSchedulesAsync()`, `GetScheduleAsync(project, name)`, `UpsertScheduleAsync(...)`, `PauseScheduleAsync(...)`, `ResumeScheduleAsync(...)` | Cron schedules |
 | `UsageSummaryAsync()`, `ModelPricesAsync()`, `ChartDataAsync()`, `CostBreakdownAsync()` | Cost dashboard |
+| `ListDocsAsync(name)` / `UploadDocAsync(name, file, filename, contentType?)` / `DeleteDocAsync(name, filename)` | Static-context documents |
+| `UploadRetrievalDocAsync(name, file, filename, contentType?)` / `IngestRetrievalAsync(name, body?, timeoutMs?)` / `DeleteRetrievalDocAsync(name, filename)` | RAG retrieval documents |
 
 ### templates (`m.Templates`)
 
@@ -224,6 +309,8 @@ domain accessors (`m.Agents.Pipelines`, `m.Platform.Projects`, …) point to the
 | `ListAppsAsync()` | Installed apps |
 | `SetAllowedAppsAsync(packages)` | Set the app allowlist |
 | `RegisterActiveRunAsync(runId)` | Attach the phone to a run |
+| `GrantAppAsync(package, label?)` | Grant an app package to the agent allowlist |
+| `RequestCastAsync(deviceId?)` | Request the phone start/refresh a screen cast |
 
 ### hitl (`m.Hitl`)
 
@@ -246,7 +333,42 @@ domain accessors (`m.Agents.Pipelines`, `m.Platform.Projects`, …) point to the
 | `RunDetailAsync(runId)` | One eval run |
 | `CompareAsync(runIds?)` | Compare runs |
 | `MemoryGraphAsync()` / `RunMemoryAsync(runId)` / `CrewMemoryAsync(pipeline?, project?)` | Memory graphs |
+| `EditCrewMemoryEntryAsync(body)` / `DeleteCrewMemoryEntryAsync(pipeline, entryId, project?)` | Edit/delete a persisted crew-memory entry |
 | `BenchmarksAsync()` | Benchmarks |
+
+### connector tools (`m.ConnectorTools`, also `m.Agents.ConnectorTools`)
+
+The same discover/call surface the Melaya MCP server exposes, over plain REST — not to be
+confused with `m.Connectors` / `m.Credentials`, which store the credentials this module's
+tools use. Reads run immediately. Writes default to `approval: "required"`: the call is
+staged as the same approval card the Assistant raises in the Melaya app and returns **202**
+(a success, not an error) with a `requestId` to poll; `approval: "none"` runs a write
+immediately and is still audit-logged. Tools that move money or trade are always refused,
+under both approval modes. No method here ever accepts or returns a credential value.
+
+| Method | Description |
+|--------|-------------|
+| `ServicesAsync()` | Connected services + per-service read/write tool counts |
+| `SearchAsync(q, limit?)` | Discover tools by plain business keywords, ranked by relevance |
+| `DescribeAsync(tool)` | One tool's full description + parameters |
+| `TestAsync(service)` | Test the stored credential for a service |
+| `ConnectAsync(service)` | Start connecting a service (never takes/returns a secret) |
+| `CallAsync(tool, args?, approval?)` | Call a tool — 200 `done` for reads/`approval: "none"`, 202 `pending_approval` for a staged write |
+| `CallStatusAsync(requestId)` | Outcome of a staged write: `pending` / `running` / `expired` / `done` / `rejected` |
+| `CallAndWaitAsync(tool, args?, approval?, pollIntervalMs?, timeoutMs?)` | Calls, then polls a staged write to completion (default poll 3s, timeout 10min) |
+
+```csharp
+var found = await m.ConnectorTools.SearchAsync("unread email");
+
+// Staged for approval in the Melaya app, then polled to completion.
+var outcome = await m.ConnectorTools.CallAndWaitAsync(
+    "gmail_send", new Dictionary<string, object?> { ["to"] = "a@b.c", ["subject"] = "Hi" });
+Console.WriteLine(outcome.Status); // "done" | "rejected" | "expired"
+
+// Skips the approval card; still audit-logged. Money-moving/trading tools are refused either way.
+var sent = await m.ConnectorTools.CallAsync(
+    "gmail_send", new Dictionary<string, object?> { ["to"] = "a@b.c" }, approval: "none");
+```
 
 ### events (`m.Events`)
 
@@ -271,6 +393,9 @@ Connects lazily on the first subscription — constructing `MelayaClient` opens 
 | `CreateCheckoutAsync(body)` | Stripe Checkout session |
 | `CreatePortalAsync()` | Stripe Customer Portal |
 | `PlansAsync()` | Pricing plans |
+| `AmbassadorPerkAsync()` | Ambassador-program perk status |
+| `RedeemCodeAsync(code)` | Redeem a promo/discount code |
+| `ReservedPromoAsync()` | Reserved promotional pricing |
 
 ### accounts (`m.AccountManagement`)
 
@@ -280,6 +405,8 @@ Connects lazily on the first subscription — constructing `MelayaClient` opens 
 | `UpdateProfileAsync(body)` | Update profile |
 | `CreditsAsync()`, `AiCreditsAsync()`, `PortfolioIdeasCreditsAsync()`, `RiskMonitoringCreditsAsync()` | Credit balances |
 | `RemoveKeyAsync(keyId)` | Remove a connected CEX key |
+| `ResendEmailVerificationAsync()` | Re-send account email verification |
+| `VerifyEmailAsync(token)` | Confirm account email from a verification token |
 
 ### runner (`m.Runner`)
 
@@ -299,6 +426,7 @@ Connects lazily on the first subscription — constructing `MelayaClient` opens 
 | `AcceptInviteAsync(token)` | Accept an invite |
 | `UpdateMemberRoleAsync(project, userId, role)` | Change a member role |
 | `RemoveMemberAsync(project, userId)` | Remove a member |
+| `TransferOwnershipAsync(project, newOwnerUserId)` | Transfer project ownership to another member |
 | `GetPipelineVisibilityAsync(project, pipeline)` / `SetPipelineVisibilityAsync(project, pipeline, body)` | Per-pipeline visibility |
 
 ### assistant (`m.Assistant`)

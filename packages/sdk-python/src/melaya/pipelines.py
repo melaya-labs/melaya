@@ -3,6 +3,34 @@
 Maps to ``/api/v1/private/overview/pipeline*``, ``/api/v1/private/runs/:runId/traces``,
 ``/api/v1/private/pipeline-schedule``, and ``/api/v1/private/pipelines/*``.
 
+Config shape
+------------
+A pipeline's run is generated ONLY from ``config["steps"]`` — a top-level
+``config["agents"]`` list alone produces an EMPTY pipeline. Each agent step
+carries its own full agent definition inline::
+
+    {
+        "steps": [{
+            "kind": "agent",
+            "agent": {
+                "name": "researcher",
+                "role": "Research analyst",
+                "instruction": "Summarize the latest news on X.",
+                "model": {"provider": "anthropic", "name": "claude-sonnet-4-6"},
+                "agent_tools": ["web_search"],
+                "human_approval_tools": [],
+            },
+        }],
+    }
+
+There is no ``prompt`` field — the two prompt fields are ``instruction`` (the
+task) and ``system_prompt_override``. Other notable config fields:
+``hitl_mode`` (``"safe"`` default | ``"autonomous"`` | ``"payments_only"``;
+only ``"safe"`` honours each agent's ``human_approval_tools``),
+``connector_source`` (``"personal"`` | ``"project"``), ``force_local_runner``,
+and ``inputs`` (declares the run-input fields ``run()``'s ``run_inputs``
+populates).
+
 Example
 -------
 >>> from melaya import Melaya
@@ -15,10 +43,20 @@ Example
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, TypedDict
+from typing import Any, Dict, IO, List, Optional, TypedDict, Union
 from urllib.parse import quote
 
 from .platform_types import JsonDict
+
+
+def _read_bytes(file: Union[bytes, bytearray, "IO[bytes]"]) -> bytes:
+    """Normalize a file input (raw bytes or a binary file-like object) to bytes."""
+    if isinstance(file, (bytes, bytearray)):
+        return bytes(file)
+    data = file.read()
+    if isinstance(data, str):
+        data = data.encode("utf-8")
+    return data
 
 
 class TraceSummary(TypedDict, total=False):
@@ -46,8 +84,13 @@ class DeleteTracesResult(TypedDict, total=False):
 
 
 class PipelinesAPI:
-    def __init__(self, request: Any) -> None:
+    def __init__(self, request: Any, post_multipart: Any = None, get_bytes: Any = None) -> None:
         self._request = request
+        # Only used by upload_run_file/upload_doc/upload_retrieval_doc (multipart)
+        # and run_input_file (raw bytes). Optional so PipelinesAPI can still be
+        # constructed standalone (e.g. in tests) with just a request callable.
+        self._post_multipart = post_multipart
+        self._get_bytes = get_bytes
 
     # ── Overview ────────────────────────────────────────────────────────────────
 
@@ -228,7 +271,11 @@ class PipelinesAPI:
         return self._request("POST", "/api/v1/private/pipelines", json=body)
 
     def get(self, name: str, *, project: Optional[str] = None) -> JsonDict:
-        """Fetch a pipeline configuration by name.
+        """Fetch a pipeline by name.
+
+        Returns an ENVELOPE, not a bare config: ``{name, client, config, code,
+        docs}``. To edit and save, mutate ``envelope["config"]`` and pass that
+        to ``update()`` — see the example below.
 
         Parameters
         ----------
@@ -236,6 +283,14 @@ class PipelinesAPI:
             Pipeline name (URL-encoded automatically).
         project:
             Optional project filter query parameter.
+
+        Example
+        -------
+        >>> envelope = m.pipelines.get("my-pipe", project="my-project")
+        >>> envelope["config"]["steps"][0]["agent"]["model"] = {
+        ...     "provider": "anthropic", "name": "claude-opus-4-8",
+        ... }
+        >>> m.pipelines.update("my-pipe", config=envelope["config"], project="my-project")
         """
         params: Dict[str, Any] = {}
         if project is not None:
@@ -244,6 +299,10 @@ class PipelinesAPI:
 
     def update(self, name: str, *, config: Dict[str, Any], project: str) -> JsonDict:
         """Update an existing pipeline configuration.
+
+        ``config`` should be the full config dict — typically
+        ``envelope["config"]`` from ``get()`` with the desired edits applied
+        (e.g. ``config["steps"][0]["agent"]["model"]``), not a partial patch.
 
         Parameters
         ----------
@@ -281,6 +340,7 @@ class PipelinesAPI:
         execution_target: Optional[str] = None,
         studio_url: Optional[str] = None,
         env_overrides: Optional[Dict[str, str]] = None,
+        run_inputs: Optional[Dict[str, Any]] = None,
     ) -> JsonDict:
         """Trigger a pipeline run.
 
@@ -291,15 +351,28 @@ class PipelinesAPI:
         project:
             Optional project override.
         execution_target:
-            Optional execution target override: local-runner or cloud-spawn.
+            Used ONLY for the tier check at request time (e.g. gating
+            cloud-spawn to paid tiers) — it does NOT decide where the run
+            actually executes. That is decided by the pipeline's own stored
+            config (its configured local model providers / ``force_local_runner``).
         studio_url:
             Optional Studio URL override.
         env_overrides:
-            Optional environment variable overrides for this run.
+            Optional environment variable overrides layered over the caller's
+            stored credentials for this run only. ``MEL_*`` and ``MELAYA_*``
+            keys are stripped server-side — they cannot be overridden this way.
+        run_inputs:
+            Optional per-run inputs matching the pipeline's declared
+            ``inputs[]``: ``{"brief": str, "values": {name: value, ...}}``.
+            A value in ``values`` may be a plain scalar, or a file reference
+            produced by ``upload_run_file()`` / already available as
+            ``{"file_id": "..."}``, a remote ``{"url": "..."}`` (≤25 MB), or an
+            inline ``{"base64": "...", "name": "..."}`` (≤7 MB).
 
         Returns
         -------
-        dict with ``run_id`` and ``queued`` keys.
+        dict with ``run_id`` and ``queued`` keys, and ``run_inputs`` echoed
+        back when the run was submitted with any.
         """
         body: Dict[str, Any] = {}
         if project is not None:
@@ -310,7 +383,369 @@ class PipelinesAPI:
             body["studio_url"] = studio_url
         if env_overrides is not None:
             body["env_overrides"] = env_overrides
+        if run_inputs is not None:
+            body["run_inputs"] = run_inputs
         return self._request("POST", f"/api/v1/private/pipelines/{quote(name, safe='')}/run", json=body)
+
+    def upload_run_file(
+        self,
+        name: str,
+        key: str,
+        file: Union[bytes, bytearray, "IO[bytes]"],
+        *,
+        project: Optional[str] = None,
+        filename: str = "file",
+        content_type: Optional[str] = None,
+    ) -> JsonDict:
+        """Upload a single-use run-input file ahead of ``run()``.
+
+        POSTs ``multipart/form-data`` (single field ``file``) to
+        ``/api/v1/private/pipelines/{name}/run-files?key={key}``. The returned
+        ``file_id`` is single-use and valid for 24 hours — reference it from
+        ``run_inputs["values"]`` as ``{"file_id": file_id}``.
+
+        Parameters
+        ----------
+        name:
+            Pipeline name (URL-encoded automatically).
+        key:
+            The run-input key this file is being uploaded for (query parameter).
+        file:
+            Raw file bytes, or a binary file-like object (must support ``.read()``).
+        project:
+            Optional project filter query parameter.
+        filename:
+            Filename to send in the multipart part (default ``"file"``).
+        content_type:
+            Optional MIME type for the multipart part.
+
+        Returns
+        -------
+        dict with a ``file_id`` string among other fields.
+        """
+        if self._post_multipart is None:
+            raise RuntimeError("PipelinesAPI was constructed without a post_multipart transport.")
+        params: Dict[str, Any] = {"key": key}
+        if project is not None:
+            params["project"] = project
+        return self._post_multipart(
+            f"/api/v1/private/pipelines/{quote(name, safe='')}/run-files",
+            params=params,
+            field_name="file",
+            data=_read_bytes(file),
+            filename=filename,
+            content_type=content_type,
+        )
+
+    def run_inputs(self, name: str, run_id: str) -> JsonDict:
+        """Get the brief/values/files a run was submitted with.
+
+        Parameters
+        ----------
+        name:
+            Pipeline name (URL-encoded automatically).
+        run_id:
+            Run ID — 16 hex chars (URL-encoded automatically).
+        """
+        return self._request(
+            "GET",
+            f"/api/v1/private/pipelines/{quote(name, safe='')}/runs/{quote(run_id, safe='')}/inputs",
+        )
+
+    def run_input_file(self, name: str, run_id: str, index: int) -> bytes:
+        """Download one run-input file by index, as raw bytes.
+
+        This is a binary download — the response is NOT JSON and is returned
+        as-is (do not attempt to JSON-parse it).
+
+        Parameters
+        ----------
+        name:
+            Pipeline name (URL-encoded automatically).
+        run_id:
+            Run ID — 16 hex chars (URL-encoded automatically).
+        index:
+            File index within the run's inputs, 0-99.
+        """
+        if self._get_bytes is None:
+            raise RuntimeError("PipelinesAPI was constructed without a get_bytes transport.")
+        return self._get_bytes(
+            f"/api/v1/private/pipelines/{quote(name, safe='')}/runs/{quote(run_id, safe='')}"
+            f"/inputs/files/{index}",
+        )
+
+    def run_active(self, name: str, run_id: str) -> JsonDict:
+        """Check whether a run is still active.
+
+        Parameters
+        ----------
+        name:
+            Pipeline name (URL-encoded automatically).
+        run_id:
+            Run ID — 16 hex chars (URL-encoded automatically).
+
+        Returns
+        -------
+        dict ``{"active": bool}``.
+        """
+        return self._request(
+            "GET",
+            f"/api/v1/private/pipelines/{quote(name, safe='')}/runs/{quote(run_id, safe='')}/active",
+        )
+
+    # ── Static-context documents ───────────────────────────────────────────────
+
+    def list_docs(self, name: str) -> List[JsonDict]:
+        """List static-context documents attached to a pipeline.
+
+        Parameters
+        ----------
+        name:
+            Pipeline name (URL-encoded automatically).
+        """
+        return self._request("GET", f"/api/v1/private/pipelines/{quote(name, safe='')}/docs")
+
+    def upload_doc(
+        self,
+        name: str,
+        file: Union[bytes, bytearray, "IO[bytes]"],
+        *,
+        filename: str,
+        content_type: Optional[str] = None,
+    ) -> JsonDict:
+        """Upload a static-context document to a pipeline.
+
+        POSTs ``multipart/form-data`` (single field ``file``) to
+        ``/api/v1/private/pipelines/{name}/docs``. Allowed extensions: ``.txt
+        .md .pdf .csv .json .docx .doc .pptx .xlsx``.
+
+        Parameters
+        ----------
+        name:
+            Pipeline name (URL-encoded automatically).
+        file:
+            Raw file bytes, or a binary file-like object (must support ``.read()``).
+        filename:
+            Filename to send in the multipart part — its extension is
+            validated server-side, so it must be a real, allowed filename.
+        content_type:
+            Optional MIME type for the multipart part.
+        """
+        if self._post_multipart is None:
+            raise RuntimeError("PipelinesAPI was constructed without a post_multipart transport.")
+        return self._post_multipart(
+            f"/api/v1/private/pipelines/{quote(name, safe='')}/docs",
+            field_name="file",
+            data=_read_bytes(file),
+            filename=filename,
+            content_type=content_type,
+        )
+
+    def delete_doc(self, name: str, filename: str) -> JsonDict:
+        """Delete a static-context document from a pipeline.
+
+        Parameters
+        ----------
+        name:
+            Pipeline name (URL-encoded automatically).
+        filename:
+            Filename of the document to delete (URL-encoded automatically).
+        """
+        return self._request(
+            "DELETE",
+            f"/api/v1/private/pipelines/{quote(name, safe='')}/docs/{quote(filename, safe='')}",
+        )
+
+    # ── RAG (retrieval) documents ───────────────────────────────────────────────
+
+    def upload_retrieval_doc(
+        self,
+        name: str,
+        file: Union[bytes, bytearray, "IO[bytes]"],
+        *,
+        filename: str,
+        content_type: Optional[str] = None,
+    ) -> JsonDict:
+        """Upload a RAG retrieval document to a pipeline.
+
+        POSTs ``multipart/form-data`` (single field ``file``) to
+        ``/api/v1/private/pipelines/{name}/docs/retrieval``. Call
+        ``ingest_retrieval()`` afterwards to embed it.
+
+        Parameters
+        ----------
+        name:
+            Pipeline name (URL-encoded automatically).
+        file:
+            Raw file bytes, or a binary file-like object (must support ``.read()``).
+        filename:
+            Filename to send in the multipart part.
+        content_type:
+            Optional MIME type for the multipart part.
+        """
+        if self._post_multipart is None:
+            raise RuntimeError("PipelinesAPI was constructed without a post_multipart transport.")
+        return self._post_multipart(
+            f"/api/v1/private/pipelines/{quote(name, safe='')}/docs/retrieval",
+            field_name="file",
+            data=_read_bytes(file),
+            filename=filename,
+            content_type=content_type,
+        )
+
+    def ingest_retrieval(
+        self,
+        name: str,
+        body: Optional[Dict[str, Any]] = None,
+        *,
+        timeout: float = 300.0,
+    ) -> JsonDict:
+        """Embed changed RAG retrieval documents with the pipeline's configured embedder.
+
+        This can take minutes for large document sets, so the per-call timeout
+        defaults to 300s (override with ``timeout=``) instead of the client's
+        default request timeout.
+
+        Parameters
+        ----------
+        name:
+            Pipeline name (URL-encoded automatically).
+        body:
+            Optional JSON body; defaults to ``{}``.
+        timeout:
+            Per-call timeout override in seconds (default 300).
+        """
+        return self._request(
+            "POST",
+            f"/api/v1/private/pipelines/{quote(name, safe='')}/docs/retrieval/ingest",
+            json=body if body is not None else {},
+            timeout=timeout,
+        )
+
+    def delete_retrieval_doc(self, name: str, filename: str) -> JsonDict:
+        """Delete a RAG retrieval document from a pipeline.
+
+        Parameters
+        ----------
+        name:
+            Pipeline name (URL-encoded automatically).
+        filename:
+            Filename of the document to delete (URL-encoded automatically).
+        """
+        return self._request(
+            "DELETE",
+            f"/api/v1/private/pipelines/{quote(name, safe='')}/docs/retrieval/{quote(filename, safe='')}",
+        )
+
+    # ── Tool-call audit ─────────────────────────────────────────────────────────
+
+    def project_tool_calls(
+        self,
+        project: str,
+        *,
+        before_created_at: Optional[str] = None,
+        before_id: Optional[str] = None,
+        limit: Optional[int] = None,
+        tool: Optional[str] = None,
+        agent: Optional[str] = None,
+        run_id: Optional[str] = None,
+        status: Optional[str] = None,
+        search: Optional[str] = None,
+        connector_source: Optional[str] = None,
+        approval: Optional[str] = None,
+        provider: Optional[str] = None,
+        sort: Optional[str] = None,
+    ) -> JsonDict:
+        """List tool-call audit records for a project (cursor-paginated).
+
+        Parameters
+        ----------
+        project:
+            Project slug.
+        before_created_at, before_id:
+            Cursor pair from a previous page's ``nextCursor`` (both required
+            together to page forward).
+        limit:
+            Page size, 1-100 (default 30).
+        tool, agent, run_id, provider:
+            Exact-match filters.
+        status:
+            ``"ok"`` or ``"error"``.
+        search:
+            Free-text search.
+        connector_source:
+            ``"project"`` or ``"personal"``.
+        approval:
+            ``"auto"``, ``"approved"``, or ``"by:<username>"``.
+        sort:
+            ``"recent"`` (default), ``"oldest"``, ``"slowest"``, or ``"fastest"``.
+
+        Returns
+        -------
+        dict ``{"items": [...], "nextCursor": {"beforeCreatedAt", "beforeId"} | None, "capped": bool}``.
+        """
+        params: Dict[str, Any] = {}
+        if before_created_at is not None:
+            params["beforeCreatedAt"] = before_created_at
+        if before_id is not None:
+            params["beforeId"] = before_id
+        if limit is not None:
+            params["limit"] = limit
+        if tool is not None:
+            params["tool"] = tool
+        if agent is not None:
+            params["agent"] = agent
+        if run_id is not None:
+            params["runId"] = run_id
+        if status is not None:
+            params["status"] = status
+        if search is not None:
+            params["search"] = search
+        if connector_source is not None:
+            params["connectorSource"] = connector_source
+        if approval is not None:
+            params["approval"] = approval
+        if provider is not None:
+            params["provider"] = provider
+        if sort is not None:
+            params["sort"] = sort
+        return self._request(
+            "GET",
+            f"/api/v1/private/projects/{quote(project, safe='')}/tool-calls",
+            params=params,
+        )
+
+    def project_tool_call_facets(self, project: str) -> JsonDict:
+        """Get available filter facets for a project's tool-call audit log.
+
+        Parameters
+        ----------
+        project:
+            Project slug.
+
+        Returns
+        -------
+        dict ``{"tools": [{"name": str, "count": int}, ...], "agents": [str, ...]}``.
+        """
+        return self._request(
+            "GET",
+            f"/api/v1/private/projects/{quote(project, safe='')}/tool-calls/facets",
+        )
+
+    def tool_call_detail(self, run_id: str, span_id: str) -> JsonDict:
+        """Get the full, untruncated input/output for a single tool call.
+
+        Parameters
+        ----------
+        run_id:
+            Run ID (URL-encoded automatically).
+        span_id:
+            Tool-call span ID (URL-encoded automatically).
+        """
+        return self._request(
+            "GET",
+            f"/api/v1/private/runs/{quote(run_id, safe='')}/tool-calls/{quote(span_id, safe='')}",
+        )
 
     def run_ids(self, name: str) -> List[str]:
         """List all run IDs for a pipeline.

@@ -17,6 +17,8 @@ import org.json.JSONObject
  *   - `GET    /api/v1/private/phone/apps`            — list installed apps
  *   - `PUT    /api/v1/private/phone/apps/allowed`    — set allowed-apps allowlist
  *   - `POST   /api/v1/private/phone/active-run`      — register active pipeline run
+ *   - `POST   /api/v1/private/phone/apps/grant`      — grant one app into the allowlist
+ *   - `POST   /api/v1/private/phone/request-cast`    — re-cast the phone screen
  *
  * @example
  * ```kotlin
@@ -84,6 +86,29 @@ class PhoneAPI internal constructor(private val http: HttpClient) {
             "/api/v1/private/phone/active-run",
             mapOf("runId" to runId)
         ).asObject()
+    }
+
+    /**
+     * Grant one app into the agent allowlist (atomic append).
+     * Used by the assistant's in-chat approve card.
+     *
+     * @param pkg   Android package name to allow.
+     * @param label Optional human-readable label for the app.
+     */
+    fun grantApp(pkg: String, label: String? = null): JSONObject {
+        val body = buildMap<String, Any?> {
+            put("package", pkg)
+            if (label != null) put("label", label)
+        }
+        return http.post("/api/v1/private/phone/apps/grant", body).asObject()
+    }
+
+    /** Re-cast the phone screen (re-triggers MediaProjection consent) from the desktop mirror. */
+    fun requestCast(deviceId: String? = null): JSONObject {
+        val body = buildMap<String, Any?> {
+            if (deviceId != null) put("deviceId", deviceId)
+        }
+        return http.post("/api/v1/private/phone/request-cast", body).asObject()
     }
 
     private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8")

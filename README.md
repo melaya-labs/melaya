@@ -15,7 +15,7 @@ Melaya is a governed platform for AI agents that do real work — in the cloud o
 [![Tools](https://img.shields.io/badge/scoped_tools-6,900%2B-22D3EE)](#the-catalog)
 [![Subagents](https://img.shields.io/badge/subagents-103-8B5CF6)](#the-catalog)
 [![AI providers](https://img.shields.io/badge/AI_providers-26-F59E0B)](#bring-your-own-model)
-[![MCP](https://img.shields.io/badge/MCP-83_tools-10B981)](https://github.com/melaya-labs/melaya-mcp)
+[![MCP](https://img.shields.io/badge/MCP-88_tools-10B981)](https://github.com/melaya-labs/melaya-mcp)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
 </div>
@@ -31,27 +31,27 @@ Melaya is a governed platform for AI agents that do real work — in the cloud o
 <table>
 <tr>
 <td width="60" align="center"><img src="assets/brand/melaya_got_an_idea.webp" width="42"></td>
-<td><b>Melaya Agents</b> — <i>available now</i><br>A visual builder for high-trust AI workflows: tools, models, memory, subagents, knowledge, evaluations, schedules, cost limits and human approvals, composed as a pipeline.<br><a href="https://melaya.org/en/product/agentic-framework">Product</a> · <a href="./docs/agent-builder.md">Docs</a></td>
+<td><b>Melaya Agents</b> — <i>available now</i><br>A visual builder for high-trust AI workflows: tools, models, memory, subagents, knowledge, evaluations, schedules, cost limits and human approvals, composed as a pipeline.<br><a href="https://melaya.org/en/product/agentic-framework">Melaya Agents product page</a> · <a href="./docs/agent-builder.md">Docs</a></td>
 </tr>
 <tr>
 <td align="center"><img src="assets/brand/melaya_happy.webp" width="42"></td>
-<td><b>Melaya Assistant</b> — <i>available now</i><br>Work across your approved business systems in natural language, with permissions, execution and approvals still under your control.<br><a href="https://melaya.org/en/product/assistant">Product</a></td>
+<td><b>Melaya Assistant</b> — <i>available now</i><br>Work across your approved business systems in natural language, with permissions, execution and approvals still under your control.<br><a href="https://melaya.org/en/product/assistant">Melaya Assistant product page</a></td>
 </tr>
 <tr>
 <td align="center"><img src="assets/brand/melaya_thumbs_up.webp" width="42"></td>
-<td><b>Device Control</b> — <i>flagship, available now</i><br>Let an AI operate real Android apps the way a person does: tapping, typing, swiping and navigating through the visible interface. No vendor API, no integration. Per-app permissions and approval before sensitive actions.<br><a href="https://melaya.org/en/product/agentic-device-control">Product</a> · <a href="./docs/device-control.md">Docs</a></td>
+<td><b>Device Control</b> — <i>flagship, available now</i><br>Let an AI operate real Android apps the way a person does: tapping, typing, swiping and navigating through the visible interface. No vendor API, no integration. Per-app permissions and approval before sensitive actions.<br><a href="https://melaya.org/en/product/agentic-device-control">Device Control product page</a> · <a href="./docs/device-control.md">Docs</a></td>
 </tr>
 <tr>
 <td align="center"><img src="assets/brand/melaya_studying.webp" width="42"></td>
-<td><b>Browser Control</b> — <i>available now</i><br>The same governed execution in real browser tabs, with live visibility and a human stop control. Ships as a browser extension for Chrome, Edge, Brave, Opera and Firefox.<br><a href="https://melaya.org/en/product/agentic-browser-control">Product</a> · <a href="https://addons.mozilla.org/en-US/firefox/addon/melaya/">Firefox add-on</a></td>
+<td><b>Browser Control</b> — <i>available now</i><br>The same governed execution in real browser tabs, with live visibility and a human stop control. Ships as a browser extension for Chrome, Edge, Brave, Opera and Firefox.<br><a href="https://melaya.org/en/product/agentic-browser-control">Browser Control product page</a> · <a href="https://addons.mozilla.org/en-US/firefox/addon/melaya/">Firefox add-on</a></td>
 </tr>
 <tr>
 <td align="center"><img src="assets/brand/melaya_zen.webp" width="42"></td>
-<td><b>MCP Server</b> — <i>available now</i><br>Give Claude, Codex, Cursor, ChatGPT or any compatible client access to Melaya's execution layer through <b>one remote endpoint</b>. 83 scoped tools across 8 permission domains, OAuth 2.1 + PKCE, no API key to paste.<br><a href="https://melaya.org/en/product/mcp">Product</a> · <a href="https://github.com/melaya-labs/melaya-mcp">Repo</a> · <a href="./docs/mcp.md">Docs</a></td>
+<td><b>MCP Server</b> — <i>available now</i><br>Give Claude, Codex, Cursor, ChatGPT or any compatible client access to Melaya's execution layer through <b>one remote endpoint</b>. 88 scoped tools across 9 permission domains, OAuth 2.1 + PKCE, no API key to paste.<br><a href="https://melaya.org/en/product/mcp">MCP Server product page</a> · <a href="https://github.com/melaya-labs/melaya-mcp">Repo</a> · <a href="./docs/mcp.md">Docs</a></td>
 </tr>
 <tr>
 <td align="center"><img src="assets/brand/melaya_fire.webp" width="42"></td>
-<td><b>Melaya Marketing</b> — <i>available now</i><br>One AI-native marketing cockpit. Connects your ads, search consoles, analytics, DNS and site, reads your <i>real</i> numbers server-side, and runs actions that do the work — SEO and page-speed audits, DNS hardening, wasted-spend cleanup — pausing for your approval before anything touches real money or your live site.<br><a href="https://melaya.org">Product</a></td>
+<td><b>Melaya Marketing</b> — <i>available now</i><br>One AI-native marketing cockpit. Connects your ads, search consoles, analytics, DNS and site, reads your <i>real</i> numbers server-side, and runs actions that do the work — SEO and page-speed audits, DNS hardening, wasted-spend cleanup — pausing for your approval before anything touches real money or your live site.<br><a href="https://melaya.org/en/product/marketing">Melaya Marketing product page</a></td>
 </tr>
 </table>
 
@@ -63,7 +63,7 @@ Melaya is a governed platform for AI agents that do real work — in the cloud o
 |:--:|:--:|:--:|
 | **6,912** | **103** | **26** |
 | scoped tools | specialized subagents | AI providers |
-| **83** | **9** | **8** |
+| **88** | **9** | **9** |
 | MCP tools | official SDKs | MCP permission domains |
 
 </div>
@@ -158,7 +158,9 @@ Setup for Claude, ChatGPT, Cursor, VS Code, Le Chat, Gemini CLI, Zed, Cline, Goo
 
 </div>
 
-The supported public surface includes authentication, projects, Connectors, credentials, pipelines, templates, Agent Builder tools, Device Control management, HITL, evaluations, events, billing, account operations, runner management, team management, MFA, the assistant, bug reports and the memory graph.
+The supported public surface includes authentication, projects, Connectors (personal and project-shared), credentials, connector tool calls (discover and call the tools your connected services unlock, with an in-app approval for writes), pipelines with run inputs and file uploads, pipeline documents (static context and RAG), templates, Agent Builder tools, the tool-call audit log, Device Control management, HITL, evaluations, events, billing, account operations, runner management, team management, MFA, the assistant, bug reports and agent memory.
+
+What the SDKs drive: [Melaya Agents](https://melaya.org/en/product/agentic-framework) pipelines and runs, the [Melaya Assistant](https://melaya.org/en/product/assistant), [Device Control](https://melaya.org/en/product/agentic-device-control) on real Android apps, [Browser Control](https://melaya.org/en/product/agentic-browser-control), and the same execution layer behind the [MCP Server](https://melaya.org/en/product/mcp) and [Melaya Marketing](https://melaya.org/en/product/marketing).
 
 Internal operator APIs are intentionally absent.
 

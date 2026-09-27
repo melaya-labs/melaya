@@ -62,3 +62,14 @@ class AccountsAPI:
     def risk_monitoring_credits(self) -> JsonDict:
         """Return risk-monitoring feature credit balance."""
         return self._request("GET", "/api/v1/private/accounts/credits/risk-monitoring")
+
+    def resend_email_verification(self) -> JsonDict:
+        """Resend the account's email verification link."""
+        return self._request("POST", "/api/v1/private/accounts/resend-email-verification")
+
+    def verify_email(self, token: str) -> JsonDict:
+        """Verify the account's email using the token from the verification link.
+
+        ``token`` is 64 hex characters.
+        """
+        return self._request("POST", "/api/v1/private/accounts/verify-email", json={"token": token})

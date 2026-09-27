@@ -66,6 +66,17 @@ public sealed class TeamApi
             ct: ct).ConfigureAwait(false);
     }
 
+    /// <summary>Transfer ownership of a project to another user (must already be a team member).</summary>
+    /// <param name="project">Project name.</param>
+    /// <param name="newOwnerUserId">UUID of the team member to become the new owner.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<BoolResult> TransferOwnershipAsync(string project, string newOwnerUserId, CancellationToken ct = default)
+    {
+        var body = new { newOwnerUserId };
+        return await _http.PostAsync<BoolResult>(
+            $"/api/v1/private/projects/{Uri.EscapeDataString(project)}/transfer-ownership", body, ct).ConfigureAwait(false);
+    }
+
     // ── Pipeline visibility ───────────────────────────────────────────────────
 
     /// <summary>Get visibility settings for a pipeline within a project.</summary>

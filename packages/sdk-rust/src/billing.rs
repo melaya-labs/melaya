@@ -56,4 +56,32 @@ impl BillingAPI {
         let q = HashMap::new();
         self.http.get("/api/v1/billing/plans", &q).await
     }
+
+    /// The ambassador discount the caller is entitled to, or `null`.
+    pub async fn ambassador_perk(&self) -> Result<Value> {
+        let q = HashMap::new();
+        self.http
+            .get("/api/v1/private/billing/ambassador-perk", &q)
+            .await
+    }
+
+    /// Redeem a single-use promo code to the caller's account (the discount
+    /// applies on the next checkout).
+    pub async fn redeem_code(&self, code: &str) -> Result<Value> {
+        self.http
+            .post(
+                "/api/v1/private/billing/redeem-code",
+                &json!({ "code": code }),
+            )
+            .await
+    }
+
+    /// The caller's active reserved promo (for the subscription modal to
+    /// reflect), or `null`.
+    pub async fn reserved_promo(&self) -> Result<Value> {
+        let q = HashMap::new();
+        self.http
+            .get("/api/v1/private/billing/reserved-promo", &q)
+            .await
+    }
 }

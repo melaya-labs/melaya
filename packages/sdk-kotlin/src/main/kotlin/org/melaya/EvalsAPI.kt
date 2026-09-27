@@ -10,9 +10,9 @@ import org.json.JSONObject
  *   - `GET /api/v1/private/evals/summary`           — aggregate summary
  *   - `GET /api/v1/private/evals/runs/:runId`       — detailed results for a run
  *   - `GET /api/v1/private/evals/compare`           — compare multiple runs
- *   - `GET /api/v1/private/evals/memory-graph`      — memory graph visualization data
- *   - `GET /api/v1/private/evals/runs/:runId/memory`— memory usage for a run
- *   - `GET /api/v1/private/evals/crew-memory`       — agent crew memory for a pipeline
+ *   - `GET /api/v1/private/memory/graph`      — memory graph visualization data
+ *   - `GET /api/v1/private/memory/runs/:runId`— memory usage for a run
+ *   - `GET /api/v1/private/memory/crew`       — agent crew memory for a pipeline
  *   - `GET /api/v1/private/evals/benchmarks`        — benchmark scores across runs
  *
  * @example
@@ -58,12 +58,12 @@ class EvalsAPI internal constructor(private val http: HttpClient) {
 
     /** Get memory graph visualization data for eval runs. */
     fun memoryGraph(): JSONObject {
-        return http.get("/api/v1/private/evals/memory-graph").asObject()
+        return http.get("/api/v1/private/memory/graph").asObject()
     }
 
     /** Get memory usage for a specific eval run. */
     fun runMemory(runId: String): JSONObject {
-        return http.get("/api/v1/private/evals/runs/${enc(runId)}/memory").asObject()
+        return http.get("/api/v1/private/memory/runs/${enc(runId)}").asObject()
     }
 
     /**
@@ -73,7 +73,7 @@ class EvalsAPI internal constructor(private val http: HttpClient) {
      */
     fun crewMemory(pipeline: String, project: String): JSONObject {
         return http.get(
-            "/api/v1/private/evals/crew-memory",
+            "/api/v1/private/memory/crew",
             mapOf("pipeline" to pipeline, "project" to project)
         ).asObject()
     }

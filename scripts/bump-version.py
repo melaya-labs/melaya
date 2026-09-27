@@ -24,9 +24,7 @@ EDITS = [
     ("packages/sdk-ruby/lib/melaya/version.rb",    r'(VERSION\s*=\s*")[^"]+(")',                             "rubygems"),
     ("packages/sdk-csharp/Melaya/Melaya.csproj",   r'(<Version>)[^<]+(</Version>)',                          "nuget"),
     ("packages/sdk-java/build.gradle",             r"(?m)(^version\s*=\s*')[^']+(')",                        "maven-java version"),
-    ("packages/sdk-java/build.gradle",             r"(coordinates\('org\.melaya',\s*'melaya-sdk',\s*')[^']+(')",        "maven-java coords"),
     ("packages/sdk-kotlin/build.gradle",           r"(?m)(^version\s*=\s*')[^']+(')",                        "maven-kotlin version"),
-    ("packages/sdk-kotlin/build.gradle",           r"(coordinates\('org\.melaya',\s*'melaya-sdk-kotlin',\s*')[^']+(')", "maven-kotlin coords"),
 ]
 
 failed = []

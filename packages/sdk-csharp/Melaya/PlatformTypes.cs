@@ -189,6 +189,40 @@ public sealed class TraceStats
     [JsonExtensionData]              public Dictionary<string, JsonElement>? Extra { get; set; }
 }
 
+// ── Tool-call audit ───────────────────────────────────────────────────────────
+
+/// <summary>Pagination cursor for <c>PipelinesApi.ProjectToolCallsAsync</c>.</summary>
+public sealed class ToolCallCursor
+{
+    [JsonPropertyName("beforeCreatedAt")] public string? BeforeCreatedAt { get; set; }
+    [JsonPropertyName("beforeId")]        public string? BeforeId        { get; set; }
+}
+
+/// <summary>Paginated tool-call audit listing for a project.</summary>
+public sealed class ToolCallListResult
+{
+    [JsonPropertyName("items")]      public List<RunToolCall>? Items      { get; set; }
+    [JsonPropertyName("nextCursor")] public ToolCallCursor?    NextCursor { get; set; }
+    [JsonPropertyName("capped")]     public bool?              Capped     { get; set; }
+    [JsonExtensionData]              public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>One faceted count (tool name or agent name → occurrences).</summary>
+public sealed class ToolCallFacetCount
+{
+    [JsonPropertyName("name")]  public string? Name  { get; set; }
+    [JsonPropertyName("count")] public int?    Count { get; set; }
+    [JsonExtensionData]         public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>Facet counts for filtering the tool-call audit log.</summary>
+public sealed class ToolCallFacets
+{
+    [JsonPropertyName("tools")]  public List<ToolCallFacetCount>? Tools  { get; set; }
+    [JsonPropertyName("agents")] public List<string>?             Agents { get; set; }
+    [JsonExtensionData]          public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
 // ── HITL ──────────────────────────────────────────────────────────────────────
 
 /// <summary>A pending HITL approval request.</summary>
@@ -320,6 +354,23 @@ public sealed class CredentialTestResult
     [JsonPropertyName("ok")]      public bool?   Ok      { get; set; }
     [JsonPropertyName("message")] public string? Message { get; set; }
     [JsonExtensionData]           public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>Result of starting Telegram QR-code login (<c>CredentialsApi.TelegramQrStartAsync</c>).</summary>
+public sealed class TelegramQrStartResult
+{
+    /// <summary>Opaque poll handle, prefixed <c>tgauth_</c>. Pass to <c>TelegramQrPollAsync</c>.</summary>
+    [JsonPropertyName("handle")] public string? Handle { get; set; }
+    [JsonExtensionData]          public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>Body for <c>CredentialsApi.WhatsappSignupExchangeAsync</c>.</summary>
+public sealed class WhatsappSignupExchangeRequest
+{
+    [JsonPropertyName("code")]          public required string Code          { get; init; }
+    [JsonPropertyName("phoneNumberId")] public required string PhoneNumberId { get; init; }
+    [JsonPropertyName("wabaId")]        public required string WabaId        { get; init; }
+    [JsonPropertyName("project")]       public string?         Project       { get; init; }
 }
 
 // ── AI models ─────────────────────────────────────────────────────────────────
@@ -553,6 +604,23 @@ public sealed class EvalSummary
     [JsonExtensionData]             public Dictionary<string, JsonElement>? Extra { get; set; }
 }
 
+/// <summary>Field-level patch applied by <c>EvalsApi.EditCrewMemoryEntryAsync</c>. Omitted fields are left unchanged.</summary>
+public sealed class CrewMemoryPatch
+{
+    [JsonPropertyName("topic")]   public string?       Topic   { get; init; }
+    [JsonPropertyName("content")] public string?       Content { get; init; }
+    [JsonPropertyName("tags")]    public List<string>? Tags    { get; init; }
+}
+
+/// <summary>Body for <c>EvalsApi.EditCrewMemoryEntryAsync</c>.</summary>
+public sealed class CrewMemoryEditRequest
+{
+    [JsonPropertyName("pipeline")] public required string Pipeline { get; init; }
+    [JsonPropertyName("entryId")]  public required string EntryId  { get; init; }
+    [JsonPropertyName("project")]  public string?         Project  { get; init; }
+    [JsonPropertyName("patch")]    public required CrewMemoryPatch Patch { get; init; }
+}
+
 // ── Bug reports ───────────────────────────────────────────────────────────────
 
 /// <summary>A user bug report.</summary>
@@ -582,6 +650,16 @@ public sealed class ProjectConnectorSetRequest
     [JsonPropertyName("value")] public required string Value { get; init; }
     [JsonPropertyName("key")]   public string? Key           { get; init; }
     [JsonPropertyName("label")] public string? Label         { get; init; }
+}
+
+/// <summary>
+/// Result of starting a database connectivity probe (<c>ConnectorsApi.DbTestStartAsync</c> /
+/// <c>CredentialsApi.DbTestStartAsync</c>) — the probe runs on the user's own runner.
+/// </summary>
+public sealed class DbTestStartResult
+{
+    [JsonPropertyName("sessionId")] public string? SessionId { get; set; }
+    [JsonExtensionData]             public Dictionary<string, JsonElement>? Extra { get; set; }
 }
 
 // ── Generic results ───────────────────────────────────────────────────────────
@@ -684,18 +762,73 @@ public sealed class PipelineUpdateRequest
 /// <summary>Body for enqueuing a pipeline run.</summary>
 public sealed class PipelineRunRequest
 {
-    [JsonPropertyName("project")]         public string?      Project         { get; init; }
-    [JsonPropertyName("executionTarget")] public string?      ExecutionTarget { get; init; }
-    [JsonPropertyName("studio_url")]      public string?      StudioUrl       { get; init; }
-    [JsonPropertyName("env_overrides")]   public Dictionary<string, string>? EnvOverrides { get; init; }
+    [JsonPropertyName("project")] public string? Project { get; init; }
+
+    /// <summary>
+    /// Used ONLY for the tier/capacity check at enqueue time — it does NOT decide where the
+    /// run actually executes. The execution target is decided by the pipeline's stored config
+    /// (local model providers, <c>force_local_runner</c>).
+    /// </summary>
+    [JsonPropertyName("executionTarget")] public string? ExecutionTarget { get; init; }
+
+    [JsonPropertyName("studio_url")] public string? StudioUrl { get; init; }
+
+    /// <summary>
+    /// Per-run env var overrides layered over the caller's stored credentials.
+    /// <c>MEL_*</c> / <c>MELAYA_*</c> keys are stripped server-side and can never be overridden.
+    /// </summary>
+    [JsonPropertyName("env_overrides")] public Dictionary<string, string>? EnvOverrides { get; init; }
+
+    /// <summary>Run-time brief and/or keyed values delivered to the pipeline's first agent.</summary>
+    [JsonPropertyName("run_inputs")] public PipelineRunInputs? RunInputs { get; init; }
 }
 
-/// <summary>Response from <c>RunAsync</c> — run ID and queued flag.</summary>
+/// <summary>
+/// Run-time inputs for one pipeline run (<see cref="PipelineRunRequest.RunInputs"/>).
+/// A value in <see cref="Values"/> may be a plain JSON value, or reference a file via
+/// <c>{ file_id }</c> (see <c>PipelinesApi.UploadRunFileAsync</c>), a remote URL via
+/// <c>{ url }</c> (≤ 25 MB), or inline bytes via <c>{ base64, name }</c> (≤ 7 MB).
+/// </summary>
+public sealed class PipelineRunInputs
+{
+    [JsonPropertyName("brief")]  public string? Brief  { get; init; }
+    [JsonPropertyName("values")] public Dictionary<string, object>? Values { get; init; }
+}
+
+/// <summary>Response from <c>RunAsync</c> — run ID, queued flag, and an optional <c>run_inputs</c> echo.</summary>
 public sealed class PipelineRunResult
 {
-    [JsonPropertyName("run_id")] public string? RunId  { get; set; }
-    [JsonPropertyName("queued")] public bool?   Queued { get; set; }
+    [JsonPropertyName("run_id")]     public string?      RunId      { get; set; }
+    [JsonPropertyName("queued")]     public bool?        Queued     { get; set; }
+    [JsonPropertyName("run_inputs")] public JsonElement? RunInputs  { get; set; }
+    [JsonExtensionData]              public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>
+/// Inputs recorded for a run (<c>PipelinesApi.RunInputsAsync</c>): the brief, the keyed
+/// values, and metadata for any uploaded files (download the bytes with
+/// <c>PipelinesApi.RunInputFileAsync</c> by index).
+/// </summary>
+public sealed class PipelineRunInputsResult
+{
+    [JsonPropertyName("brief")]  public string? Brief  { get; set; }
+    [JsonPropertyName("values")] public Dictionary<string, JsonElement>? Values { get; set; }
+    [JsonPropertyName("files")]  public List<JsonElement>? Files { get; set; }
     [JsonExtensionData]          public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>Response envelope for <c>PipelinesApi.RunActiveAsync</c>.</summary>
+internal sealed class PipelineRunActiveResult
+{
+    [JsonPropertyName("active")] public bool? Active { get; set; }
+}
+
+/// <summary>Result of uploading a run-input file (<c>PipelinesApi.UploadRunFileAsync</c>).</summary>
+public sealed class RunFileUploadResult
+{
+    /// <summary>Single-use file ID, valid for 24 hours. Reference it from a <c>run_inputs</c> value as <c>{ file_id }</c>.</summary>
+    [JsonPropertyName("file_id")] public string? FileId { get; set; }
+    [JsonExtensionData]           public Dictionary<string, JsonElement>? Extra { get; set; }
 }
 
 /// <summary>Response from <c>RunIdsAsync</c> — list of run IDs for a pipeline.</summary>
@@ -740,5 +873,119 @@ public sealed class InstantiateTemplateResult
 {
     [JsonPropertyName("pipeline")] public JsonElement? Pipeline { get; set; }
     [JsonExtensionData]            public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+// ── Connector tools (ConnectorToolsApi) ─────────────────────────────────────────
+//
+// The REST tool-call surface at /api/v1/private/connector-tools/* — the same
+// discover/call surface the Melaya MCP server exposes. Not to be confused with
+// ConnectorsApi / CredentialsApi, which store project/user credentials.
+
+/// <summary>Read/write tool counts for one connected service (<c>ConnectorToolsApi.ServicesAsync</c>).</summary>
+public sealed class ConnectorToolCounts
+{
+    [JsonPropertyName("readTools")]  public int ReadTools  { get; set; }
+    [JsonPropertyName("writeTools")] public int WriteTools { get; set; }
+}
+
+/// <summary>Connected services and their tool counts (<c>ConnectorToolsApi.ServicesAsync</c>).</summary>
+public sealed class ConnectorToolServicesResult
+{
+    [JsonPropertyName("services")]  public List<string>? Services { get; set; }
+    [JsonPropertyName("builtIn")]   public string? BuiltIn        { get; set; }
+    [JsonPropertyName("toolCounts")] public Dictionary<string, ConnectorToolCounts>? ToolCounts { get; set; }
+    [JsonExtensionData]             public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>One parameter of a connector tool, as described by <see cref="ConnectorToolInfo"/>.</summary>
+public sealed class ConnectorToolParamInfo
+{
+    [JsonPropertyName("type")]        public string?      Type        { get; set; }
+    [JsonPropertyName("required")]    public bool?        Required    { get; set; }
+    [JsonPropertyName("default")]     public JsonElement? Default     { get; set; }
+    [JsonPropertyName("description")] public string?       Description { get; set; }
+    [JsonExtensionData]               public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>
+/// One connector tool's shape (<c>ConnectorToolsApi.SearchAsync</c> / <c>DescribeAsync</c>).
+/// <c>MovesMoney</c> tools are always refused by <c>CallAsync</c>, under every approval mode.
+/// </summary>
+public sealed class ConnectorToolInfo
+{
+    [JsonPropertyName("name")]        public string? Name        { get; set; }
+    [JsonPropertyName("service")]     public string? Service     { get; set; }
+    [JsonPropertyName("description")] public string? Description { get; set; }
+    [JsonPropertyName("readOnly")]    public bool?   ReadOnly    { get; set; }
+    [JsonPropertyName("movesMoney")]  public bool?   MovesMoney  { get; set; }
+    [JsonPropertyName("params")]      public Dictionary<string, ConnectorToolParamInfo>? Params { get; set; }
+    [JsonExtensionData]               public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>Result of <c>ConnectorToolsApi.SearchAsync</c> — tools ranked by relevance to <c>Query</c>.</summary>
+public sealed class ConnectorToolSearchResult
+{
+    [JsonPropertyName("query")]    public string? Query    { get; set; }
+    [JsonPropertyName("services")] public List<string>? Services { get; set; }
+    [JsonPropertyName("tools")]    public List<ConnectorToolInfo>? Tools { get; set; }
+    [JsonExtensionData]            public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>Result of testing a stored connector credential (<c>ConnectorToolsApi.TestAsync</c>).</summary>
+public sealed class ConnectorToolTestResult
+{
+    [JsonPropertyName("service")] public string? Service { get; set; }
+    [JsonPropertyName("success")] public bool?   Success { get; set; }
+    [JsonPropertyName("message")] public string? Message { get; set; }
+    [JsonExtensionData]           public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>
+/// Result of starting to connect a service (<c>ConnectorToolsApi.ConnectAsync</c>). <c>Kind</c> is
+/// one of <c>oauth</c>, <c>oauth_unavailable</c>, <c>interactive_login</c>, or <c>api_key</c>.
+/// Never carries a secret.
+/// </summary>
+public sealed class ConnectorToolConnectResult
+{
+    [JsonPropertyName("service")]          public string? Service          { get; set; }
+    [JsonPropertyName("kind")]             public string? Kind             { get; set; }
+    [JsonPropertyName("authorizationUrl")] public string? AuthorizationUrl { get; set; }
+    [JsonPropertyName("connectUrl")]       public string? ConnectUrl       { get; set; }
+    [JsonPropertyName("message")]          public string? Message          { get; set; }
+    [JsonExtensionData]                    public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>
+/// Result of <c>ConnectorToolsApi.CallAsync</c>. <c>Status</c> is <c>done</c> (reads, and writes
+/// run with <c>approval: "none"</c> — 200) or <c>pending_approval</c> (a staged write — 202;
+/// this is success, not an error). For a staged write, poll <c>CallStatusAsync(RequestId)</c>.
+/// </summary>
+public sealed class ConnectorToolCallResult
+{
+    [JsonPropertyName("status")]    public string? Status    { get; set; }
+    [JsonPropertyName("tool")]      public string? Tool      { get; set; }
+    [JsonPropertyName("readOnly")]  public bool?   ReadOnly  { get; set; }
+    [JsonPropertyName("result")]    public string? Result    { get; set; }
+    [JsonPropertyName("requestId")] public string? RequestId { get; set; }
+    [JsonPropertyName("message")]   public string? Message   { get; set; }
+    [JsonExtensionData]             public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>
+/// Outcome of a staged write, from <c>ConnectorToolsApi.CallStatusAsync</c> or
+/// <c>CallAndWaitAsync</c>. <c>Status</c> is <c>pending</c> / <c>running</c> (not resolved yet),
+/// <c>expired</c> (the approval card timed out), <c>done</c> (<c>Ok</c> tells success/failure), or
+/// <c>rejected</c> (the user declined it in the Melaya app — see <c>Reason</c>).
+/// </summary>
+public sealed class ConnectorToolCallStatusResult
+{
+    [JsonPropertyName("requestId")] public string? RequestId { get; set; }
+    [JsonPropertyName("tool")]      public string? Tool      { get; set; }
+    [JsonPropertyName("status")]    public string? Status    { get; set; }
+    [JsonPropertyName("ok")]        public bool?   Ok        { get; set; }
+    [JsonPropertyName("result")]    public string? Result    { get; set; }
+    [JsonPropertyName("error")]     public string? Error     { get; set; }
+    [JsonPropertyName("reason")]    public string? Reason    { get; set; }
+    [JsonExtensionData]             public Dictionary<string, JsonElement>? Extra { get; set; }
 }
 

@@ -94,3 +94,141 @@ func (c *ConnectorsAPI) GoogleOAuthStart(ctx context.Context, project string, bo
 	}
 	return v, nil
 }
+
+// ApplyPersonal shares the caller's OWN personal connector credential into the
+// project pool (requires editor or owner role on the project). Pass
+// googleCapabilities to scope which granted Google capabilities are copied
+// when service is "google"; nil/empty copies the default set.
+//
+// POST /api/v1/private/projects/:project/connectors/:service/apply-personal
+func (c *ConnectorsAPI) ApplyPersonal(ctx context.Context, project, service string, googleCapabilities []string) (map[string]interface{}, error) {
+	body := map[string]interface{}{}
+	if len(googleCapabilities) > 0 {
+		body["googleCapabilities"] = googleCapabilities
+	}
+	path := "/api/v1/private/projects/" + url.PathEscape(project) + "/connectors/" + url.PathEscape(service) + "/apply-personal"
+	data, err := c.h.post(ctx, path, body)
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// SharedBy returns which member shared each connected project connector
+// (usernames only — never credential values).
+//
+// GET /api/v1/private/projects/:project/connectors/shared-by
+func (c *ConnectorsAPI) SharedBy(ctx context.Context, project string) (map[string]interface{}, error) {
+	path := "/api/v1/private/projects/" + url.PathEscape(project) + "/connectors/shared-by"
+	data, err := c.h.get(ctx, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// GoogleStatus lists the Google OAuth capabilities actually granted to a project.
+//
+// GET /api/v1/private/projects/:project/connectors/google/status
+func (c *ConnectorsAPI) GoogleStatus(ctx context.Context, project string) (map[string]interface{}, error) {
+	path := "/api/v1/private/projects/" + url.PathEscape(project) + "/connectors/google/status"
+	data, err := c.h.get(ctx, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// GoogleSetDefault selects which connected Google account a project uses for
+// one capability. accountId is a 24-hex-char id. capability is one of: gmail,
+// calendar, drive, sheets, docs, search_console, youtube, google_ads,
+// analytics, meet, slides.
+//
+// PUT /api/v1/private/projects/:project/connectors/google/default
+func (c *ConnectorsAPI) GoogleSetDefault(ctx context.Context, project, capability, accountID string) (bool, error) {
+	path := "/api/v1/private/projects/" + url.PathEscape(project) + "/connectors/google/default"
+	data, err := c.h.put(ctx, path, map[string]string{"capability": capability, "accountId": accountID})
+	if err != nil {
+		return false, err
+	}
+	var v successResult
+	if err := unmarshal(data, &v); err != nil {
+		return false, err
+	}
+	return v.Success, nil
+}
+
+// GoogleDisconnect disconnects one Google product (capability) or an entire
+// connected Google account from a project. Pass an empty capability to
+// disconnect the whole account.
+//
+// DELETE /api/v1/private/projects/:project/connectors/google/access
+// (JSON body: {accountId, capability?})
+func (c *ConnectorsAPI) GoogleDisconnect(ctx context.Context, project, accountID, capability string) (bool, error) {
+	body := map[string]string{"accountId": accountID}
+	if capability != "" {
+		body["capability"] = capability
+	}
+	path := "/api/v1/private/projects/" + url.PathEscape(project) + "/connectors/google/access"
+	data, err := c.h.delWithBody(ctx, path, nil, body)
+	if err != nil {
+		return false, err
+	}
+	var v successResult
+	if err := unmarshal(data, &v); err != nil {
+		return false, err
+	}
+	return v.Success, nil
+}
+
+// DBTestStart probes a database connector from the project's own runner
+// (reaches IP-allow-listed / VPC hosts the cloud can't). Pass credentials to
+// test freshly-typed values before saving; omit to test the stored project
+// credential. Poll the result with DBTestStatus.
+//
+// POST /api/v1/private/projects/:project/connectors/db-test
+func (c *ConnectorsAPI) DBTestStart(ctx context.Context, project, service string, credentials map[string]string) (*DBTestStartResult, error) {
+	body := map[string]interface{}{"service": service}
+	if len(credentials) > 0 {
+		body["credentials"] = credentials
+	}
+	path := "/api/v1/private/projects/" + url.PathEscape(project) + "/connectors/db-test"
+	data, err := c.h.post(ctx, path, body)
+	if err != nil {
+		return nil, err
+	}
+	var v DBTestStartResult
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+// DBTestStatus polls a project database connector runner-test result started
+// by DBTestStart.
+//
+// GET /api/v1/private/projects/:project/connectors/db-test/:sessionId
+func (c *ConnectorsAPI) DBTestStatus(ctx context.Context, project, sessionID string) (*DBTestStatusResult, error) {
+	path := "/api/v1/private/projects/" + url.PathEscape(project) + "/connectors/db-test/" + url.PathEscape(sessionID)
+	data, err := c.h.get(ctx, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	var v DBTestStatusResult
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}

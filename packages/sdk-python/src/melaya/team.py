@@ -49,6 +49,17 @@ class TeamAPI:
         """Remove a member from a project team."""
         return self._request("DELETE", f"/api/v1/private/projects/{project}/members/{user_id}")
 
+    def transfer_ownership(self, project: str, new_owner_user_id: str) -> JsonDict:
+        """Transfer project ownership to another team member.
+
+        ``new_owner_user_id`` is that member's user id (uuid).
+        """
+        return self._request(
+            "POST",
+            f"/api/v1/private/projects/{project}/transfer-ownership",
+            json={"newOwnerUserId": new_owner_user_id},
+        )
+
     # ── Pipeline visibility ──────────────────────────────────────────────────────
 
     def get_pipeline_visibility(self, project: str, pipeline: str) -> JsonDict:

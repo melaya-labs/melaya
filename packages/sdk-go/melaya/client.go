@@ -43,7 +43,9 @@ import (
 	"io"
 	"math"
 	"math/rand"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"strconv"
 	"strings"
@@ -103,6 +105,13 @@ func (e *MelayaError) IsTierInsufficient() bool { return e.Code == "tier_insuffi
 // IsRateLimited reports whether the error is a 429 rate limit response.
 func (e *MelayaError) IsRateLimited() bool { return e.Status == 429 }
 
+// IsMoneyMovingRefused reports whether the error is a 403 refusal of a
+// money-moving or trading connector tool call (ConnectorToolsAPI.Call always
+// refuses these, under both approval modes).
+func (e *MelayaError) IsMoneyMovingRefused() bool {
+	return e.Code == "money_moving_requires_app_approval"
+}
+
 // Client is the Melaya SDK entry point. Construct with New().
 //
 // The client is safe for concurrent use from multiple goroutines.
@@ -113,7 +122,7 @@ func (e *MelayaError) IsRateLimited() bool { return e.Status == 429 }
 // immediately visible:
 //
 //	m.Trading  — Market, Account, Sim, Strategies, Trade, Backtest, Stream
-//	m.Agents   — Pipelines, Hitl, Assistant, Phone, Evals
+//	m.Agents   — Pipelines, Hitl, Assistant, Phone, Evals, ConnectorTools
 //	m.Platform — Projects, Credentials, Connectors, Billing, Team, Templates,
 //	             Overview, Runner, Auth, Accounts, Bugs, Events
 //
@@ -188,6 +197,11 @@ type Client struct {
 	Bugs *BugsAPI
 	// Events is a Socket.IO client for real-time platform events.
 	Events *EventsClient
+	// ConnectorTools provides the connector tool call surface: list/search/
+	// describe/test/connect/call, the same tools the Melaya MCP server
+	// exposes. Not to be confused with Connectors, which stores project-scoped
+	// connector credentials.
+	ConnectorTools *ConnectorToolsAPI
 }
 
 // New creates a new Melaya client authenticated with an mk_ platform API key.
@@ -268,6 +282,7 @@ func New(apiKey string, opts ...Options) (*Client, error) {
 	c.Evals = &EvalsAPI{h: h}
 	c.Bugs = &BugsAPI{h: h}
 	c.Events = newEventsClient(h, strings.TrimRight(o.BaseURL, "/"))
+	c.ConnectorTools = &ConnectorToolsAPI{h: h}
 
 	// ── Domain namespaces — wire existing pointers under their group ───────
 	c.Trading = &TradingNamespace{
@@ -280,11 +295,12 @@ func New(apiKey string, opts ...Options) (*Client, error) {
 		Stream:     c.Stream,
 	}
 	c.Agents = &AgentsNamespace{
-		Pipelines: c.Pipelines,
-		Hitl:      c.Hitl,
-		Assistant: c.Assistant,
-		Phone:     c.Phone,
-		Evals:     c.Evals,
+		Pipelines:      c.Pipelines,
+		Hitl:           c.Hitl,
+		Assistant:      c.Assistant,
+		Phone:          c.Phone,
+		Evals:          c.Evals,
+		ConnectorTools: c.ConnectorTools,
 	}
 	c.Platform = &PlatformNamespace{
 		Projects:    c.Projects,
@@ -351,11 +367,7 @@ func (c *httpClient) do(ctx context.Context, method, path string, query map[stri
 	// so a single hung request never blocks the caller indefinitely. The
 	// http.Client.Timeout already covers the transport layer; this context
 	// deadline is additive and cancels the request body read as well.
-	timeout := defaultTimeout
-	if c.hc.Timeout > 0 {
-		timeout = c.hc.Timeout
-	}
-	reqCtx, cancel := context.WithTimeout(ctx, timeout)
+	reqCtx, cancel := context.WithTimeout(ctx, c.requestTimeout())
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(reqCtx, method, c.buildURL(path, query), bodyReader)
@@ -545,6 +557,119 @@ func (c *httpClient) del(ctx context.Context, path string, query map[string]stri
 	return parseEnvelope(data, status)
 }
 
+// delWithBody performs a DELETE request carrying a JSON body. Some bridged
+// routes (e.g. credentials/connectors googleDisconnect) take their non-path
+// fields as a DELETE body, per the REST bridge's input rules ("DELETE = path
+// params + query + JSON body"). Like other non-GET verbs, it is never retried.
+func (c *httpClient) delWithBody(ctx context.Context, path string, query map[string]string, body interface{}) ([]byte, error) {
+	data, status, err := c.doWithRetry(ctx, http.MethodDelete, path, query, body)
+	if err != nil {
+		return nil, err
+	}
+	return parseEnvelope(data, status)
+}
+
+// requestTimeout returns the effective per-request timeout: the configured
+// http.Client.Timeout if set, else defaultTimeout. Shared by do() and
+// postMultipart() so both honor the same Options.Timeout.
+func (c *httpClient) requestTimeout() time.Duration {
+	if c.hc.Timeout > 0 {
+		return c.hc.Timeout
+	}
+	return defaultTimeout
+}
+
+// quoteEscaper matches the escaping mime/multipart.Writer.CreateFormFile uses
+// internally for the filename in a part's Content-Disposition header.
+var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
+
+// postMultipart sends a multipart/form-data POST with a single file part
+// named fieldName (plus any extraFields as additional plain form fields).
+// Like all non-GET requests, it is never retried. The response is parsed
+// through the same envelope/error handling as post() — same MelayaError type.
+func (c *httpClient) postMultipart(ctx context.Context, path string, query map[string]string, fieldName, filename, contentType string, file io.Reader, extraFields map[string]string) ([]byte, error) {
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+
+	for k, v := range extraFields {
+		if v == "" {
+			continue
+		}
+		if err := w.WriteField(k, v); err != nil {
+			return nil, fmt.Errorf("melaya: write multipart field %q: %w", k, err)
+		}
+	}
+
+	var part io.Writer
+	var err error
+	if contentType != "" {
+		h := make(textproto.MIMEHeader)
+		h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, fieldName, quoteEscaper.Replace(filename)))
+		h.Set("Content-Type", contentType)
+		part, err = w.CreatePart(h)
+	} else {
+		part, err = w.CreateFormFile(fieldName, filename)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("melaya: create multipart file part: %w", err)
+	}
+	if _, err := io.Copy(part, file); err != nil {
+		return nil, fmt.Errorf("melaya: write multipart file body: %w", err)
+	}
+	if err := w.Close(); err != nil {
+		return nil, fmt.Errorf("melaya: close multipart writer: %w", err)
+	}
+
+	reqCtx, cancel := context.WithTimeout(ctx, c.requestTimeout())
+	defer cancel()
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, c.buildURL(path, query), &buf)
+	if err != nil {
+		return nil, err
+	}
+	// Never expose the credential in error messages — only set it in the header.
+	req.Header.Set("Authorization", "Bearer "+c.credential)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+
+	resp, err := c.hc.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return parseEnvelope(data, resp.StatusCode)
+}
+
+// getBytes performs a GET request and returns the raw, undecoded response
+// body — for binary downloads (e.g. PipelinesAPI.RunInputFile). Errors are
+// parsed the same way as get() (same MelayaError type); a successful response
+// is returned as-is, without JSON-decoding or an envelope ok==false check
+// (the body is not expected to be JSON). May retry like other GETs on network
+// errors, 429, and 5xx.
+func (c *httpClient) getBytes(ctx context.Context, path string, query map[string]string) ([]byte, error) {
+	data, status, err := c.doWithRetry(ctx, http.MethodGet, path, query, nil)
+	if err != nil {
+		return nil, err
+	}
+	if status >= 400 {
+		var env map[string]interface{}
+		code := ""
+		if json.Unmarshal(data, &env) == nil {
+			if c2, ok := env["error"].(string); ok {
+				code = c2
+			}
+		}
+		msg := "Melaya API " + strconv.Itoa(status)
+		if code != "" {
+			msg += " (" + code + ")"
+		}
+		return nil, &MelayaError{Message: msg, Status: status, Code: code, Body: env}
+	}
+	return data, nil
+}
+
 // unmarshal decodes JSON bytes into v.
 func unmarshal(data []byte, v interface{}) error {
 	return json.Unmarshal(data, v)
@@ -553,4 +678,10 @@ func unmarshal(data []byte, v interface{}) error {
 // okResult is a common single-field response.
 type okResult struct {
 	Ok bool `json:"ok"`
+}
+
+// successResult is a common single-field response for routes that report
+// {"success": true} instead of {"ok": true}.
+type successResult struct {
+	Success bool `json:"success"`
 }

@@ -66,10 +66,33 @@ module Melaya
       @http.post("/api/v1/private/phone/active-run", "runId" => run_id)
     end
 
+    # POST /api/v1/private/phone/apps/grant
+    # Grant ONE app into the agent allowlist (atomic append) — e.g. from an
+    # in-chat "allow this app" approval card, without replacing the whole list.
+    # @param package [String] Android package name
+    # @param label [String, nil]
+    def grant_app(package, label: nil)
+      body = compact("package" => package, "label" => label)
+      @http.post("/api/v1/private/phone/apps/grant", body)
+    end
+
+    # POST /api/v1/private/phone/request-cast
+    # Re-cast the phone screen (re-triggers the MediaProjection consent
+    # prompt) from the desktop mirror.
+    # @param device_id [String, nil]
+    def request_cast(device_id: nil)
+      body = compact("deviceId" => device_id)
+      @http.post("/api/v1/private/phone/request-cast", body.empty? ? nil : body)
+    end
+
     private
 
     def enc(s)
       URI.encode_www_form_component(s.to_s)
+    end
+
+    def compact(hash)
+      hash.reject { |_, v| v.nil? }
     end
   end
 end

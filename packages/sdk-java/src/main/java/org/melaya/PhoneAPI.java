@@ -82,4 +82,33 @@ public class PhoneAPI {
         return http.post("/api/v1/private/phone/active-run",
                 MarketAPI.params("runId", runId));
     }
+
+    /**
+     * Grant ONE app into the agent allowlist (atomic append; used by the
+     * assistant's in-chat approve card).
+     *
+     * <p>Maps to {@code POST /api/v1/private/phone/apps/grant}.
+     *
+     * @param packageName the Android package name to grant
+     * @param label       optional display label; may be {@code null}
+     */
+    public JsonNode grantApp(String packageName, String label) {
+        Map<String, String> body = label != null
+                ? Map.of("package", packageName, "label", label)
+                : Map.of("package", packageName);
+        return http.post("/api/v1/private/phone/apps/grant", body);
+    }
+
+    /**
+     * Re-cast the phone screen (re-triggers MediaProjection consent) from the
+     * desktop mirror.
+     *
+     * <p>Maps to {@code POST /api/v1/private/phone/request-cast}.
+     *
+     * @param deviceId optional device ID; may be {@code null}
+     */
+    public JsonNode requestCast(String deviceId) {
+        Map<String, Object> body = deviceId != null ? Map.of("deviceId", deviceId) : Map.of();
+        return http.post("/api/v1/private/phone/request-cast", body);
+    }
 }

@@ -1,9 +1,11 @@
-# Melaya PHP SDK v0.2.0
+# Melaya PHP SDK v0.3.0
 
 > **Product status:** Agent Builder and Mobile Device Control are the current public products. Melaya Trading namespaces are preview-only and planned for later public release; do not use them with real funds.
 
 Official PHP SDK for the [Melaya](https://melaya.org) agent-builder and Device Control platform.
-Three planes: agents (pipelines, HITL, phone device control, assistant, evals, models), platform (projects, credentials, connectors, team, billing, templates, runner, auth), and trading (market data, strategies, backtesting, streaming; trading coming later under Melaya Labs).
+Three planes: agents (pipelines, HITL, phone device control, assistant, evals, models, connector tools), platform (projects, credentials, connectors, team, billing, templates, runner, auth), and trading (market data, strategies, backtesting, streaming; trading coming later under Melaya Labs).
+
+**Melaya products:** [Melaya Agents](https://melaya.org/en/product/agentic-framework) · [Melaya Assistant](https://melaya.org/en/product/assistant) · [Device Control](https://melaya.org/en/product/agentic-device-control) · [Browser Control](https://melaya.org/en/product/agentic-browser-control) · [MCP Server](https://melaya.org/en/product/mcp) · [Melaya Marketing](https://melaya.org/en/product/marketing)
 
 ## Requirements
 
@@ -62,7 +64,7 @@ so the domain structure is immediately visible:
 
 ```
 $m->trading   — market, account, sim, strategies, trade, backtest, stream, optimize
-$m->agents    — pipelines, hitl, assistant, phone, evals
+$m->agents    — pipelines, hitl, assistant, phone, evals, connectorTools
 $m->platform  — projects, credentials, connectors, billing, team, templates,
                  overview, runner, auth, accounts, bugs, events
 ```
@@ -95,6 +97,8 @@ $devices = $m->agents->phone->listDevices();
 $apps    = $m->agents->phone->listApps();
 
 $m->agents->phone->setAllowedApps(['com.android.chrome']);
+$m->agents->phone->grantApp('com.instagram.android', 'Instagram'); // atomic append, not a replace
+$m->agents->phone->requestCast(); // re-trigger MediaProjection consent
 ```
 
 Create and run an agent pipeline. Configure provider credentials through
@@ -102,26 +106,33 @@ Melaya Connectors first — never put a provider key in pipeline configuration
 or per-run overrides:
 
 ```php
+// The run is generated ONLY from `steps[]` — a top-level `agents[]` array with
+// no matching `steps[]` entry produces an EMPTY pipeline. Embed the full agent
+// object inside its step, as below. There is no `prompt` field: the task goes
+// in `instruction`, and an optional `system_prompt_override` replaces the
+// agent's default system prompt entirely.
 $m->agents->pipelines->create([
-    'name'           => 'mobile-review',
-    'project'        => 'Operations',
-    'model_provider' => 'anthropic',
-    'model_name'     => 'claude-sonnet-4-6',
-    'agents'         => [[
-        'name'        => 'mobile-operator',
-        'role'        => 'Careful mobile operator',
-        'instruction' => 'Read before acting. Never send, publish, or delete.',
-        'agent_tools' => [
-            'phone_get_screen_tree',
-            'phone_current_app',
-            'phone_open_app',
-            'phone_click_text',
-            'phone_back',
-            'phone_wait',
+    'name'       => 'mobile-review',
+    'project'    => 'Operations',
+    'steps'      => [[
+        'kind'  => 'agent',
+        'agent' => [
+            'name'        => 'mobile-operator',
+            'role'        => 'Careful mobile operator',
+            'instruction' => 'Read before acting. Never send, publish, or delete.',
+            'model'       => ['provider' => 'anthropic', 'name' => 'claude-sonnet-4-6'],
+            'agent_tools' => [
+                'phone_get_screen_tree',
+                'phone_current_app',
+                'phone_open_app',
+                'phone_click_text',
+                'phone_back',
+                'phone_wait',
+            ],
+            'human_approval_tools' => [],
         ],
     ]],
-    'steps'          => [['kind' => 'agent', 'agent' => ['name' => 'mobile-operator']]],
-    'maxCostUsd'     => 1.00,
+    'maxCostUsd' => 1.00,
 ]);
 
 $run = $m->agents->pipelines->run('mobile-review', ['project' => 'Operations']);
@@ -130,6 +141,23 @@ $m->agents->phone->registerActiveRun($run['run_id']);
 
 $status = $m->agents->pipelines->runStatus('mobile-review', $run['run_id']);
 ```
+
+To edit an existing pipeline, `getPipeline()` returns an ENVELOPE
+`{ name, client, config, code, docs }` — mutate `envelope['config']` and pass
+THAT (not the envelope) to `update()`:
+
+```php
+$envelope = $m->agents->pipelines->getPipeline('mobile-review', 'Operations');
+$config = $envelope['config'];
+$config['steps'][0]['agent']['model'] = ['provider' => 'anthropic', 'name' => 'claude-opus-4-8'];
+$m->agents->pipelines->update('mobile-review', ['config' => $config, 'project' => 'Operations']);
+```
+
+Other config fields worth knowing: `hitl_mode` (`"safe"` default | `"autonomous"`
+| `"payments_only"` — only `"safe"` honours each agent's `human_approval_tools`),
+`connector_source` (`"personal"` | `"project"`), `force_local_runner`, and
+`inputs[]` (declares the run-time inputs a run accepts — see `run()` and
+`uploadRunFile()` below).
 
 #### GA API surface
 
@@ -151,6 +179,7 @@ $status = $m->agents->pipelines->runStatus('mobile-review', $run['run_id']);
 | runner | `$m->platform->runner` / `$m->runner` | Local-runner token management |
 | team | `$m->platform->team` / `$m->team` | Members, roles, invites |
 | assistant | `$m->agents->assistant` / `$m->assistant` | Assistant onboarding profile |
+| connectorTools | `$m->agents->connectorTools` / `$m->connectorTools` | Discover and call connector tools (Gmail, Slack, Stripe, …) |
 | bugs | `$m->platform->bugs` / `$m->bugs` | Bug reports and notifications |
 
 Full method tables are in the [Module Reference](#module-reference) below.
@@ -232,6 +261,27 @@ $runs   = $m->agents->pipelines->list(['project' => 'my-agent-project', 'limit' 
 $recent = $m->agents->pipelines->recent();
 $traces = $m->agents->pipelines->traces($runId);
 
+// Run inputs — a brief plus values, including an uploaded file
+$upload = $m->agents->pipelines->uploadRunFile('mobile-review', 'report', file_get_contents('report.pdf'), [
+    'filename' => 'report.pdf', 'contentType' => 'application/pdf',
+]);
+$run = $m->agents->pipelines->run('mobile-review', [
+    'project'     => 'my-agent-project',
+    'run_inputs'  => ['brief' => 'Summarize this report', 'values' => ['report' => ['file_id' => $upload['file_id']]]],
+]);
+$inputs = $m->agents->pipelines->runInputs('mobile-review', $run['run_id']);
+$active = $m->agents->pipelines->runActive('mobile-review', $run['run_id']);
+
+// Static-context and retrieval (RAG) documents
+$m->agents->pipelines->uploadDoc('mobile-review', file_get_contents('policy.md'), ['filename' => 'policy.md']);
+$docs = $m->agents->pipelines->listDocs('mobile-review');
+$m->agents->pipelines->uploadRetrievalDoc('mobile-review', file_get_contents('kb.pdf'), ['filename' => 'kb.pdf']);
+$m->agents->pipelines->ingestRetrieval('mobile-review');
+
+// Tool-call audit
+$calls  = $m->agents->pipelines->projectToolCalls('my-agent-project', ['limit' => 30]);
+$facets = $m->agents->pipelines->projectToolCallFacets('my-agent-project');
+
 // Cron schedules
 $m->agents->pipelines->upsertSchedule('my-project', 'nightly-report', ['cron' => '0 2 * * *']);
 $m->agents->pipelines->pauseSchedule('my-project', 'nightly-report');
@@ -266,6 +316,26 @@ $runs    = $m->agents->evals->listRuns();
 $summary = $m->agents->evals->summary();
 $detail  = $m->agents->evals->runDetail($runId);
 $compare = $m->agents->evals->compare(['runIds' => [$runId1, $runId2]]);
+
+// Connector tools — call the same tools the Assistant and MCP server expose
+$services = $m->agents->connectorTools->services();
+$found    = $m->agents->connectorTools->search('unread email', 5);
+$info     = $m->agents->connectorTools->describe('gmail_list_messages');
+
+// Reads run immediately.
+$result = $m->agents->connectorTools->call('gmail_list_messages');
+
+// Writes default to an approval card in the Melaya app (approval: "required").
+// call() returns the 202 body — that IS success, not an error.
+$staged  = $m->agents->connectorTools->call('gmail_send', ['to' => 'a@b.com']);
+$outcome = $m->agents->connectorTools->callStatus($staged['requestId']);
+
+// Or block until the approval is decided (or the timeout elapses):
+$outcome = $m->agents->connectorTools->callAndWait('gmail_send', ['to' => 'a@b.com']);
+
+// approval: "none" skips the card and runs immediately (still audit-logged).
+// Tools that move money or trade are refused under BOTH approval modes.
+$m->agents->connectorTools->call('gmail_send', ['to' => 'a@b.com'], 'none');
 ```
 
 ### Platform namespace
@@ -281,11 +351,15 @@ $m->platform->auth->mfaConfirm('123456');
 $credits   = $m->platform->accounts->credits();
 $aiCredits = $m->platform->accounts->aiCredits();
 $export    = $m->platform->accounts->exportMyData();
+$m->platform->accounts->resendEmailVerification();
+$m->platform->accounts->verifyEmail($token);
 
 // Billing
 $sub      = $m->platform->billing->subscription();
 $checkout = $m->platform->billing->createCheckout(['tier' => 'bastion']);
 $plans    = $m->platform->billing->plans();
+$perk     = $m->platform->billing->ambassadorPerk();
+$m->platform->billing->redeemCode('WELCOME10');
 
 // Projects
 $projects = $m->platform->projects->list();
@@ -305,16 +379,24 @@ $m->platform->runner->revokeToken($tokens[0]['id']);
 $m->platform->credentials->set('openai', ['value' => 'sk-...', 'label' => 'OpenAI prod']);
 $m->platform->credentials->test('openai');
 $models = $m->platform->credentials->listModels(['provider' => 'anthropic']);
+$google = $m->platform->credentials->googleStatus();
+$m->platform->credentials->googleSetDefault('gmail', $accountId);
+$m->platform->credentials->googleDisconnect($accountId); // whole account
+$session = $m->platform->credentials->dbTestStart('postgres', ['host' => '10.0.0.5', 'port' => 5432]);
+$m->platform->credentials->dbTestStatus($session['sessionId']);
 
-// Project connectors
+// Project connectors — sharing personal creds into a project pool
 $m->platform->connectors->set('my-project', 'openai', ['value' => 'sk-...']);
 $handle = $m->platform->connectors->envHandle('my-project');
+$m->platform->connectors->applyPersonal('my-project', 'openai');
+$sharedBy = $m->platform->connectors->sharedBy('my-project');
 
 // Team
 $members = $m->platform->team->listMembers('my-project');
 $m->platform->team->invite('my-project', 'alice');
 $link = $m->platform->team->createInviteLink('my-project');
 $m->platform->team->updateMemberRole('my-project', $userId, 'editor');
+$m->platform->team->transferOwnership('my-project', $newOwnerUserId);
 
 // Templates
 $templates = $m->platform->templates->listGlobal();
@@ -441,6 +523,8 @@ $m->projects->list(...);
 | `aiCredits()` | auth | AI/LLM credit balance |
 | `portfolioIdeasCredits()` | auth | Portfolio-ideas credit balance |
 | `riskMonitoringCredits()` | auth | Risk-monitoring credit balance |
+| `resendEmailVerification()` | auth | Re-send saved-email verification |
+| `verifyEmail($token)` | auth | Confirm saved email ownership |
 
 ### `$m->billing`
 
@@ -450,6 +534,9 @@ $m->projects->list(...);
 | `createCheckout($body)` | auth | Create Stripe Checkout session |
 | `createPortal()` | auth | Create Stripe Portal session |
 | `plans()` | public | Public pricing plan details |
+| `ambassadorPerk()` | auth | Caller's ambassador discount, or null |
+| `redeemCode($code)` | auth | Redeem a single-use promo code |
+| `reservedPromo()` | auth | Caller's active reserved promo, or null |
 
 ### `$m->runner`
 
@@ -527,10 +614,14 @@ $m->projects->list(...);
 | `getPipeline($name, $project)` | auth | Get a pipeline config |
 | `update($name, $body)` | auth | Update a pipeline |
 | `deletePipeline($name, $project)` | auth | Delete a pipeline |
-| `run($name, $body)` | auth | Trigger a run |
+| `run($name, $body)` | auth | Trigger a run (accepts `run_inputs`) |
+| `uploadRunFile($name, $key, $file, $opts)` | auth | Upload a file for a later run |
 | `runIds($name)` | auth | List run IDs |
 | `runStatus($name, $runId)` | auth | Run status |
 | `cancelRun($name, $runId)` | auth | Cancel a run |
+| `runActive($name, $runId)` | auth | Poll whether a run is still active |
+| `runInputs($name, $runId)` | auth | What a run was started with |
+| `runInputFile($name, $runId, $index)` | auth | Download one run-input file (raw bytes) |
 | `outputs($name)` | auth | List output artifacts |
 | `output($name, $path, $download)` | auth | Get/download an artifact |
 | `previewCode($config)` | auth | Preview generated code |
@@ -538,6 +629,12 @@ $m->projects->list(...);
 | `subagents()` | auth | Subagent registry (100+ specialized subagents) |
 | `instantiateTemplate($templateId, $body)` | auth | Instantiate a template |
 | `buildWithAI($brief)` | auth | AI-assisted pipeline generation |
+| `listDocs($name)` | auth | List static-context documents |
+| `uploadDoc($name, $file, $opts)` | auth | Upload a static-context document |
+| `deleteDoc($name, $filename)` | auth | Delete a static-context document |
+| `uploadRetrievalDoc($name, $file, $opts)` | auth | Upload a RAG (retrieval) document |
+| `ingestRetrieval($name, $body)` | auth | Embed changed retrieval documents |
+| `deleteRetrievalDoc($name, $filename)` | auth | Delete a retrieval document |
 | `list($params)` | auth | Paginated run list |
 | `count()` | auth | Count runs by status |
 | `recent()` | auth | Most recent runs |
@@ -545,6 +642,9 @@ $m->projects->list(...);
 | `trace($runId, $traceId)` | auth | Single trace |
 | `traceStats($runId, $traceId)` | auth | Trace statistics |
 | `deleteTraces($runId)` | auth | Delete traces |
+| `projectToolCalls($project, $params)` | auth | Project tool-call audit ledger |
+| `projectToolCallFacets($project)` | auth | Tool/agent facets for the audit filters |
+| `toolCallDetail($runId, $spanId)` | auth | Full untruncated tool-call span |
 | `listSchedules()` | auth | List all schedules |
 | `getSchedule($project, $pipeline)` | auth | Get schedule |
 | `upsertSchedule($project, $pipeline, $body)` | auth | Create/update schedule |
@@ -611,6 +711,18 @@ $m->projects->list(...);
 | `telegramAuthStart($phone)` | auth | Telegram phone step |
 | `telegramAuthCode($code)` | auth | Telegram SMS code |
 | `telegramAuth2fa($password)` | auth | Telegram 2FA |
+| `googleStatus()` | auth | Google OAuth capabilities granted |
+| `googleSetDefault($capability, $accountId)` | auth | Select default Google account for a capability |
+| `googleDisconnect($accountId, $capability)` | auth | Disconnect a Google product or account |
+| `dbTestStart($service, $credentials)` | auth | Test a DB connector from the user's runner |
+| `dbTestStatus($sessionId)` | auth | Poll DB connector test result |
+| `telegramQrStart($apiId, $apiHash)` | auth | Start Telegram QR login |
+| `telegramQrPoll($handle)` | auth | Poll Telegram QR login |
+| `whatsappSignupConfig()` | auth | WhatsApp Embedded Signup config |
+| `whatsappSignupExchange($body)` | auth | WhatsApp Embedded Signup code exchange |
+| `tiktokCreatorInfo()` | auth | Connected TikTok account's creator info |
+| `substackEmailLinkSend($email)` | auth | Ask Substack to email a sign-in link |
+| `substackEmailLinkRedeem($link, $email)` | auth | Finish Substack sign-in |
 
 ### `$m->connectors`
 
@@ -621,6 +733,13 @@ $m->projects->list(...);
 | `delete($project, $service)` | auth | Delete connector credential |
 | `envHandle($project)` | auth | Get env-handle token |
 | `googleOAuthStart($project)` | auth | Start Google OAuth |
+| `applyPersonal($project, $service, $googleCapabilities)` | auth | Share a personal connector into the project |
+| `sharedBy($project)` | auth | Who shared each project connector |
+| `googleStatus($project)` | auth | Project's Google OAuth capabilities |
+| `googleSetDefault($project, $capability, $accountId)` | auth | Select project's default Google account |
+| `googleDisconnect($project, $accountId, $capability)` | auth | Disconnect a project's Google product/account |
+| `dbTestStart($project, $service, $credentials)` | auth | Test a project DB connector from the user's runner |
+| `dbTestStatus($project, $sessionId)` | auth | Poll project DB connector test result |
 
 ### `$m->team`
 
@@ -632,6 +751,7 @@ $m->projects->list(...);
 | `acceptInvite($token)` | auth | Accept an invite |
 | `updateMemberRole($project, $userId, $role)` | auth | Update member role |
 | `removeMember($project, $userId)` | auth | Remove member |
+| `transferOwnership($project, $newOwnerUserId)` | auth | Transfer project ownership |
 | `getPipelineVisibility($project, $pipeline)` | auth | Get pipeline visibility |
 | `setPipelineVisibility($project, $pipeline, $body)` | auth | Set pipeline visibility |
 
@@ -663,6 +783,8 @@ $m->projects->list(...);
 | `listApps()` | auth | List installed apps |
 | `setAllowedApps($packageNames)` | auth | Set app allowlist |
 | `registerActiveRun($runId)` | auth | Register active run |
+| `grantApp($pkg, $label)` | auth | Grant one app into the allowlist (atomic append) |
+| `requestCast($deviceId)` | auth | Re-cast the phone screen |
 
 ### `$m->assistant`
 
@@ -683,6 +805,33 @@ $m->projects->list(...);
 | `runMemory($runId)` | auth | Memory for a run |
 | `crewMemory($params)` | auth | Agent crew memory |
 | `benchmarks()` | auth | Benchmark scores |
+| `editEntry($body)` | auth | Edit one persisted crew-memory entry |
+| `deleteEntry($body)` | auth | Delete one persisted crew-memory entry |
+
+### `$m->connectorTools`
+
+The same connector tool surface the Melaya app and MCP server expose (Gmail,
+Slack, Stripe, …) — discover and call tools directly. **Not** the same as
+`$m->connectors`, which stores project-scoped connector *credentials*; this
+module *calls* the tools those credentials unlock, and no method here ever
+accepts or returns a credential value.
+
+Reads run immediately. Writes default to an approval card in the Melaya app
+(`$approval = "required"`, the default on `call()`); `$approval = "none"`
+runs the write immediately and is audit-logged instead. Tools that move money
+or trade are always refused, under both approval modes, and raise a
+`MelayaException` with `errorCode === "money_moving_requires_app_approval"`.
+
+| Method | Auth | Description |
+|---|---|---|
+| `services()` | auth | Connected services + read/write tool counts |
+| `search($q, $limit)` | auth | Discover tools by plain business keywords |
+| `describe($tool)` | auth | Full description of one tool (params, readOnly, movesMoney) |
+| `test($service)` | auth | Test the stored credential for a service |
+| `connect($service)` | auth | Start connecting a service (never accepts a secret) |
+| `call($tool, $args, $approval)` | auth | Call a tool — read runs immediately; write stages (202) unless `$approval = "none"` |
+| `callStatus($requestId)` | auth | Poll the outcome of a staged write |
+| `callAndWait($tool, $args, $approval, $pollIntervalMs, $timeoutMs)` | auth | `call()` + blocks polling `callStatus()` to a final outcome |
 
 ### `$m->bugs`
 

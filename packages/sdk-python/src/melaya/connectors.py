@@ -59,3 +59,65 @@ class ConnectorsAPI:
         """Start Google OAuth flow for project-scoped connector."""
         return self._request("POST", f"/api/v1/private/projects/{project}/connectors/google/oauth",
                              json=kwargs if kwargs else None)
+
+    def apply_personal(
+        self, project: str, service: str, *, google_capabilities: Optional[List[str]] = None
+    ) -> JsonDict:
+        """Share the caller's own personal connector into a project.
+
+        Requires editor/owner on the project. The caller's personal connector
+        credential for ``service`` becomes usable by pipelines in ``project``.
+        """
+        body: Dict[str, Any] = {}
+        if google_capabilities is not None:
+            body["googleCapabilities"] = google_capabilities
+        return self._request(
+            "POST", f"/api/v1/private/projects/{project}/connectors/{service}/apply-personal", json=body
+        )
+
+    def shared_by(self, project: str) -> List[JsonDict]:
+        """List connectors shared into a project by their owners (via ``apply_personal``)."""
+        return self._request("GET", f"/api/v1/private/projects/{project}/connectors/shared-by")
+
+    def google_status(self, project: str) -> JsonDict:
+        """Get Google account connection status for a project's connectors."""
+        return self._request("GET", f"/api/v1/private/projects/{project}/connectors/google/status")
+
+    def google_set_default(self, project: str, capability: str, account_id: str) -> JsonDict:
+        """Set the default connected Google account for one capability, project-scoped.
+
+        ``capability`` is one of: gmail, calendar, drive, sheets, docs,
+        search_console, youtube, google_ads, analytics, meet, slides.
+        ``account_id`` is a 24-hex-char id.
+        """
+        return self._request(
+            "PUT",
+            f"/api/v1/private/projects/{project}/connectors/google/default",
+            json={"capability": capability, "accountId": account_id},
+        )
+
+    def google_disconnect(self, project: str, account_id: str, *, capability: Optional[str] = None) -> JsonDict:
+        """Disconnect a Google account (or one capability of it), project-scoped.
+
+        Omit ``capability`` to disconnect the account entirely from this project.
+        """
+        body: Dict[str, Any] = {"accountId": account_id}
+        if capability is not None:
+            body["capability"] = capability
+        return self._request(
+            "DELETE", f"/api/v1/private/projects/{project}/connectors/google/access", json=body
+        )
+
+    def db_test_start(self, project: str, service: str, *, credentials: Optional[Dict[str, str]] = None) -> JsonDict:
+        """Start a database connectivity probe from the user's runner, project-scoped.
+
+        Returns ``{"sessionId": ...}``; poll with ``db_test_status()``.
+        """
+        body: Dict[str, Any] = {"service": service}
+        if credentials is not None:
+            body["credentials"] = credentials
+        return self._request("POST", f"/api/v1/private/projects/{project}/connectors/db-test", json=body)
+
+    def db_test_status(self, project: str, session_id: str) -> JsonDict:
+        """Poll a project-scoped database connectivity probe session."""
+        return self._request("GET", f"/api/v1/private/projects/{project}/connectors/db-test/{session_id}")

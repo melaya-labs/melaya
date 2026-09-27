@@ -98,6 +98,20 @@ public class TeamAPI {
                 null);
     }
 
+    /**
+     * Transfer project ownership (creator) to another active member.
+     *
+     * <p>Maps to {@code POST /api/v1/private/projects/{project}/transfer-ownership}.
+     *
+     * @param project        the project name
+     * @param newOwnerUserId the new owner's user ID (uuid)
+     */
+    public JsonNode transferOwnership(String project, String newOwnerUserId) {
+        return http.post(
+                "/api/v1/private/projects/" + encode(project) + "/transfer-ownership",
+                params("newOwnerUserId", newOwnerUserId));
+    }
+
     // ── Pipeline visibility ───────────────────────────────────────────────────
 
     /**

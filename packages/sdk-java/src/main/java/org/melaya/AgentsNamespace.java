@@ -29,27 +29,31 @@ package org.melaya;
  *   <li>{@link #assistant()} — onboarding/persona profile (get + set)</li>
  *   <li>{@link #phone()} — Android device pairing and control</li>
  *   <li>{@link #evals()} — pipeline evaluation results and comparisons</li>
+ *   <li>{@link #connectorTools()} — discover and call connector tools (the MCP tool surface over REST)</li>
  * </ul>
  */
 public final class AgentsNamespace {
 
-    private final PipelinesAPI pipelines;
-    private final HitlAPI      hitl;
-    private final AssistantAPI assistant;
-    private final PhoneAPI     phone;
-    private final EvalsAPI     evals;
+    private final PipelinesAPI      pipelines;
+    private final HitlAPI           hitl;
+    private final AssistantAPI      assistant;
+    private final PhoneAPI          phone;
+    private final EvalsAPI          evals;
+    private final ConnectorToolsAPI connectorTools;
 
     AgentsNamespace(
-            PipelinesAPI pipelines,
-            HitlAPI      hitl,
-            AssistantAPI assistant,
-            PhoneAPI     phone,
-            EvalsAPI     evals) {
-        this.pipelines = pipelines;
-        this.hitl      = hitl;
-        this.assistant = assistant;
-        this.phone     = phone;
-        this.evals     = evals;
+            PipelinesAPI      pipelines,
+            HitlAPI           hitl,
+            AssistantAPI      assistant,
+            PhoneAPI          phone,
+            EvalsAPI          evals,
+            ConnectorToolsAPI connectorTools) {
+        this.pipelines      = pipelines;
+        this.hitl           = hitl;
+        this.assistant      = assistant;
+        this.phone          = phone;
+        this.evals          = evals;
+        this.connectorTools = connectorTools;
     }
 
     /** Pipeline run overview, traces, and cron schedules. */
@@ -66,4 +70,12 @@ public final class AgentsNamespace {
 
     /** Pipeline evaluation results, comparisons, and memory graphs. */
     public EvalsAPI evals() { return evals; }
+
+    /**
+     * Connector tool calls — the same list/discover/test/connect/call surface
+     * the MCP server exposes, over plain REST: {@link ConnectorToolsAPI#services},
+     * {@link ConnectorToolsAPI#search}, {@link ConnectorToolsAPI#call}, and
+     * {@link ConnectorToolsAPI#callAndWait}.
+     */
+    public ConnectorToolsAPI connectorTools() { return connectorTools; }
 }

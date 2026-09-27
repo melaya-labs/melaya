@@ -265,4 +265,133 @@ public class CredentialsAPI {
     public JsonNode telegramUserAuth2fa(Map<String, Object> body) {
         return http.post("/api/v1/private/credentials/telegram/auth/2fa", body);
     }
+
+    // ── Telegram QR login ────────────────────────────────────────────────────
+
+    /**
+     * Start Telegram user QR login. Returns {@code { handle, ... }}.
+     *
+     * @param apiId   Telegram API ID
+     * @param apiHash Telegram API hash
+     */
+    public JsonNode telegramQrStart(long apiId, String apiHash) {
+        return http.post("/api/v1/private/credentials/telegram/auth/qr/start",
+                Map.of("api_id", apiId, "api_hash", apiHash));
+    }
+
+    /**
+     * Poll Telegram user QR login.
+     *
+     * @param handle the handle returned by {@link #telegramQrStart} (starts with {@code "tgauth_"})
+     */
+    public JsonNode telegramQrPoll(String handle) {
+        return http.post("/api/v1/private/credentials/telegram/auth/qr/poll", Map.of("handle", handle));
+    }
+
+    // ── WhatsApp Embedded Signup ─────────────────────────────────────────────
+
+    /** WhatsApp Embedded Signup config ({@code appId}/{@code configId}). */
+    public JsonNode whatsappSignupConfig() {
+        return http.get("/api/v1/private/credentials/whatsapp/embedded-signup/config", null);
+    }
+
+    /**
+     * Exchange a WhatsApp Embedded Signup code for a connected number.
+     *
+     * @param body map containing {@code code}, {@code phoneNumberId}, {@code wabaId},
+     *             and optionally {@code project}
+     */
+    public JsonNode whatsappSignupExchange(Map<String, Object> body) {
+        return http.post("/api/v1/private/credentials/whatsapp/embedded-signup/exchange", body);
+    }
+
+    // ── TikTok ────────────────────────────────────────────────────────────────
+
+    /**
+     * Get the connected TikTok account's creator info (nickname, allowed privacy
+     * levels, interaction availability) for the compliant Post-to-TikTok approval UI.
+     */
+    public JsonNode tiktokCreatorInfo() {
+        return http.get("/api/v1/private/credentials/tiktok/creator-info", null);
+    }
+
+    // ── Substack ──────────────────────────────────────────────────────────────
+
+    /**
+     * Ask Substack to email a sign-in link.
+     *
+     * @param email the email to send the sign-in link to
+     */
+    public JsonNode substackEmailLinkSend(String email) {
+        return http.post("/api/v1/private/credentials/substack/email-link", Map.of("email", email));
+    }
+
+    /**
+     * Finish Substack sign-in with the emailed link.
+     *
+     * @param link  the link from the emailed sign-in message
+     * @param email optional email to disambiguate; may be {@code null}
+     */
+    public JsonNode substackEmailLinkRedeem(String link, String email) {
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("link", link);
+        if (email != null) body.put("email", email);
+        return http.post("/api/v1/private/credentials/substack/email-link/redeem", body);
+    }
+
+    // ── Google OAuth (personal) ──────────────────────────────────────────────
+
+    /** List the Google OAuth capabilities actually granted to the caller. */
+    public JsonNode googleStatus() {
+        return http.get("/api/v1/private/credentials/google/status", null);
+    }
+
+    /**
+     * Select the connected Google account used by one capability.
+     *
+     * @param capability a Google capability: {@code gmail}, {@code calendar}, {@code drive},
+     *                   {@code sheets}, {@code docs}, {@code search_console}, {@code youtube},
+     *                   {@code google_ads}, {@code analytics}, {@code meet}, {@code slides}
+     * @param accountId  the 24-hex-char connected-account ID
+     */
+    public JsonNode googleSetDefault(String capability, String accountId) {
+        return http.put("/api/v1/private/credentials/google/default",
+                Map.of("capability", capability, "accountId", accountId));
+    }
+
+    /**
+     * Disconnect one Google product, or an entire Google account.
+     * Sent as a DELETE with a JSON body (not query params).
+     *
+     * @param accountId  the connected-account ID to disconnect
+     * @param capability optional single capability to disconnect; {@code null} disconnects
+     *                   the whole account
+     */
+    public JsonNode googleDisconnect(String accountId, String capability) {
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("accountId", accountId);
+        if (capability != null) body.put("capability", capability);
+        return http.delete("/api/v1/private/credentials/google/access", null, body);
+    }
+
+    // ── Database connector test ──────────────────────────────────────────────
+
+    /**
+     * Test a database connector from the user's runner (reaches IP-allow-listed /
+     * VPC hosts). Returns {@code { sessionId, ... }} to poll with {@link #dbTestStatus}.
+     *
+     * @param service     the database service name
+     * @param credentials optional connection credentials; may be {@code null}
+     */
+    public JsonNode dbTestStart(String service, Map<String, Object> credentials) {
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("service", service);
+        if (credentials != null) body.put("credentials", credentials);
+        return http.post("/api/v1/private/credentials/db-test", body);
+    }
+
+    /** Poll a database connector runner-test result. */
+    public JsonNode dbTestStatus(String sessionId) {
+        return http.get("/api/v1/private/credentials/db-test/" + sessionId, null);
+    }
 }

@@ -42,11 +42,11 @@ class EvalsAPI:
 
     def memory_graph(self) -> JsonDict:
         """Get memory graph visualization data for eval runs."""
-        return self._request("GET", "/api/v1/private/evals/memory-graph")
+        return self._request("GET", "/api/v1/private/memory/graph")
 
     def run_memory(self, run_id: str) -> JsonDict:
         """Get memory usage for a specific eval run."""
-        return self._request("GET", f"/api/v1/private/evals/runs/{run_id}/memory")
+        return self._request("GET", f"/api/v1/private/memory/runs/{run_id}")
 
     def crew_memory(self, *, pipeline: str, project: str) -> JsonDict:
         """Get agent crew memory for a pipeline.
@@ -55,7 +55,7 @@ class EvalsAPI:
             pipeline: The pipeline name.
             project: The project name.
         """
-        return self._request("GET", "/api/v1/private/evals/crew-memory",
+        return self._request("GET", "/api/v1/private/memory/crew",
                              params={"pipeline": pipeline, "project": project})
 
     def benchmarks(self) -> JsonDict:

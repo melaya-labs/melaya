@@ -50,7 +50,7 @@ public class EvalsAPI {
 
     /** Get memory graph visualization data for eval runs. */
     public JsonNode memoryGraph() {
-        return http.get("/api/v1/private/evals/memory-graph", null);
+        return http.get("/api/v1/private/memory/graph", null);
     }
 
     /**
@@ -59,7 +59,7 @@ public class EvalsAPI {
      * @param runId the eval run ID
      */
     public JsonNode runMemory(String runId) {
-        return http.get("/api/v1/private/evals/runs/" + runId + "/memory", null);
+        return http.get("/api/v1/private/memory/runs/" + java.net.URLEncoder.encode(runId, java.nio.charset.StandardCharsets.UTF_8).replace("+", "%20"), null);
     }
 
     /**
@@ -70,12 +70,39 @@ public class EvalsAPI {
      * @param project  the project name
      */
     public JsonNode crewMemory(String pipeline, String project) {
-        return http.get("/api/v1/private/evals/crew-memory",
+        return http.get("/api/v1/private/memory/crew",
                 params("pipeline", pipeline, "project", project));
     }
 
     /** Get benchmark scores across eval runs. */
     public JsonNode benchmarks() {
         return http.get("/api/v1/private/evals/benchmarks", null);
+    }
+
+    // ── Crew memory writes ────────────────────────────────────────────────────
+
+    /**
+     * Edit one persisted cross-run crew-memory entry (editor/owner-gated,
+     * tenant-scoped).
+     *
+     * <p>Maps to {@code POST /api/v1/private/memory/crew/edit}.
+     *
+     * @param body map containing {@code pipeline}, {@code entryId}, optional
+     *             {@code project}, and {@code patch}: {@code { topic?, content?, tags? }}
+     */
+    public JsonNode editCrewMemoryEntry(Map<String, Object> body) {
+        return http.post("/api/v1/private/memory/crew/edit", body);
+    }
+
+    /**
+     * Delete one persisted cross-run crew-memory entry (editor/owner-gated,
+     * tenant-scoped).
+     *
+     * <p>Maps to {@code POST /api/v1/private/memory/crew/delete}.
+     *
+     * @param body map containing {@code pipeline}, {@code entryId}, and optional {@code project}
+     */
+    public JsonNode deleteCrewMemoryEntry(Map<String, Object> body) {
+        return http.post("/api/v1/private/memory/crew/delete", body);
     }
 }

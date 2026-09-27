@@ -28,6 +28,8 @@ package melaya
 //   Assistant → AssistantAPI   (onboarding profile)
 //   Phone     → PhoneAPI       (phone device control)
 //   Evals     → EvalsAPI       (eval run listing + comparison)
+//   ConnectorTools → ConnectorToolsAPI (list/search/describe/test/connect/call
+//                     connector tools — the same surface the MCP server exposes)
 //
 // PLATFORM
 //   Projects    → ProjectsAPI    (create / list agent projects)
@@ -98,6 +100,10 @@ type AgentsNamespace struct {
 	// Evals provides eval-run listing, detail, comparison, and memory-graph
 	// inspection.
 	Evals *EvalsAPI
+	// ConnectorTools provides the connector tool call surface — list, search,
+	// describe, test, connect, and call — the same tools the Melaya MCP
+	// server exposes to an assistant.
+	ConnectorTools *ConnectorToolsAPI
 }
 
 // PlatformNamespace groups every module that concerns the Melaya platform

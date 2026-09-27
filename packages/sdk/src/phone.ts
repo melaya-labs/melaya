@@ -70,4 +70,14 @@ export class PhoneAPI {
   async registerActiveRun(runId: string): Promise<{ ok: boolean }> {
     return this.http.post<{ ok: boolean }>("/api/v1/private/phone/active-run", { runId });
   }
+
+  /** Grant an app package as allowed for phone agent interaction. */
+  async grantApp(packageName: string, label?: string): Promise<{ ok: boolean } & Record<string, unknown>> {
+    return this.http.post("/api/v1/private/phone/apps/grant", { package: packageName, label });
+  }
+
+  /** Request the paired phone cast (mirror) its screen for live viewing. */
+  async requestCast(deviceId?: string): Promise<Record<string, unknown>> {
+    return this.http.post("/api/v1/private/phone/request-cast", deviceId ? { deviceId } : {});
+  }
 }

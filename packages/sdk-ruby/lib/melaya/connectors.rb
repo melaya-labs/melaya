@@ -58,6 +58,79 @@ module Melaya
       @http.post("/api/v1/private/projects/#{enc(project)}/connectors/google/oauth", body)
     end
 
+    # POST /api/v1/private/projects/:project/connectors/:service/apply-personal
+    # Share the caller's OWN personal connector credential into the project
+    # pool (editor or owner only). Values stay server-side.
+    # @param project [String]
+    # @param service [String]
+    # @param google_capabilities [Array<String>, nil] restrict a Google
+    #   connector to these capabilities only, e.g. "gmail", "calendar",
+    #   "drive", "sheets", "docs", "search_console", "youtube", "google_ads",
+    #   "analytics", "meet", "slides"
+    def apply_personal(project, service, google_capabilities: nil)
+      body = compact("googleCapabilities" => google_capabilities)
+      @http.post("/api/v1/private/projects/#{enc(project)}/connectors/#{enc(service)}/apply-personal", body)
+    end
+
+    # GET /api/v1/private/projects/:project/connectors/shared-by
+    # Which member shared each connected project connector (usernames only —
+    # values are never returned).
+    # @param project [String]
+    def shared_by(project)
+      @http.get("/api/v1/private/projects/#{enc(project)}/connectors/shared-by")
+    end
+
+    # ── Google OAuth (status / defaults / disconnect) ─────────────────────────
+
+    # GET /api/v1/private/projects/:project/connectors/google/status
+    # List the Google OAuth capabilities actually granted to a project.
+    # @param project [String]
+    def google_status(project)
+      @http.get("/api/v1/private/projects/#{enc(project)}/connectors/google/status")
+    end
+
+    # PUT /api/v1/private/projects/:project/connectors/google/default
+    # Select the project's connected Google account used by one capability.
+    # @param project [String]
+    # @param capability [String] e.g. "gmail", "calendar", "drive", "sheets", ...
+    # @param account_id [String] 24-hex-char connected-account id
+    def google_set_default(project, capability, account_id)
+      @http.put("/api/v1/private/projects/#{enc(project)}/connectors/google/default",
+        "capability" => capability, "accountId" => account_id)
+    end
+
+    # DELETE /api/v1/private/projects/:project/connectors/google/access
+    # Disconnect one Google product, or an entire Google account, from a project.
+    # @param project [String]
+    # @param account_id [String] 24-hex-char connected-account id
+    # @param capability [String, nil] omit to disconnect the whole account
+    def google_disconnect(project, account_id, capability: nil)
+      body = compact("accountId" => account_id, "capability" => capability)
+      @http.delete("/api/v1/private/projects/#{enc(project)}/connectors/google/access", {}, body)
+    end
+
+    # ── Database connector test (runner-probed) ───────────────────────────────
+
+    # POST /api/v1/private/projects/:project/connectors/db-test
+    # Test a project database connector from the user's own runner (reaches
+    # IP-allow-listed / VPC hosts a cloud probe never could).
+    # @param project [String]
+    # @param service [String] one of "postgres", "mysql", "snowflake", "databricks", "sqlite"
+    # @param credentials [Hash, nil] freshly-typed credentials to test instead of the stored ones
+    # @return [Hash] { "sessionId" => String, ... }
+    def db_test_start(project, service, credentials: nil)
+      body = compact("service" => service, "credentials" => credentials)
+      @http.post("/api/v1/private/projects/#{enc(project)}/connectors/db-test", body)
+    end
+
+    # GET /api/v1/private/projects/:project/connectors/db-test/:sessionId
+    # Poll a project DB connector runner-test result.
+    # @param project [String]
+    # @param session_id [String]
+    def db_test_status(project, session_id)
+      @http.get("/api/v1/private/projects/#{enc(project)}/connectors/db-test/#{enc(session_id)}")
+    end
+
     private
 
     def enc(s)

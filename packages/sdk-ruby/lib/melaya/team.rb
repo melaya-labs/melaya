@@ -68,6 +68,16 @@ module Melaya
       @http.delete("/api/v1/private/projects/#{enc(project)}/members/#{enc(user_id)}")
     end
 
+    # POST /api/v1/private/projects/:project/transfer-ownership
+    # Transfer project ownership (creator) to another active member. Only the
+    # current project owner may call this.
+    # @param project [String]
+    # @param new_owner_user_id [String] uuid of an existing active member
+    def transfer_ownership(project, new_owner_user_id)
+      @http.post("/api/v1/private/projects/#{enc(project)}/transfer-ownership",
+        "newOwnerUserId" => new_owner_user_id)
+    end
+
     # ── Pipeline visibility ────────────────────────────────────────────────────
 
     # GET /api/v1/private/projects/:project/pipelines/:pipeline/visibility

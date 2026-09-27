@@ -56,4 +56,25 @@ class BillingAPI
     {
         return $this->http->get('/api/v1/billing/plans');
     }
+
+    /** The ambassador discount the caller is entitled to, or null. */
+    public function ambassadorPerk(): array
+    {
+        return $this->http->get('/api/v1/private/billing/ambassador-perk');
+    }
+
+    /**
+     * Redeem a single-use promo code to the caller's account. The discount
+     * applies on the next checkout.
+     */
+    public function redeemCode(string $code): array
+    {
+        return $this->http->post('/api/v1/private/billing/redeem-code', ['code' => $code]);
+    }
+
+    /** The caller's active reserved promo (for the subscription modal), or null. */
+    public function reservedPromo(): array
+    {
+        return $this->http->get('/api/v1/private/billing/reserved-promo');
+    }
 }

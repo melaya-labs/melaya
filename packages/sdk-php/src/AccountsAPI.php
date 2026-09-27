@@ -71,4 +71,20 @@ class AccountsAPI
     {
         return $this->http->get('/api/v1/private/accounts/credits/risk-monitoring');
     }
+
+    /** Send a verification email to the signed-in account's saved email. */
+    public function resendEmailVerification(): array
+    {
+        return $this->http->post('/api/v1/private/accounts/resend-email-verification');
+    }
+
+    /**
+     * Confirm saved email ownership without creating a login session.
+     *
+     * @param string $token 64 hex characters, from the verification email link.
+     */
+    public function verifyEmail(string $token): array
+    {
+        return $this->http->post('/api/v1/private/accounts/verify-email', ['token' => $token]);
+    }
 }

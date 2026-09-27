@@ -1,15 +1,17 @@
 """Official Python SDK for the Melaya platform API.
 
 Covers the full surface: platform/agents (projects, pipelines, HITL,
-credentials, connectors, billing, templates, team, phone, assistant, evals,
-bugs, runner) + real-time events (Socket.IO /api/v1/events) + trading preview
-(market data, streaming, strategies, backtests, live trading, paper trading).
+credentials, connectors, connector tool calls, billing, templates, team,
+phone, assistant, evals, bugs, runner) + real-time events (Socket.IO
+/api/v1/events) + trading preview (market data, streaming, strategies,
+backtests, live trading, paper trading).
 
 The client exposes three grouped namespaces as the primary API surface:
 
   melaya.trading   — market, account, sim, strategies, backtest, trade, stream
                      (preview — not for real funds)
-  melaya.agents    — pipelines, hitl, assistant, phone, evals
+  melaya.agents    — pipelines, hitl, assistant, phone, evals, memory,
+                     connector_tools
   melaya.platform  — projects, credentials, connectors, billing, team,
                      templates, runner, auth, mfa, accounts, bugs, events
 
@@ -56,12 +58,14 @@ from .pipelines import PipelinesAPI
 from .hitl import HitlAPI
 from .credentials import CredentialsAPI
 from .connectors import ConnectorsAPI
+from .connector_tools import ConnectorToolsAPI
 from .phone import PhoneAPI
 from .team import TeamAPI
 from .templates import TemplatesAPI
 from .assistant import AssistantAPI
 from .bugs import BugsAPI
 from .evals import EvalsAPI
+from .memory import MemoryAPI
 from .events import MelayaEvents
 
 __all__ = [
@@ -93,13 +97,15 @@ __all__ = [
     "HitlAPI",
     "CredentialsAPI",
     "ConnectorsAPI",
+    "ConnectorToolsAPI",
     "PhoneAPI",
     "TeamAPI",
     "TemplatesAPI",
     "AssistantAPI",
     "BugsAPI",
     "EvalsAPI",
+    "MemoryAPI",
     "MelayaEvents",
 ]
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

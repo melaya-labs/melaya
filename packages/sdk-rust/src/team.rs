@@ -79,6 +79,21 @@ impl TeamAPI {
             .await
     }
 
+    /// Transfer project ownership (creator) to another active member.
+    /// `new_owner_user_id` is the target member's user id (uuid).
+    pub async fn transfer_ownership(
+        &self,
+        project: &str,
+        new_owner_user_id: &str,
+    ) -> Result<Value> {
+        self.http
+            .post(
+                &format!("/api/v1/private/projects/{project}/transfer-ownership"),
+                &json!({ "newOwnerUserId": new_owner_user_id }),
+            )
+            .await
+    }
+
     // ── Pipeline visibility ──────────────────────────────────────────────────
 
     /// Get visibility settings for a pipeline within a project.

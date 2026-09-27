@@ -14,6 +14,7 @@ RunStatus = str  # "pending" | "queued" | "running" | "done" | "error" | "killed
 HitlDecision = str  # "approved" | "rejected"
 TeamRole = str  # "owner" | "editor" | "viewer"
 TemplateVisibility = str  # "private" | "team" | "community" | "assigned"
+ConnectorApproval = str  # "required" | "none"
 
 # Generic JSON dict type used for typed responses
 JsonDict = Dict[str, Any]
@@ -23,6 +24,7 @@ __all__ = [
     "HitlDecision",
     "TeamRole",
     "TemplateVisibility",
+    "ConnectorApproval",
     "JsonDict",
 ]
 

@@ -268,6 +268,41 @@ func (a *AuthAPI) MFAConfirm(ctx context.Context, code string) (map[string]inter
 
 // ── Account helpers ───────────────────────────────────────────────────────────
 
+// ResendEmailVerification sends a verification email to the signed-in
+// account's saved email address. Unlike ResendVerification (the public
+// signup-verification resend), this is for an already-authenticated caller
+// re-verifying their saved email.
+//
+// POST /api/v1/private/accounts/resend-email-verification
+func (a *AuthAPI) ResendEmailVerification(ctx context.Context) (map[string]interface{}, error) {
+	data, err := a.h.post(ctx, "/api/v1/private/accounts/resend-email-verification", nil)
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// VerifyEmail confirms the signed-in account's saved email ownership using
+// the token from the verification email, without creating a login session.
+// token is 64 hex characters.
+//
+// POST /api/v1/private/accounts/verify-email
+func (a *AuthAPI) VerifyEmail(ctx context.Context, token string) (map[string]interface{}, error) {
+	data, err := a.h.post(ctx, "/api/v1/private/accounts/verify-email", map[string]string{"token": token})
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
 // ExportMyData requests a GDPR Art 15/20 data export for the caller.
 //
 // POST /api/v1/private/accounts/export

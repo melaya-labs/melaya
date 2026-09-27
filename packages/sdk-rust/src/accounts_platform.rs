@@ -69,4 +69,25 @@ impl AccountsPlatformAPI {
             .get("/api/v1/private/accounts/credits/risk-monitoring", &q)
             .await
     }
+
+    /// Send a verification email to the signed-in account's saved email.
+    pub async fn resend_email_verification(&self) -> Result<Value> {
+        self.http
+            .post(
+                "/api/v1/private/accounts/resend-email-verification",
+                &json!({}),
+            )
+            .await
+    }
+
+    /// Confirm saved email ownership using the 64-hex-char token from the
+    /// verification email. Does not create a login session.
+    pub async fn verify_email(&self, token: &str) -> Result<Value> {
+        self.http
+            .post(
+                "/api/v1/private/accounts/verify-email",
+                &json!({ "token": token }),
+            )
+            .await
+    }
 }

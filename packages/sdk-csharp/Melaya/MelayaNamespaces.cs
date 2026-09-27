@@ -69,7 +69,7 @@ public sealed class TradingNamespace
 
 /// <summary>
 /// The <c>agents</c> namespace — pipeline runs, HITL approvals, assistant,
-/// phone control, evals, and AI model credentials.
+/// phone control, evals, AI model credentials, and connector tool calls.
 /// <para>Access via <see cref="MelayaClient.Agents"/>.</para>
 /// </summary>
 /// <example>
@@ -104,20 +104,28 @@ public sealed class AgentsNamespace
     /// </summary>
     public CredentialsApi Models    { get; }
 
+    /// <summary>
+    /// Connector tool calls — discover, describe, test, connect, and call tools, the same
+    /// surface the MCP server exposes. Not the credential store (see <see cref="ConnectorsApi"/>).
+    /// </summary>
+    public ConnectorToolsApi ConnectorTools { get; }
+
     internal AgentsNamespace(
         PipelinesApi pipelines,
         HitlApi hitl,
         AssistantApi assistant,
         PhoneApi phone,
         EvalsApi evals,
-        CredentialsApi credentials)
+        CredentialsApi credentials,
+        ConnectorToolsApi connectorTools)
     {
-        Pipelines = pipelines;
-        Hitl      = hitl;
-        Assistant = assistant;
-        Phone     = phone;
-        Evals     = evals;
-        Models    = credentials;   // same object — Models surfaces ListModelsAsync etc.
+        Pipelines      = pipelines;
+        Hitl           = hitl;
+        Assistant      = assistant;
+        Phone          = phone;
+        Evals          = evals;
+        Models         = credentials;   // same object — Models surfaces ListModelsAsync etc.
+        ConnectorTools = connectorTools;
     }
 }
 

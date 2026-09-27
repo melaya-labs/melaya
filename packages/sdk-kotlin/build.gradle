@@ -7,7 +7,7 @@ plugins {
     id 'com.vanniktech.maven.publish' version '0.30.0'
 }
 group = 'org.melaya'
-version = '0.2.0'
+version = '0.3.0'
 repositories { mavenCentral() }
 dependencies {
     // 'api' (not 'implementation'): both appear in public signatures —
@@ -39,6 +39,30 @@ configurations {
 tasks.named('run', JavaExec) {
     classpath = sourceSets.e2e.runtimeClasspath
     mainClass = 'org.melaya.E2EKt'
+}
+
+// Mock-transport unit tests live under unit/ (separate source set; uses the main library
+// output + deps only — no test framework dependency. The mock transport is a real local
+// HTTP server built on the JDK's own com.sun.net.httpserver, so no new dependency is needed).
+sourceSets {
+    unit {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+kotlin.sourceSets.unit.kotlin.srcDirs = ['unit']
+configurations {
+    unitImplementation.extendsFrom implementation, api
+    unitRuntimeOnly.extendsFrom runtimeOnly
+}
+tasks.register('unitTest', JavaExec) {
+    group = 'verification'
+    description = 'Runs the mock-transport unit tests (unit/ source set) — no live network calls.'
+    classpath = sourceSets.unit.runtimeClasspath
+    mainClass = 'org.melaya.UnitTestsKt'
+}
+tasks.named('check') {
+    dependsOn 'unitTest'
 }
 
 mavenPublishing {

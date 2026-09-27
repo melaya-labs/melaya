@@ -81,4 +81,101 @@ class ConnectorsAPI
             $body ?: null
         );
     }
+
+    /**
+     * Share the caller's OWN personal connector credential into the project
+     * pool (requires editor/owner on the project). Values stay server-side.
+     *
+     * @param string        $project             Project name.
+     * @param string        $service             Service name (e.g. 'openai').
+     * @param string[]|null $googleCapabilities  For Google services: the capability
+     *                                           list to share (e.g. ['gmail', 'calendar']).
+     */
+    public function applyPersonal(string $project, string $service, ?array $googleCapabilities = null): array
+    {
+        $body = $googleCapabilities !== null ? ['googleCapabilities' => $googleCapabilities] : [];
+        return $this->http->post(
+            '/api/v1/private/projects/' . rawurlencode($project) . '/connectors/' . rawurlencode($service) . '/apply-personal',
+            $body ?: null
+        );
+    }
+
+    /** Which member shared each connected project connector (usernames only, never values). */
+    public function sharedBy(string $project): array
+    {
+        return $this->http->get('/api/v1/private/projects/' . rawurlencode($project) . '/connectors/shared-by');
+    }
+
+    /** List the Google OAuth capabilities actually granted to a project. */
+    public function googleStatus(string $project): array
+    {
+        return $this->http->get('/api/v1/private/projects/' . rawurlencode($project) . '/connectors/google/status');
+    }
+
+    /**
+     * Select the project's connected Google account used by one capability.
+     *
+     * @param string $project    Project name.
+     * @param string $capability One of: gmail, calendar, drive, sheets, docs,
+     *                           search_console, youtube, google_ads, analytics,
+     *                           meet, slides.
+     * @param string $accountId  24-hex-char connected-account id.
+     */
+    public function googleSetDefault(string $project, string $capability, string $accountId): array
+    {
+        return $this->http->put(
+            '/api/v1/private/projects/' . rawurlencode($project) . '/connectors/google/default',
+            ['capability' => $capability, 'accountId' => $accountId]
+        );
+    }
+
+    /**
+     * Disconnect one Google product, or an entire Google account, from a project.
+     *
+     * @param string      $project    Project name.
+     * @param string      $accountId  24-hex-char connected-account id.
+     * @param string|null $capability Omit to disconnect the whole account; pass
+     *                                one capability to disconnect only that product.
+     */
+    public function googleDisconnect(string $project, string $accountId, ?string $capability = null): array
+    {
+        $body = ['accountId' => $accountId];
+        if ($capability !== null) {
+            $body['capability'] = $capability;
+        }
+        return $this->http->delete(
+            '/api/v1/private/projects/' . rawurlencode($project) . '/connectors/google/access',
+            [],
+            $body,
+        );
+    }
+
+    /**
+     * Test a project database connector from the user's runner (reaches
+     * IP-allow-listed / VPC hosts that Melaya's cloud cannot reach directly).
+     *
+     * @param string     $project     Project name.
+     * @param string     $service     Database service id.
+     * @param array|null $credentials Connection fields to test, if not already stored.
+     * @return array{sessionId: string}
+     */
+    public function dbTestStart(string $project, string $service, ?array $credentials = null): array
+    {
+        $body = ['service' => $service];
+        if ($credentials !== null) {
+            $body['credentials'] = $credentials;
+        }
+        return $this->http->post(
+            '/api/v1/private/projects/' . rawurlencode($project) . '/connectors/db-test',
+            $body
+        );
+    }
+
+    /** Poll a project database connector runner-test result. */
+    public function dbTestStatus(string $project, string $sessionId): array
+    {
+        return $this->http->get(
+            '/api/v1/private/projects/' . rawurlencode($project) . '/connectors/db-test/' . rawurlencode($sessionId)
+        );
+    }
 }

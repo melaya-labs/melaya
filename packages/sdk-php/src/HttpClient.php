@@ -21,6 +21,8 @@ namespace Melaya;
  *   for network errors, 429, and 5xx. Retry-After header is honoured on 429.
  *   POST/PUT/PATCH/DELETE are never retried (not idempotent).
  * Timeout: per-request timeout (default 30 s, configurable). Passed as CURLOPT_TIMEOUT.
+ *   A handful of callers (e.g. `PipelinesAPI::ingestRetrieval()`) need a longer
+ *   per-call timeout; `post()` accepts an optional override for that.
  * TLS: certificate and hostname verification are always enabled.
  * Security: the apiKey/JWT is NEVER logged or included in exception messages.
  */
@@ -28,6 +30,9 @@ class HttpClient
 {
     /** Maximum backoff cap in seconds. */
     private const BACKOFF_CAP_SEC = 30;
+
+    /** Multipart boundary prefix (a random suffix is appended per request). */
+    private const MULTIPART_BOUNDARY_PREFIX = '----MelayaPhpBoundary';
 
     private readonly int  $maxRetries;
     private readonly int  $timeoutSec;
@@ -55,10 +60,16 @@ class HttpClient
         return $this->request('GET', $path, $query, null);
     }
 
-    /** @return mixed */
-    public function post(string $path, mixed $body = null): mixed
+    /**
+     * @param mixed    $body       Request body, JSON-encoded. Omit for an empty body.
+     * @param int|null $timeoutSec Per-call timeout override in seconds (defaults to the
+     *                             client's configured timeout). Useful for slow endpoints
+     *                             such as RAG ingestion.
+     * @return mixed
+     */
+    public function post(string $path, mixed $body = null, ?int $timeoutSec = null): mixed
     {
-        return $this->request('POST', $path, [], $body);
+        return $this->request('POST', $path, [], $body, $timeoutSec);
     }
 
     /** @return mixed */
@@ -73,13 +84,86 @@ class HttpClient
         return $this->request('PATCH', $path, [], $body);
     }
 
-    /** @return mixed */
-    public function delete(string $path, array $query = []): mixed
+    /**
+     * @param array $query Query-string parameters.
+     * @param mixed $body  Optional JSON body — some DELETE endpoints (e.g. Google
+     *                     account disconnect) take identifying fields in the body
+     *                     rather than the query string.
+     * @return mixed
+     */
+    public function delete(string $path, array $query = [], mixed $body = null): mixed
     {
-        return $this->request('DELETE', $path, $query, null);
+        return $this->request('DELETE', $path, $query, $body);
+    }
+
+    /**
+     * GET the raw response body as bytes — for binary downloads (e.g. a run's
+     * input file) that must NOT be JSON-decoded. Same auth and retry behaviour
+     * as {@see get()}; error responses (4xx/5xx) are still JSON and are parsed
+     * into a {@see MelayaException} exactly like every other call.
+     */
+    public function getBytes(string $path, array $query = []): string
+    {
+        [$status, $raw] = $this->requestRaw('GET', $path, $query, null, [], true, null);
+        if ($status >= 400) {
+            // Error bodies are JSON; reuse the shared error mapping. This always
+            // throws, so nothing after it executes.
+            $this->parse($status, $raw);
+        }
+        return $raw;
+    }
+
+    /**
+     * POST a single file as `multipart/form-data`. Built by hand (no extra
+     * dependency): one boundary, one file part. Never retried — POST is not
+     * idempotent. Parses the response exactly like {@see post()} (same
+     * envelope + error handling).
+     *
+     * @param array<string, scalar|null> $query       Extra query-string parameters
+     *                                                 (e.g. `?key=...&project=...`).
+     * @param string                     $fieldName   The multipart field name (e.g. `"file"`).
+     * @param string                     $bytes       Raw file contents.
+     * @param string                     $filename    Filename sent in the part's
+     *                                                 `Content-Disposition`.
+     * @param string|null                $contentType Part `Content-Type`; defaults to
+     *                                                 `application/octet-stream`.
+     * @return mixed
+     */
+    public function postMultipart(
+        string $path,
+        array $query,
+        string $fieldName,
+        string $bytes,
+        string $filename,
+        ?string $contentType = null,
+    ): mixed {
+        $boundary = self::MULTIPART_BOUNDARY_PREFIX . bin2hex(random_bytes(16));
+        $partType = $contentType !== null && $contentType !== '' ? $contentType : 'application/octet-stream';
+
+        $body  = "--{$boundary}\r\n";
+        $body .= 'Content-Disposition: form-data; name="' . $fieldName . '"; filename="'
+            . $this->escapeMultipartFilename($filename) . "\"\r\n";
+        $body .= "Content-Type: {$partType}\r\n\r\n";
+        $body .= $bytes . "\r\n";
+        $body .= "--{$boundary}--\r\n";
+
+        $headers = [
+            'Content-Type: multipart/form-data; boundary=' . $boundary,
+            'Content-Length: ' . strlen($body),
+        ];
+
+        [$status, $raw] = $this->requestRaw('POST', $path, $query, $body, $headers, false, null);
+        return $this->parse($status, $raw);
     }
 
     // ── Internal ─────────────────────────────────────────────────────────────
+
+    private function escapeMultipartFilename(string $filename): string
+    {
+        // RFC 7578 gives no real escaping mechanism beyond convention; strip
+        // characters that would break out of the quoted Content-Disposition value.
+        return str_replace(['\\', '"', "\r", "\n"], ['\\\\', '\\"', '', ''], $filename);
+    }
 
     private function buildUrl(string $path, array $query): string
     {
@@ -92,39 +176,72 @@ class HttpClient
         return $base . $p . (count($filtered) > 0 ? '?' . http_build_query($filtered) : '');
     }
 
-    /** @return mixed */
-    private function request(string $method, string $path, array $query, mixed $body): mixed
+    /**
+     * Encode a JSON body (if any) and delegate to {@see requestRaw()}, then
+     * parse the response exactly like every other JSON call.
+     *
+     * @return mixed
+     */
+    private function request(string $method, string $path, array $query, mixed $body, ?int $timeoutSec = null): mixed
     {
-        $url     = $this->buildUrl($path, $query);
-        $headers = [
-            'Authorization: Bearer ' . $this->bearer,
-            'Accept: application/json',
-            'User-Agent: melaya-php-sdk/0.2.0',
-        ];
-
-        $jsonBody = null;
+        $extraHeaders = [];
+        $jsonBody     = null;
         if ($body !== null) {
-            $jsonBody  = json_encode($body, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
-            $headers[] = 'Content-Type: application/json';
-            $headers[] = 'Content-Length: ' . strlen($jsonBody);
+            $jsonBody       = json_encode($body, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+            $extraHeaders[] = 'Content-Type: application/json';
+            $extraHeaders[] = 'Content-Length: ' . strlen($jsonBody);
         }
 
         // Only GET requests are retried (idempotent). POST/PUT/PATCH/DELETE are
         // executed exactly once — retrying non-idempotent requests risks duplicates.
         $isIdempotent = ($method === 'GET');
-        $maxAttempts  = $isIdempotent ? (max(0, $this->maxRetries) + 1) : 1;
+
+        [$status, $raw] = $this->requestRaw($method, $path, $query, $jsonBody, $extraHeaders, $isIdempotent, $timeoutSec);
+        return $this->parse($status, $raw);
+    }
+
+    /**
+     * Shared request/retry loop used by every call, JSON or otherwise.
+     *
+     * @param array<string, scalar|null> $query
+     * @param string[]                   $extraHeaders Headers beyond Authorization/Accept/User-Agent.
+     * @return array{0: int, 1: string} [statusCode, rawBody]
+     */
+    private function requestRaw(
+        string $method,
+        string $path,
+        array $query,
+        ?string $rawBody,
+        array $extraHeaders,
+        bool $retryable,
+        ?int $timeoutSec,
+    ): array {
+        $url     = $this->buildUrl($path, $query);
+        $headers = array_merge([
+            'Authorization: Bearer ' . $this->bearer,
+            'Accept: application/json',
+            'User-Agent: melaya-php-sdk/0.3.0',
+        ], $extraHeaders);
+
+        $maxAttempts = $retryable ? (max(0, $this->maxRetries) + 1) : 1;
 
         $attempt  = 0;
         $delaySec = 1.0;
 
         while (true) {
             $attempt++;
-            [$status, $raw, $curlErr, $retryAfter] = $this->curlExec($method, $url, $headers, $jsonBody);
+            [$status, $raw, $curlErr, $retryAfter] = $this->curlExec(
+                $method,
+                $url,
+                $headers,
+                $rawBody,
+                $timeoutSec ?? $this->timeoutSec,
+            );
 
             $isNetworkErr  = ($curlErr !== '');
             $isRetryStatus = ($status === 429 || $status >= 500);
 
-            if ($isIdempotent && ($isNetworkErr || $isRetryStatus) && $attempt < $maxAttempts) {
+            if ($retryable && ($isNetworkErr || $isRetryStatus) && $attempt < $maxAttempts) {
                 // On 429 honour Retry-After if present; otherwise use exponential backoff + jitter.
                 if ($status === 429 && $retryAfter > 0) {
                     $waitSec = min($retryAfter, self::BACKOFF_CAP_SEC);
@@ -144,7 +261,7 @@ class HttpClient
                 throw new MelayaException('Melaya: network error (cURL)', 0);
             }
 
-            return $this->parse($status, $raw);
+            return [$status, $raw];
         }
     }
 
@@ -152,7 +269,7 @@ class HttpClient
      * Execute one cURL request.
      * @return array{int, string, string, int} [statusCode, rawBody, curlError, retryAfterSec]
      */
-    private function curlExec(string $method, string $url, array $headers, ?string $jsonBody): array
+    private function curlExec(string $method, string $url, array $headers, ?string $body, int $timeoutSec): array
     {
         $ch = curl_init($url);
 
@@ -160,7 +277,7 @@ class HttpClient
         curl_setopt_array($ch, [
             CURLOPT_CUSTOMREQUEST  => $method,
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => $this->timeoutSec,
+            CURLOPT_TIMEOUT        => $timeoutSec,
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_HTTPHEADER     => $headers,
@@ -173,8 +290,8 @@ class HttpClient
             },
         ]);
 
-        if ($jsonBody !== null) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonBody);
+        if ($body !== null) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
         }
 
         $retryAfterRaw = null;

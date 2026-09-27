@@ -4,6 +4,8 @@
 
 Official SDK for the **[Melaya](https://melaya.org)** Agent Builder and flagship Mobile Device Control APIs. Trading namespaces are included only as a preview of a later product.
 
+**Melaya products:** [Melaya Agents](https://melaya.org/en/product/agentic-framework) · [Melaya Assistant](https://melaya.org/en/product/assistant) · [Device Control](https://melaya.org/en/product/agentic-device-control) · [Browser Control](https://melaya.org/en/product/agentic-browser-control) · [MCP Server](https://melaya.org/en/product/mcp) · [Melaya Marketing](https://melaya.org/en/product/marketing)
+
 - Zero runtime gem dependencies (stdlib `net/http`, `openssl`, `json` only).
 - Full Agent Builder lifecycle: projects, pipelines, templates, Connectors, HITL, evals, events, billing, team, and runner management.
 - Catalogs of **1,500+ scoped tools**, **100+ specialized subagents**, and **20+ model providers** (runtime catalog endpoints are the source of truth).
@@ -48,26 +50,30 @@ A Melaya platform key is required. "No app API required" means Device Control op
 
 Configure provider credentials through Melaya Connectors first. Never include a provider key in pipeline configuration or per-run overrides.
 
+A pipeline's run is generated **only** from `config["steps"]` — a top-level `agents` list alone produces an **empty** pipeline. Every agent a step runs must be embedded inline on that step's `"agent"` key. There is no `prompt` field: the two prompt fields are `instruction` (the task) and, optionally, `system_prompt_override`.
+
 ```ruby
 melaya.agents.pipelines.create(
   name:    "mobile-review",
   project: "Operations",
-  model_provider: "anthropic",
-  model_name:     "claude-sonnet-4-6",
-  agents: [{
-    "name"        => "mobile-operator",
-    "role"        => "Careful mobile operator",
-    "instruction" => "Read before acting. Never send, publish, or delete.",
-    "agent_tools" => [
-      "phone_get_screen_tree",
-      "phone_current_app",
-      "phone_open_app",
-      "phone_click_text",
-      "phone_back",
-      "phone_wait"
-    ]
+  steps: [{
+    "kind"  => "agent",
+    "agent" => {
+      "name"        => "mobile-operator",
+      "role"        => "Careful mobile operator",
+      "instruction" => "Read before acting. Never send, publish, or delete.",
+      "model"       => { "provider" => "anthropic", "name" => "claude-sonnet-4-6" },
+      "agent_tools" => [
+        "phone_get_screen_tree",
+        "phone_current_app",
+        "phone_open_app",
+        "phone_click_text",
+        "phone_back",
+        "phone_wait"
+      ],
+      "human_approval_tools" => []
+    }
   }],
-  steps: [{ "kind" => "agent", "agent" => { "name" => "mobile-operator" } }],
   maxCostUsd: 1.00
 )
 
@@ -80,6 +86,64 @@ status = melaya.agents.pipelines.run_status("mobile-review", run_id)
 
 # Real-time run events over Socket.IO (connects lazily on first use)
 melaya.events.on_run_update(run_id) { |e| puts e["event_type"] }
+```
+
+Other config fields worth knowing: `"hitl_mode"` (`"safe"` default | `"autonomous"` | `"payments_only"` — only `"safe"` honours each agent's `human_approval_tools`), `"connector_source"` (`"personal"` | `"project"`), `"force_local_runner"`, and `"inputs"` (declared run-input fields, see `run_inputs:` below).
+
+`get` returns an **envelope**, not a bare config — `{ "name", "client", "config", "code", "docs" }`. To edit and save, mutate `envelope["config"]` and pass that to `update`:
+
+```ruby
+envelope = melaya.pipelines.get("mobile-review", project: "Operations")
+config   = envelope["config"]
+config["steps"][0]["agent"]["model"] = { "provider" => "anthropic", "name" => "claude-opus-4-8" }
+melaya.pipelines.update("mobile-review", config: config, project: "Operations")
+```
+
+### Quick start: run inputs and file attachments
+
+```ruby
+# Upload a file ahead of a run, then reference it by file_id
+upload = melaya.pipelines.upload_run_file("mobile-review", "screenshot", File.open("shot.png", "rb"))
+
+run = melaya.pipelines.run("mobile-review",
+  project: "Operations",
+  run_inputs: {
+    "brief"  => "Review the attached screenshot for policy violations.",
+    "values" => { "screenshot" => { "file_id" => upload["file_id"] } }
+  }
+)
+
+# Download a run's own input file back (raw bytes — do not JSON-parse)
+bytes = melaya.pipelines.run_input_file("mobile-review", run["run_id"], 0)
+```
+
+### Quick start: call a connector tool directly
+
+Call any of your already-connected service tools (Gmail, Slack, Stripe, ...) —
+the same surface the MCP server and the Melaya Assistant use. This is
+different from `melaya.connectors`, which only stores project credentials.
+
+Reads run immediately. Writes default to `approval: "required"`, which stages
+the same approval card the Assistant raises in the Melaya app and returns
+HTTP 202 (a success, not an error) with a `requestId` to poll; pass
+`approval: "none"` to run a write immediately instead (still audit-logged).
+Money-moving/trading tools are always refused, under both approval modes. No
+method here ever accepts or returns a credential value.
+
+```ruby
+melaya.agents.connector_tools.services                      # { "services" => [...], "toolCounts" => {...} }
+melaya.agents.connector_tools.search("unread email")        # discover tools by keyword
+melaya.agents.connector_tools.describe("gmail_list_messages")
+
+# Read — runs immediately
+result = melaya.agents.connector_tools.call("gmail_list_messages", args: { max_results: 5 })
+puts result["result"]
+
+# Write — staged for approval by default; block until decided (or it times out)
+outcome = melaya.agents.connector_tools.call_and_wait("gmail_send", args: { to: "a@b.com" })
+
+# Also reachable via the flat alias:
+melaya.connector_tools.services
 ```
 
 ## Trading quick start (preview)
@@ -201,25 +265,28 @@ Public market-data and account/strategy reads work with the `mk_` key alone. **L
 | Auth | `auth.login`, `verify_mfa`, `register`, `verify_signup`, `resend_verification`, `me`, `check`, `change_password`, `forgot_password`, `reset_password`, `mobile_handoff`, `permissions`, `refresh` |
 | MFA | `auth.mfa_status`, `mfa_setup`, `mfa_confirm` (also via `melaya.platform.mfa`) |
 | Projects | `projects.list`, `create`, `rename`, `runner_projects` |
-| Connectors | `connectors.connected_services`, `set`, `delete`, `env_handle`, `google_oauth_start` |
-| Credentials | `credentials.list`, `connected_services`, `get`, `set`, `delete`, `test`, `list_models`, plus operator-profile, OAuth, and RAG helpers |
-| Pipelines | `pipelines.create`, `get`, `update`, `delete_pipeline`, `list_pipelines`, `run`, `run_ids`, `run_status`, `cancel_run`, `outputs`, `output`, `preview_code`, `tools`, `subagents`, `instantiate_template`, `build_with_ai` |
+| Connectors | `connectors.connected_services`, `set`, `delete`, `env_handle`, `google_oauth_start`, `apply_personal`, `shared_by`, `google_status`, `google_set_default`, `google_disconnect`, `db_test_start`, `db_test_status` |
+| Connector Tools | `connector_tools.services`, `search`, `describe`, `test`, `connect`, `call`, `call_status`, `call_and_wait` |
+| Credentials | `credentials.list`, `connected_services`, `get`, `set`, `delete`, `test`, `list_models`, `google_status`, `google_set_default`, `google_disconnect`, `db_test_start`, `db_test_status`, `telegram_qr_start`, `telegram_qr_poll`, `whatsapp_signup_config`, `whatsapp_signup_exchange`, `tiktok_creator_info`, `substack_email_link_send`, `substack_email_link_redeem`, plus operator-profile, OAuth, and RAG helpers |
+| Pipelines | `pipelines.create`, `get`, `update`, `delete_pipeline`, `list_pipelines`, `run`, `upload_run_file`, `run_inputs`, `run_input_file`, `run_active`, `run_ids`, `run_status`, `cancel_run`, `outputs`, `output`, `preview_code`, `tools`, `subagents`, `instantiate_template`, `build_with_ai` |
+| Pipeline docs & RAG | `pipelines.list_docs`, `upload_doc`, `delete_doc`, `upload_retrieval_doc`, `ingest_retrieval`, `delete_retrieval_doc` |
 | Runs & traces | `pipelines.list`, `recent`, `count`, `traces`, `trace`, `trace_stats`, `delete_traces` |
+| Tool-call audit | `pipelines.project_tool_calls`, `project_tool_call_facets`, `tool_call_detail` |
 | Schedules | `pipelines.list_schedules`, `get_schedule`, `upsert_schedule`, `pause_schedule`, `resume_schedule` |
 | Overview | `pipelines.overview`, `model_prices`, `chart_data`, `cost_breakdown`, `server_version` |
 | Templates | `templates.list`, `list_global`, `list_validated`, `save`, `update`, `duplicate`, `delete`, `share`, `share_targets`, `list_assignments`, `assign(id, user_id:` \| `project_id:)`, `unassign(id, user_id:` \| `project_id:)` |
-| Phone | `phone.pair`, `list_devices`, `revoke_device`, `screen_tree`, `list_apps`, `set_allowed_apps`, `register_active_run` |
+| Phone | `phone.pair`, `list_devices`, `revoke_device`, `screen_tree`, `list_apps`, `set_allowed_apps`, `register_active_run`, `grant_app`, `request_cast` |
 | HITL | `hitl.pending`, `history`, `approve`, `reject`, `bulk_decide`, `run_tool_stats`, `run_tool_stats_by_agent`, `run_messages`, `run_tool_calls` |
-| Evals | `evals.list_runs`, `summary`, `run_detail`, `compare`, `memory_graph`, `run_memory`, `crew_memory`, `benchmarks` |
+| Evals | `evals.list_runs`, `summary`, `run_detail`, `compare`, `memory_graph`, `run_memory`, `crew_memory`, `edit_crew_memory_entry`, `delete_crew_memory_entry`, `benchmarks` |
 | Events | `events.on_run_update`, `on_init_phase`, `on_project_event`, `on_hitl_approval`, `on_pipeline_created`, `on_pipeline_updated`, `on_pipeline_deleted`, `leave_run`, `leave_project`, `close` |
-| Billing | `billing.subscription`, `create_checkout`, `create_portal`, `plans`, `credits`, `ai_credits`, `portfolio_ideas_credits`, `risk_monitoring_credits` |
-| Accounts | `accounts.export_data`, `remove_key`, `update_profile` |
+| Billing | `billing.subscription`, `create_checkout`, `create_portal`, `plans`, `credits`, `ai_credits`, `portfolio_ideas_credits`, `risk_monitoring_credits`, `ambassador_perk`, `redeem_code`, `reserved_promo` |
+| Accounts | `accounts.export_data`, `remove_key`, `update_profile`, `resend_email_verification`, `verify_email` |
 | Runner | `runner.create_token`, `list_tokens`, `revoke_token` |
-| Team | `team.list_members`, `invite`, `create_invite_link`, `accept_invite`, `update_member_role`, `remove_member`, `get_pipeline_visibility`, `set_pipeline_visibility` |
+| Team | `team.list_members`, `invite`, `create_invite_link`, `accept_invite`, `update_member_role`, `remove_member`, `transfer_ownership`, `get_pipeline_visibility`, `set_pipeline_visibility` |
 | Assistant | `assistant.get_profile`, `set_profile` |
 | Bugs | `bugs.create`, `list_mine`, `get`, `add_comment`, `list_notifications`, `mark_notifications_read` |
 
-Every area is also reachable through the domain namespaces: `melaya.agents.*` (pipelines/runs, hitl, assistant, phone, evals, models) and `melaya.platform.*` (projects, credentials, connectors, billing, team, templates, overview, runner, auth, mfa, accounts, bugs, events).
+Every area is also reachable through the domain namespaces: `melaya.agents.*` (pipelines/runs, hitl, assistant, phone, evals, models, connector_tools) and `melaya.platform.*` (projects, credentials, connectors, billing, team, templates, overview, runner, auth, mfa, accounts, bugs, events).
 
 ### Trading (preview — not generally available)
 

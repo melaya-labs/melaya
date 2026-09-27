@@ -76,4 +76,31 @@ class PhoneAPI
     {
         return $this->http->post('/api/v1/private/phone/active-run', ['runId' => $runId]);
     }
+
+    /**
+     * Grant ONE app into the agent allowlist (atomic append — unlike
+     * `setAllowedApps()`, this does not replace the existing list). Used by the
+     * assistant's in-chat approve card.
+     *
+     * @param string      $pkg   Android package name (e.g. 'com.twitter.android').
+     * @param string|null $label Optional human-readable label.
+     */
+    public function grantApp(string $pkg, ?string $label = null): array
+    {
+        $body = ['package' => $pkg];
+        if ($label !== null) {
+            $body['label'] = $label;
+        }
+        return $this->http->post('/api/v1/private/phone/apps/grant', $body);
+    }
+
+    /**
+     * Re-cast the phone screen (re-triggers MediaProjection consent) from the
+     * desktop mirror.
+     */
+    public function requestCast(?string $deviceId = null): array
+    {
+        $body = $deviceId !== null ? ['deviceId' => $deviceId] : [];
+        return $this->http->post('/api/v1/private/phone/request-cast', $body ?: null);
+    }
 }

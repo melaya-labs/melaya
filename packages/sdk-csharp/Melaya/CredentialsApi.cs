@@ -237,6 +237,113 @@ public sealed class CredentialsApi
         return await _http.GetAsync<JsonElement>("/api/v1/private/credentials/melaya-accounts", ct: ct).ConfigureAwait(false);
     }
 
+    // ── Google account (personal scope) ──────────────────────────────────────
+
+    /// <summary>Get the caller's Google connector status (linked accounts, default per capability).</summary>
+    public async Task<JsonElement> GoogleStatusAsync(CancellationToken ct = default)
+    {
+        return await _http.GetAsync<JsonElement>("/api/v1/private/credentials/google/status", ct: ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Set the caller's default Google account for a capability.</summary>
+    /// <param name="capability">One of the Google capability strings (e.g. <c>gmail</c>, <c>drive</c>).</param>
+    /// <param name="accountId">24-hex-char account id.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<BoolResult> GoogleSetDefaultAsync(string capability, string accountId, CancellationToken ct = default)
+    {
+        var body = new { capability, accountId };
+        return await _http.PutAsync<BoolResult>("/api/v1/private/credentials/google/default", body, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Disconnect a Google account (optionally scoped to one capability) from the caller's profile.</summary>
+    /// <param name="accountId">24-hex-char account id.</param>
+    /// <param name="capability">Optional capability to revoke; omit to disconnect the whole account.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<BoolResult> GoogleDisconnectAsync(string accountId, string? capability = null, CancellationToken ct = default)
+    {
+        var body = new { accountId, capability };
+        return await _http.DeleteWithBodyAsync<BoolResult>("/api/v1/private/credentials/google/access", body, ct).ConfigureAwait(false);
+    }
+
+    // ── Database connectivity probe (personal scope) ─────────────────────────
+
+    /// <summary>Start a database connectivity probe from the user's own runner.</summary>
+    /// <param name="service">Database service id.</param>
+    /// <param name="credentials">Connection credentials to probe with (host, port, user, etc.).</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<DbTestStartResult> DbTestStartAsync(string service, Dictionary<string, string>? credentials = null, CancellationToken ct = default)
+    {
+        var body = new { service, credentials };
+        return await _http.PostAsync<DbTestStartResult>("/api/v1/private/credentials/db-test", body, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Poll a database connectivity probe by session id.</summary>
+    public async Task<JsonElement> DbTestStatusAsync(string sessionId, CancellationToken ct = default)
+    {
+        return await _http.GetAsync<JsonElement>(
+            $"/api/v1/private/credentials/db-test/{Uri.EscapeDataString(sessionId)}", ct: ct).ConfigureAwait(false);
+    }
+
+    // ── Telegram QR login ─────────────────────────────────────────────────────
+
+    /// <summary>Start Telegram QR-code login (alternative to the phone/SMS flow).</summary>
+    /// <param name="apiId">Telegram API id (from my.telegram.org).</param>
+    /// <param name="apiHash">Telegram API hash.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<TelegramQrStartResult> TelegramQrStartAsync(long apiId, string apiHash, CancellationToken ct = default)
+    {
+        var body = new { api_id = apiId, api_hash = apiHash };
+        return await _http.PostAsync<TelegramQrStartResult>("/api/v1/private/credentials/telegram/auth/qr/start", body, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Poll a Telegram QR-code login for completion.</summary>
+    /// <param name="handle">Poll handle returned by <see cref="TelegramQrStartAsync"/> (prefixed <c>tgauth_</c>).</param>
+    public async Task<JsonElement> TelegramQrPollAsync(string handle, CancellationToken ct = default)
+    {
+        var body = new { handle };
+        return await _http.PostAsync<JsonElement>("/api/v1/private/credentials/telegram/auth/qr/poll", body, ct).ConfigureAwait(false);
+    }
+
+    // ── WhatsApp embedded signup ──────────────────────────────────────────────
+
+    /// <summary>Get the WhatsApp embedded-signup client configuration.</summary>
+    public async Task<JsonElement> WhatsappSignupConfigAsync(CancellationToken ct = default)
+    {
+        return await _http.GetAsync<JsonElement>("/api/v1/private/credentials/whatsapp/embedded-signup/config", ct: ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Exchange a WhatsApp embedded-signup code for a stored connection.</summary>
+    public async Task<JsonElement> WhatsappSignupExchangeAsync(WhatsappSignupExchangeRequest body, CancellationToken ct = default)
+    {
+        return await _http.PostAsync<JsonElement>("/api/v1/private/credentials/whatsapp/embedded-signup/exchange", body, ct).ConfigureAwait(false);
+    }
+
+    // ── TikTok ────────────────────────────────────────────────────────────────
+
+    /// <summary>Get the caller's TikTok creator account info (for content posting eligibility).</summary>
+    public async Task<JsonElement> TiktokCreatorInfoAsync(CancellationToken ct = default)
+    {
+        return await _http.GetAsync<JsonElement>("/api/v1/private/credentials/tiktok/creator-info", ct: ct).ConfigureAwait(false);
+    }
+
+    // ── Substack email-link auth ──────────────────────────────────────────────
+
+    /// <summary>Send a Substack sign-in email-link to the given address.</summary>
+    public async Task<JsonElement> SubstackEmailLinkSendAsync(string email, CancellationToken ct = default)
+    {
+        var body = new { email };
+        return await _http.PostAsync<JsonElement>("/api/v1/private/credentials/substack/email-link", body, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Redeem a Substack sign-in email-link.</summary>
+    /// <param name="link">The link URL/token from the email.</param>
+    /// <param name="email">Optional email address to confirm the redemption.</param>
+    public async Task<JsonElement> SubstackEmailLinkRedeemAsync(string link, string? email = null, CancellationToken ct = default)
+    {
+        var body = new { link, email };
+        return await _http.PostAsync<JsonElement>("/api/v1/private/credentials/substack/email-link/redeem", body, ct).ConfigureAwait(false);
+    }
+
     private static Dictionary<string, string?> Q(params (string Key, string? Value)[] pairs)
     {
         var d = new Dictionary<string, string?>(pairs.Length);

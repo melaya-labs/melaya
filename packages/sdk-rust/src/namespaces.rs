@@ -6,7 +6,7 @@
 //! | Accessor | Modules |
 //! |---|---|
 //! | `melaya.trading` | `market`, `account`, `sim`, `strategies`, `trade`, `backtest`, `stream` |
-//! | `melaya.agents`  | `pipelines`, `hitl`, `assistant`, `phone`, `evals` |
+//! | `melaya.agents`  | `pipelines`, `hitl`, `assistant`, `phone`, `evals`, `memory`, `connector_tools` |
 //! | `melaya.platform`| `projects`, `credentials`, `connectors`, `billing`, `team`, `templates`, `runner`, `auth`, `mfa`, `accounts`, `bugs`, `events` |
 //!
 //! The underlying API structs are `Clone`, so the namespace fields hold cheap
@@ -35,9 +35,9 @@
 
 use crate::{
     AccountAPI, AccountsPlatformAPI, AssistantAPI, AuthAPI, BacktestAPI, BillingAPI, BugsAPI,
-    ConnectorsAPI, CredentialsAPI, EvalsAPI, HitlAPI, MarketAPI, MelayaEvents, MfaAPI, PhoneAPI,
-    PipelinesAPI, ProjectsAPI, RunnerAPI, SimAPI, StrategiesAPI, StreamAPI, TeamAPI, TemplatesAPI,
-    TradeAPI,
+    ConnectorToolsAPI, ConnectorsAPI, CredentialsAPI, EvalsAPI, HitlAPI, MarketAPI, MelayaEvents,
+    MemoryAPI, MfaAPI, PhoneAPI, PipelinesAPI, ProjectsAPI, RunnerAPI, SimAPI, StrategiesAPI,
+    StreamAPI, TeamAPI, TemplatesAPI, TradeAPI,
 };
 
 // ── Trading namespace ─────────────────────────────────────────────────────────
@@ -99,6 +99,10 @@ pub struct TradingNamespace {
 /// m.agents.phone.list_devices().await.unwrap();
 /// // Eval results
 /// m.agents.evals.summary().await.unwrap();
+/// // Crew memory edit
+/// // m.agents.memory.edit_entry(...).await?;
+/// // Connector tools (same surface as the MCP server)
+/// m.agents.connector_tools.services().await.unwrap();
 /// # }
 /// ```
 pub struct AgentsNamespace {
@@ -112,6 +116,12 @@ pub struct AgentsNamespace {
     pub phone: PhoneAPI,
     /// Eval run results and memory graphs.
     pub evals: EvalsAPI,
+    /// Cross-run persistent agent crew memory: edit and delete one entry.
+    pub memory: MemoryAPI,
+    /// Discover and call connector tools directly (the same surface the MCP
+    /// server exposes): search, describe, test, connect, and call, with
+    /// staged approval for writes.
+    pub connector_tools: ConnectorToolsAPI,
 }
 
 // ── Platform namespace ────────────────────────────────────────────────────────

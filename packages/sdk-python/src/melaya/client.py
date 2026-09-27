@@ -24,7 +24,8 @@ Three grouped namespaces are available as the *primary* documented API:
 
   melaya.trading   — market, account, sim, strategies, backtest, trade, stream
                      (preview — not for real funds)
-  melaya.agents    — pipelines, hitl, assistant, phone, evals
+  melaya.agents    — pipelines, hitl, assistant, phone, evals, memory,
+                     connector_tools
   melaya.platform  — projects, credentials, connectors, billing, team,
                      templates, runner, auth, mfa, accounts, bugs, events
 
@@ -47,6 +48,7 @@ from __future__ import annotations
 import logging
 import random
 import time
+import uuid
 from typing import Any, Dict, Optional
 
 import httpx
@@ -71,8 +73,10 @@ from .runner import RunnerAPI
 from .projects import ProjectsAPI
 from .pipelines import PipelinesAPI
 from .hitl import HitlAPI
+from .memory import MemoryAPI
 from .credentials import CredentialsAPI
 from .connectors import ConnectorsAPI
+from .connector_tools import ConnectorToolsAPI
 from .phone import PhoneAPI
 from .team import TeamAPI
 from .templates import TemplatesAPI
@@ -91,6 +95,31 @@ _DEFAULT_MAX_RETRIES = 3
 _DEFAULT_BACKOFF_BASE = 1.0  # seconds
 _DEFAULT_TIMEOUT_MS = 30_000  # milliseconds — 30s per request
 _GET_MAX_RETRIES = 2  # bounded retries for idempotent GETs only
+
+
+def _build_multipart_body(
+    field_name: str,
+    filename: str,
+    content_type: Optional[str],
+    data: bytes,
+) -> "tuple[bytes, str]":
+    """Hand-build a ``multipart/form-data`` body with exactly one file part.
+
+    No multipart library is used (stdlib ``uuid`` only) so the SDK gains no new
+    dependency. Returns ``(body_bytes, content_type_header_value)`` where the
+    header value includes the boundary, e.g.
+    ``multipart/form-data; boundary=<hex>``.
+    """
+    boundary = uuid.uuid4().hex
+    ctype = content_type or "application/octet-stream"
+    safe_filename = filename.replace('"', "%22")
+    head = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="{field_name}"; filename="{safe_filename}"\r\n'
+        f"Content-Type: {ctype}\r\n\r\n"
+    ).encode("utf-8")
+    tail = f"\r\n--{boundary}--\r\n".encode("utf-8")
+    return head + data + tail, f"multipart/form-data; boundary={boundary}"
 
 
 # ── Namespace objects ─────────────────────────────────────────────────────────
@@ -164,6 +193,12 @@ class AgentsNamespace:
         Phone device control: pair, list, screen-tree, apps.
     evals:
         Eval runs, summaries, memory graphs, and benchmarks.
+    memory:
+        Cross-run persistent crew memory entry edits/deletes.
+    connector_tools:
+        Discover and call connector tools directly (same surface as the MCP
+        server) — search, describe, test, connect, and call, with staged
+        approval for writes.
 
     Example
     -------
@@ -171,6 +206,7 @@ class AgentsNamespace:
     >>> m.agents.hitl.approve(pending[0]["requestId"])
     >>> runs = m.agents.pipelines.list(project="my-project")
     >>> m.agents.assistant.set_profile({"name": "Antoine"})
+    >>> m.agents.connector_tools.call("gmail_list_messages", {"max_results": 5})
     """
 
     def __init__(
@@ -180,12 +216,16 @@ class AgentsNamespace:
         assistant: AssistantAPI,
         phone: PhoneAPI,
         evals: EvalsAPI,
+        memory: MemoryAPI,
+        connector_tools: ConnectorToolsAPI,
     ) -> None:
         self.pipelines = pipelines
         self.hitl = hitl
         self.assistant = assistant
         self.phone = phone
         self.evals = evals
+        self.memory = memory
+        self.connector_tools = connector_tools
 
 
 class PlatformNamespace:
@@ -331,6 +371,11 @@ class Melaya:
     """Phone device control: pair, list, screen-tree, apps. Alias: ``m.agents.phone``."""
     evals: EvalsAPI
     """Eval runs, summaries, memory graphs, and benchmarks. Alias: ``m.agents.evals``."""
+    memory: MemoryAPI
+    """Cross-run persistent crew memory entry edits/deletes. Alias: ``m.agents.memory``."""
+    connector_tools: ConnectorToolsAPI
+    """Discover and call connector tools directly (same surface as the MCP server).
+    Alias: ``m.agents.connector_tools``."""
 
     # ── Platform plane (flat aliases) ──────────────────────────────────────────
     auth: AuthAPI
@@ -411,16 +456,18 @@ class Melaya:
         self.billing = BillingAPI(self._request)
         self.runner = RunnerAPI(self._request)
         self.projects = ProjectsAPI(self._request)
-        self.pipelines = PipelinesAPI(self._request)
+        self.pipelines = PipelinesAPI(self._request, self._post_multipart, self._get_bytes)
         self.hitl = HitlAPI(self._request)
         self.credentials = CredentialsAPI(self._request)
         self.connectors = ConnectorsAPI(self._request)
+        self.connector_tools = ConnectorToolsAPI(self._request)
         self.phone = PhoneAPI(self._request)
         self.team = TeamAPI(self._request)
         self.templates = TemplatesAPI(self._request)
         self.assistant = AssistantAPI(self._request)
         self.bugs = BugsAPI(self._request)
         self.evals = EvalsAPI(self._request)
+        self.memory = MemoryAPI(self._request)
         self.events = MelayaEvents(base_url=base_url, api_key=api_key)
 
         # ── Namespace groupings (primary documented API) ───────────────────────
@@ -441,6 +488,8 @@ class Melaya:
             assistant=self.assistant,
             phone=self.phone,
             evals=self.evals,
+            memory=self.memory,
+            connector_tools=self.connector_tools,
         )
         self.platform = PlatformNamespace(
             projects=self.projects,
@@ -466,8 +515,9 @@ class Melaya:
         *,
         params: Optional[Dict[str, Any]] = None,
         json: Any = None,
+        timeout: Optional[float] = None,
     ) -> Any:
-        """Execute an HTTP request with per-request timeout and bounded retry.
+        """Execute a JSON HTTP request with per-request timeout and bounded retry.
 
         Retry policy:
           - GET requests only: at most min(max_retries, 2) retries on network
@@ -480,6 +530,61 @@ class Melaya:
 
         For REST requests the API key is carried in the ``Authorization``
         header only, never in the query string. Tokens are never logged.
+
+        ``timeout`` overrides the client's default per-request timeout (in
+        seconds) for this call only — used by slow endpoints such as RAG
+        ingestion.
+        """
+        return self._execute(method, path, params=params, json=json, timeout=timeout)
+
+    def _post_multipart(
+        self,
+        path: str,
+        *,
+        params: Optional[Dict[str, Any]] = None,
+        field_name: str = "file",
+        data: bytes,
+        filename: str,
+        content_type: Optional[str] = None,
+    ) -> Any:
+        """POST a single file as ``multipart/form-data`` (hand-built body — no
+        multipart dependency, stdlib ``uuid`` only).
+
+        Sends ``Authorization: Bearer`` like every other request. Never
+        retried, matching the non-idempotent policy for non-GET requests. The
+        response is parsed exactly like a JSON POST (same error type).
+        """
+        body, content_type_header = _build_multipart_body(field_name, filename, content_type, data)
+        return self._execute(
+            "POST",
+            path,
+            params=params,
+            content=body,
+            headers={"Content-Type": content_type_header},
+        )
+
+    def _get_bytes(self, path: str, *, params: Optional[Dict[str, Any]] = None) -> bytes:
+        """GET raw bytes (binary download) — same auth + error handling as
+        ``_request``; retried like other GETs on network error / 429 / 5xx."""
+        return self._execute("GET", path, params=params, parse="bytes")
+
+    def _execute(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Optional[Dict[str, Any]] = None,
+        json: Any = None,
+        content: Optional[bytes] = None,
+        headers: Optional[Dict[str, str]] = None,
+        parse: str = "json",
+        timeout: Optional[float] = None,
+    ) -> Any:
+        """Shared transport for ``_request``, ``_post_multipart``, and ``_get_bytes``.
+
+        ``json`` and ``content`` are mutually exclusive (callers pass exactly
+        one). ``parse="bytes"`` returns the raw response body instead of
+        JSON-decoding it (used for binary downloads).
         """
         # SECURITY (REST): the API key travels ONLY in the Authorization header
         # (set on the httpx.Client in __init__). It must NEVER be added to a
@@ -494,6 +599,7 @@ class Melaya:
         # further capped by the caller-supplied max_retries.
         get_retries = min(self._max_retries, _GET_MAX_RETRIES)
         max_attempts = (1 + get_retries) if is_get else 1
+        effective_timeout = timeout if timeout is not None else self._request_timeout
 
         last_exc: Optional[Exception] = None
         skip_backoff = False
@@ -512,14 +618,16 @@ class Melaya:
                     path,
                     params=query,
                     json=json,
-                    timeout=self._request_timeout,
+                    content=content,
+                    headers=headers,
+                    timeout=effective_timeout,
                 )
             except httpx.TimeoutException as exc:
                 last_exc = exc
                 if is_get:
                     continue
                 raise MelayaError(
-                    f"Melaya: request timed out after {self._request_timeout}s",
+                    f"Melaya: request timed out after {effective_timeout}s",
                     status=None,
                 ) from exc
             except httpx.TransportError as exc:
@@ -547,14 +655,12 @@ class Melaya:
                 )
                 continue
 
-            # Parse response body
-            try:
-                data = resp.json() if resp.content else None
-            except ValueError:
-                data = resp.text
-
-            # Map HTTP errors to MelayaError
+            # Map HTTP errors to MelayaError (checked before any body-shape parsing)
             if resp.status_code >= 400:
+                try:
+                    data = resp.json() if resp.content else None
+                except ValueError:
+                    data = resp.text
                 code: Optional[str] = None
                 message: Optional[str] = None
                 if isinstance(data, dict):
@@ -571,6 +677,15 @@ class Melaya:
                     code=code,
                     body=data,
                 )
+
+            if parse == "bytes":
+                return resp.content
+
+            # Parse response body
+            try:
+                data = resp.json() if resp.content else None
+            except ValueError:
+                data = resp.text
 
             # Surface ok:false request-level failures
             if isinstance(data, dict) and data.get("ok") is False:

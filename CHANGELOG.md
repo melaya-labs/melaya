@@ -2,6 +2,27 @@
 
 All notable changes to the Melaya SDKs are documented here. This project follows [Semantic Versioning](https://semver.org).
 
+## [0.3.0] — Preview
+
+Every SDK catches up with the platform as of September 2026: run inputs, pipeline documents, the tool-call audit log, project connectors, and the account, billing and phone calls added since 0.2.0. Same surface in all 9 languages.
+
+### Added
+- **Connector tool calls, the same surface as the MCP server**: a new `connectorTools` module lists your connected services, searches their tools by business keywords, describes one, tests a stored connector, starts connecting a service and calls a tool. Reads return at once. For writes you choose per call: `approval: "required"` (default) puts an approval card in the Melaya app and the write runs once after it is approved (`callStatus`, or `callAndWait` to poll for you); `approval: "none"` runs it immediately, audit-logged. Tools that move money or trade are refused in both modes. No call ever carries a credential value.
+- **Run inputs**: `run()` takes `run_inputs` (`brief` + `values`); file values can be an uploaded `file_id`, a `url` (up to 25 MB) or inline `base64` (up to 7 MB). New `uploadRunFile`, `runInputs`, `runInputFile` (raw bytes) and `runActive`.
+- **Pipeline documents**: upload, list and delete static-context documents; upload, ingest and delete RAG documents.
+- **Tool-call audit log**: `projectToolCalls` (keyset-paginated, filter by tool, agent, run, status, connector source, approval, provider), `projectToolCallFacets`, `toolCallDetail`.
+- **Project connectors**: `applyPersonal` (share your own connector into a project), `sharedBy`, Google account status / default / disconnect, and a database connection test run from your own runner.
+- **Personal credentials**: Google account status / default / disconnect, database connection test, Telegram QR login, WhatsApp embedded signup, TikTok creator info, Substack email-link sign-in.
+- **Everything else**: project ownership transfer, crew-memory edit and delete, ambassador perk / promo code redemption / reserved promo, email verification, phone app grant and screen-cast request.
+- Every SDK gains a small built-in multipart upload and raw-bytes download (no new dependencies), plus offline unit tests for the new calls.
+
+### Changed
+- TypeScript: `pipelines.get()` is typed as the envelope the server returns, `{ name, client, config, code, docs }`, instead of the bare config. Read `envelope.config`, edit it, and pass that to `update()`.
+- Pipeline examples and docs now match the server: the run is built from `steps[]` only (a config with only `agents[]` produces an empty pipeline), there is no `prompt` field (use `instruction` and `system_prompt_override`), and `hitl_mode`, `connector_source`, `force_local_runner` and `inputs[]` are documented. `executionTarget` is used for the tier check only; where a run executes comes from the stored config.
+
+### Fixed
+- Python, Go, Java, Kotlin, C#, PHP, Ruby and Rust: the memory reads (`memoryGraph`, `runMemory`, `crewMemory`) called `/evals/...` paths that do not exist and always failed with 404. They now use `/api/v1/private/memory/graph`, `/memory/runs/{runId}` and `/memory/crew`.
+
 ## [0.2.0] — Preview
 
 The SDKs graduate from a trading client to the full Melaya platform. Melaya is the visual builder for high-trust AI agents; its flagship, Device Control, puts the AI you already pay for on your real phone apps. Trading ships later under Melaya Labs. Every SDK now covers the whole platform and agents surface, organized into clear namespaces.

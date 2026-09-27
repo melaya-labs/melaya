@@ -132,3 +132,45 @@ func (p *PhoneAPI) RegisterActiveRun(ctx context.Context, runID string) (bool, e
 	}
 	return v.Ok, nil
 }
+
+// GrantApp grants ONE app into the agent allowlist (atomic append — safe to
+// call concurrently with SetAllowedApps; never drops another surface's
+// concurrent grant). label defaults to pkg if empty.
+//
+// POST /api/v1/private/phone/apps/grant
+func (p *PhoneAPI) GrantApp(ctx context.Context, pkg, label string) (*PhoneGrantAppResult, error) {
+	body := map[string]string{"package": pkg}
+	if label != "" {
+		body["label"] = label
+	}
+	data, err := p.h.post(ctx, "/api/v1/private/phone/apps/grant", body)
+	if err != nil {
+		return nil, err
+	}
+	var v PhoneGrantAppResult
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+// RequestCast re-casts the phone screen (re-triggers the OS MediaProjection
+// consent) from the desktop mirror, without the full pairing modal. deviceID
+// is optional (multi-phone future — the command queue is per-user today).
+//
+// POST /api/v1/private/phone/request-cast
+func (p *PhoneAPI) RequestCast(ctx context.Context, deviceID string) (*PhoneRequestCastResult, error) {
+	var body interface{} = map[string]string{}
+	if deviceID != "" {
+		body = map[string]string{"deviceId": deviceID}
+	}
+	data, err := p.h.post(ctx, "/api/v1/private/phone/request-cast", body)
+	if err != nil {
+		return nil, err
+	}
+	var v PhoneRequestCastResult
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}

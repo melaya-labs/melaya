@@ -50,4 +50,19 @@ export class BillingAPI {
   async plans(): Promise<BillingPlan[]> {
     return this.http.get<BillingPlan[]>("/api/v1/billing/plans");
   }
+
+  /** The caller's ambassador-program perk status, if enrolled. */
+  async ambassadorPerk(): Promise<Record<string, unknown>> {
+    return this.http.get("/api/v1/private/billing/ambassador-perk");
+  }
+
+  /** Redeem a promo/discount code against the caller's subscription. */
+  async redeemCode(code: string): Promise<Record<string, unknown>> {
+    return this.http.post("/api/v1/private/billing/redeem-code", { code });
+  }
+
+  /** The caller's reserved promotional pricing, if any. */
+  async reservedPromo(): Promise<Record<string, unknown>> {
+    return this.http.get("/api/v1/private/billing/reserved-promo");
+  }
 }

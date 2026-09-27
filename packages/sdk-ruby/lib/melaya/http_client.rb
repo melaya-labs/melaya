@@ -4,6 +4,7 @@ require "net/http"
 require "uri"
 require "json"
 require "openssl"
+require "securerandom"
 
 require_relative "errors"
 
@@ -42,28 +43,95 @@ module Melaya
     end
 
     # ── Public verb helpers ────────────────────────────────────────────────────
+    #
+    # Every verb accepts an optional trailing +timeout_s+ override for that
+    # single call (e.g. a slow RAG ingest job); it defaults to the client's own
+    # timeout. NOTE: it is a plain positional parameter, not a keyword — many
+    # call sites pass a bare `"key" => value` Hash literal as +body+/+params+,
+    # and Ruby 3's keyword/Hash separation would otherwise raise
+    # "unknown keyword" on every one of them if this were `timeout_s:`.
 
-    def get(path, params = {})
-      request(:get, path, params: params)
+    def get(path, params = {}, timeout_s = nil)
+      request(:get, path, params: params, timeout_s: timeout_s)
     end
 
-    def post(path, body = nil)
-      request(:post, path, body: body)
+    def post(path, body = nil, timeout_s = nil)
+      request(:post, path, body: body, timeout_s: timeout_s)
     end
 
-    def put(path, body = nil)
-      request(:put, path, body: body)
+    def put(path, body = nil, timeout_s = nil)
+      request(:put, path, body: body, timeout_s: timeout_s)
     end
 
-    def patch(path, body = nil)
-      request(:patch, path, body: body)
+    def patch(path, body = nil, timeout_s = nil)
+      request(:patch, path, body: body, timeout_s: timeout_s)
     end
 
-    def delete(path, params = {})
-      request(:delete, path, params: params)
+    # +body+ is optional: some bridged DELETE routes take structured input
+    # (e.g. googleDisconnect's { accountId, capability? }) that should not be
+    # exposed in a URL, so it travels as a JSON body instead of query params.
+    def delete(path, params = {}, body = nil, timeout_s = nil)
+      request(:delete, path, params: params, body: body, timeout_s: timeout_s)
+    end
+
+    # GET that returns the RAW response body (String, binary encoding) instead
+    # of JSON-parsing it — for binary downloads like +runInputFile+. Errors are
+    # still parsed and raised exactly like the JSON verb helpers. Retried like
+    # any other GET (idempotent).
+    def get_bytes(path, params = {}, timeout_s = nil)
+      request(:get, path, params: params, timeout_s: timeout_s, raw: true)
+    end
+
+    # Upload a single file as `multipart/form-data` with one file part named
+    # +field_name+. Never retried (a partial multipart re-send could double an
+    # upload with side effects), and the response is parsed exactly like the
+    # JSON POST helper (same error type).
+    #
+    # @param path [String]
+    # @param query [Hash] query-string params (e.g. { "key" => ..., "project" => ... })
+    # @param field_name [String] the multipart field name the server expects (e.g. "file")
+    # @param bytes [String] raw file content
+    # @param filename [String] filename reported in the part's Content-Disposition
+    # @param content_type [String, nil] defaults to "application/octet-stream"
+    def post_multipart(path, query, field_name, bytes, filename, content_type = nil)
+      uri = build_uri(path, query || {})
+      boundary = "MelayaFormBoundary#{SecureRandom.hex(16)}"
+
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl      = uri.scheme == "https"
+      http.verify_mode  = OpenSSL::SSL::VERIFY_PEER
+      http.open_timeout = @timeout_s
+      http.read_timeout = @timeout_s
+
+      req = Net::HTTP::Post.new(uri)
+      req["Authorization"] = "Bearer #{@_tok}"
+      req["Accept"]        = "application/json"
+      req["User-Agent"]    = "melaya-ruby/#{Melaya::VERSION}"
+      req["Content-Type"]  = "multipart/form-data; boundary=#{boundary}"
+      req.body = multipart_body(boundary, field_name, bytes, filename, content_type)
+
+      resp = http.request(req)
+      parse(resp)
     end
 
     private
+
+    # Builds a single-file multipart/form-data body by hand (no dependency on
+    # any multipart-encoding gem).
+    def multipart_body(boundary, field_name, bytes, filename, content_type)
+      ct = content_type || "application/octet-stream"
+      head =
+        "--#{boundary}\r\n" \
+        "Content-Disposition: form-data; name=\"#{field_name}\"; filename=\"#{escape_multipart_value(filename)}\"\r\n" \
+        "Content-Type: #{ct}\r\n\r\n"
+      tail = "\r\n--#{boundary}--\r\n"
+      (head.b + bytes.to_s.b + tail.b)
+    end
+
+    # Escapes double quotes / newlines out of a Content-Disposition value.
+    def escape_multipart_value(value)
+      value.to_s.gsub("\\", "\\\\\\\\").gsub('"', '\\"').tr("\r\n", "  ")
+    end
 
     def build_uri(path, params = {})
       uri = URI.parse("#{@base_uri}#{path}")
@@ -98,14 +166,16 @@ module Melaya
       req
     end
 
-    def request(method, path, params: {}, body: nil)
+    def request(method, path, params: {}, body: nil, timeout_s: nil, raw: false)
       uri = build_uri(path, params)
+
+      eff_timeout = timeout_s ? [timeout_s.to_f, 0.001].max.ceil : @timeout_s
 
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl      = uri.scheme == "https"
       http.verify_mode  = OpenSSL::SSL::VERIFY_PEER
-      http.open_timeout = @timeout_s
-      http.read_timeout = @timeout_s
+      http.open_timeout = eff_timeout
+      http.read_timeout = eff_timeout
 
       # Only GET requests are retried (idempotent); all mutating verbs fail fast.
       retryable = (method == :get)
@@ -120,7 +190,7 @@ module Melaya
         # Snapshot Retry-After before parse() consumes the response object,
         # so we can honour the header even after the MelayaError is raised.
         retry_after_hdr = resp["retry-after"] || resp["Retry-After"]
-        parse(resp)
+        raw ? parse_raw(resp) : parse(resp)
       rescue MelayaError => e
         if retryable && RETRY_STATUSES.include?(e.status) && attempt <= MAX_GET_RETRIES
           # Build a minimal resp-like object carrying only the header we need,
@@ -192,26 +262,7 @@ module Melaya
       end
 
       status = resp.code.to_i
-      if status >= 400
-        # Two error envelope shapes:
-        #   1. { error: 'tier_insufficient', tier: '...' }  -> 403
-        #   2. { error: '...', message: '...', code: '...' }
-        # Extract error code safely — never echo raw body in message
-        err_code = data.is_a?(Hash) ? data["error"] : nil
-
-        if status == 403 && err_code == "tier_insufficient"
-          raise TierInsufficientError.new(tier: data.is_a?(Hash) ? data["tier"] : nil, body: data)
-        end
-        if status == 429
-          # Raised here; the GET retry loop above may swallow-and-retry it —
-          # callers only see it once retries are exhausted.
-          ra = _parse_retry_after_header(resp["retry-after"] || resp["Retry-After"])
-          raise RateLimitError.new(retry_after: ra, body: data)
-        end
-
-        msg = "Melaya API #{resp.code}" + (err_code ? " (#{err_code})" : "")
-        raise MelayaError.new(msg, status: status, code: err_code, body: data)
-      end
+      raise_for_status!(resp, data, status) if status >= 400
 
       # The API may wrap payload in { "ok": false, ... } for request-level failures.
       if data.is_a?(Hash) && data["ok"] == false
@@ -221,6 +272,45 @@ module Melaya
       end
 
       data
+    end
+
+    # Like +parse+, but for a raw binary body (a file download): on success
+    # the response body is returned unparsed; on error the same JSON error
+    # envelopes and exception types apply.
+    def parse_raw(resp)
+      status = resp.code.to_i
+      if status >= 400
+        text = resp.body.to_s.strip
+        data = begin
+          text.empty? ? nil : JSON.parse(text)
+        rescue JSON::ParserError
+          text
+        end
+        raise_for_status!(resp, data, status)
+      end
+      resp.body.to_s
+    end
+
+    # Shared 4xx/5xx handling for both +parse+ and +parse_raw+. Two error
+    # envelope shapes:
+    #   1. { error: 'tier_insufficient', tier: '...' }  -> 403
+    #   2. { error: '...', message: '...', code: '...' }
+    # Extract error code safely — never echo raw body in message.
+    def raise_for_status!(resp, data, status)
+      err_code = data.is_a?(Hash) ? data["error"] : nil
+
+      if status == 403 && err_code == "tier_insufficient"
+        raise TierInsufficientError.new(tier: data.is_a?(Hash) ? data["tier"] : nil, body: data)
+      end
+      if status == 429
+        # Raised here; the GET retry loop above may swallow-and-retry it —
+        # callers only see it once retries are exhausted.
+        ra = _parse_retry_after_header(resp["retry-after"] || resp["Retry-After"])
+        raise RateLimitError.new(retry_after: ra, body: data)
+      end
+
+      msg = "Melaya API #{resp.code}" + (err_code ? " (#{err_code})" : "")
+      raise MelayaError.new(msg, status: status, code: err_code, body: data)
     end
   end
 end

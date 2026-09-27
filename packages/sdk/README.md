@@ -4,6 +4,8 @@
 
 Official SDK for the **[Melaya](https://melaya.org)** Agent Builder and flagship Mobile Device Control APIs. Build agents from 1,500+ scoped tools, 100+ specialized subagents, and 20+ model providers; pair an Android phone and let an authorized agent operate approved apps through the visible interface. Trading namespaces are included only as a preview of a later product.
 
+**Melaya products:** [Melaya Agents](https://melaya.org/en/product/agentic-framework) · [Melaya Assistant](https://melaya.org/en/product/assistant) · [Device Control](https://melaya.org/en/product/agentic-device-control) · [Browser Control](https://melaya.org/en/product/agentic-browser-control) · [MCP Server](https://melaya.org/en/product/mcp) · [Melaya Marketing](https://melaya.org/en/product/marketing)
+
 - Zero runtime dependencies (uses the platform `fetch` + `WebSocket`).
 - Isomorphic: works in Node 18+ and the browser.
 - Fully typed, from pipeline configs to real-time run events.
@@ -38,25 +40,30 @@ A Melaya platform key is required. "No app API required" means Device Control op
 Configure provider credentials through Melaya Connectors first. Never include a provider key in pipeline configuration or per-run overrides.
 
 ```ts
+// The run is generated ONLY from `steps[]` — a top-level `agents[]` array
+// with no matching steps produces an EMPTY pipeline. There is no `prompt`
+// field on an agent: `instruction` is the task.
 await melaya.agents.pipelines.create({
   name: "mobile-review",
   project: "Operations",
-  model_provider: "anthropic",
-  model_name: "claude-sonnet-4-6",
-  agents: [{
-    name: "mobile-operator",
-    role: "Careful mobile operator",
-    instruction: "Read before acting. Never send, publish, or delete.",
-    agent_tools: [
-      "phone_get_screen_tree",
-      "phone_current_app",
-      "phone_open_app",
-      "phone_click_text",
-      "phone_back",
-      "phone_wait"
-    ]
+  steps: [{
+    kind: "agent",
+    agent: {
+      name: "mobile-operator",
+      role: "Careful mobile operator",
+      instruction: "Read before acting. Never send, publish, or delete.",
+      model: { provider: "anthropic", name: "claude-sonnet-4-6" },
+      agent_tools: [
+        "phone_get_screen_tree",
+        "phone_current_app",
+        "phone_open_app",
+        "phone_click_text",
+        "phone_back",
+        "phone_wait"
+      ],
+      human_approval_tools: []
+    }
   }],
-  steps: [{ kind: "agent", agent: { name: "mobile-operator" } }],
   maxCostUsd: 1.00
 });
 
@@ -79,22 +86,23 @@ Namespaced access is the primary API (`melaya.agents.*`, `melaya.platform.*`); f
 |---|---|
 | Auth | `platform.auth.login`, `verifyMfa`, `register`, `verifySignup`, `resendVerification`, `forgotPassword`, `resetPassword`, `changePassword`, `me`, `check`, `refresh`, `myPermissions`, `createMobileHandoff` |
 | MFA | `platform.mfa.status`, `setup`, `confirm` |
-| Accounts | `platform.accounts.exportMyData`, `updateProfile`, `removeKey`, `credits`, `aiCredits`, `portfolioIdeasCredits`, `riskMonitoringCredits` |
+| Accounts | `platform.accounts.exportMyData`, `updateProfile`, `removeKey`, `credits`, `aiCredits`, `portfolioIdeasCredits`, `riskMonitoringCredits`, `resendEmailVerification`, `verifyEmail` |
 | Projects | `platform.projects.list`, `create`, `rename`, `runnerProjects` |
-| Connectors | `platform.connectors.connectedServices`, `set`, `delete`, `envHandle`, `googleOAuthStart` |
-| Credentials | `platform.credentials.list`, `connectedServices`, `get`, `set`, `delete`, `test`, `getOperatorProfile`, `setOperatorProfile`, `listModels`, RAG + connect flows (`ragIngestStart`, `ragRetrieveStart`, `linkedinConnectStart`, `telegramAuthStart`, ...) |
-| Pipelines | `agents.pipelines.listPipelines`, `create`, `get`, `update`, `remove`, `run`, `runIds`, `runStatus`, `cancelRun`, `outputs`, `output`, `previewCode`, `tools`, `subagents`, `catalogCounts`, `instantiateTemplate`, `buildWithAI`, `overview`, `count`, `list`, `recent`, `traces`, `trace`, `traceStats`, `deleteTraces`, `listSchedules`, `getSchedule`, `upsertSchedule`, `pauseSchedule`, `resumeSchedule` |
+| Connectors | `platform.connectors.connectedServices`, `set`, `delete`, `envHandle`, `googleOAuthStart`, `applyPersonal`, `sharedBy`, `googleStatus`, `googleSetDefault`, `googleDisconnect`, `dbTestStart`, `dbTestStatus` |
+| Credentials | `platform.credentials.list`, `connectedServices`, `get`, `set`, `delete`, `test`, `getOperatorProfile`, `setOperatorProfile`, `listModels`, RAG + connect flows (`ragIngestStart`, `ragRetrieveStart`, `linkedinConnectStart`, `telegramAuthStart`, ...), `googleStatus`, `googleSetDefault`, `googleDisconnect`, `dbTestStart`, `dbTestStatus`, `telegramQrStart`, `telegramQrPoll`, `whatsappSignupConfig`, `whatsappSignupExchange`, `tiktokCreatorInfo`, `substackEmailLinkSend`, `substackEmailLinkRedeem` |
+| Pipelines | `agents.pipelines.listPipelines`, `create`, `get`, `update`, `remove`, `run`, `runIds`, `runStatus`, `cancelRun`, `outputs`, `output`, `previewCode`, `tools`, `subagents`, `catalogCounts`, `instantiateTemplate`, `buildWithAI`, `overview`, `count`, `list`, `recent`, `traces`, `trace`, `traceStats`, `deleteTraces`, `listSchedules`, `getSchedule`, `upsertSchedule`, `pauseSchedule`, `resumeSchedule`, `uploadRunFile`, `runInputs`, `runInputFile`, `runActive`, `listDocs`, `uploadDoc`, `deleteDoc`, `uploadRetrievalDoc`, `ingestRetrieval`, `deleteRetrievalDoc`, `projectToolCalls`, `projectToolCallFacets`, `toolCallDetail` |
 | Templates | `platform.templates.list`, `listGlobal`, `listValidated`, `save`, `update`, `duplicate`, `delete`, `share`, `shareTargets`, `listAssignments`, `assign(templateId, { userId \| projectId })`, `unassign(templateId, { userId \| projectId })` |
-| Phone (Device Control) | `agents.phone.pair`, `listDevices`, `revokeDevice`, `screenTree`, `listApps`, `setAllowedApps`, `registerActiveRun` |
+| Phone (Device Control) | `agents.phone.pair`, `listDevices`, `revokeDevice`, `screenTree`, `listApps`, `setAllowedApps`, `registerActiveRun`, `grantApp`, `requestCast` |
 | HITL | `agents.hitl.pending`, `history`, `approve`, `reject`, `bulkDecide`, `runToolStats`, `runToolStatsByAgent`, `runMessages`, `runToolCalls` |
 | Evals | `agents.evals.listRuns`, `summary`, `runDetail`, `compare`, `benchmarks` |
-| Memory | `agents.memory.graph`, `runMemory`, `crew` |
+| Memory | `agents.memory.graph`, `runMemory`, `crew`, `editEntry`, `deleteEntry` |
 | Models | `agents.models.listModels` |
+| Connector tools | `agents.connectorTools.services`, `search`, `describe`, `test`, `connect`, `call`, `callStatus`, `callAndWait` |
 | Assistant | `agents.assistant.getProfile`, `setProfile` |
 | Events (real-time) | `platform.events.onRunUpdate`, `onInitPhase`, `onProjectEvent`, `onHitlApproval`, `onPipelineCreated`, `onPipelineUpdated`, `onPipelineDeleted`, `leaveRun`, `leaveProject`, `close` |
-| Billing | `platform.billing.subscription`, `plans`, `createCheckout`, `createPortal` |
+| Billing | `platform.billing.subscription`, `plans`, `createCheckout`, `createPortal`, `ambassadorPerk`, `redeemCode`, `reservedPromo` |
 | Runner | `platform.runner.createToken`, `listTokens`, `revokeToken` |
-| Team | `platform.team.listMembers`, `invite`, `createInviteLink`, `acceptInvite`, `updateMemberRole`, `removeMember`, `getPipelineVisibility`, `setPipelineVisibility` |
+| Team | `platform.team.listMembers`, `invite`, `createInviteLink`, `acceptInvite`, `updateMemberRole`, `removeMember`, `getPipelineVisibility`, `setPipelineVisibility`, `transferOwnership` |
 | Bugs | `platform.bugs.create`, `listMine`, `get`, `addComment`, `listNotifications`, `markNotificationsRead` |
 
 ## Authentication
@@ -106,6 +114,28 @@ Create an API key in the dashboard (**melaya.org → Settings → API Keys**). K
 - **Private WebSocket streams** — the SDK first mints a short-lived ticket over REST, and only `?wsTicket=` appears in the URL; the API key itself is never in a private stream URL.
 
 Alternatively, pass a `sessionToken` from `platform.auth.login()` instead of an API key.
+
+## Connector tools
+
+`agents.connectorTools` (flat alias: `melaya.connectorTools`) calls the same connector tools the Melaya Assistant and MCP server use — over plain REST, without a running pipeline. This is distinct from `platform.connectors` / `platform.credentials`, which store the underlying service credentials; no method here ever accepts or returns a credential value.
+
+- Read tools run immediately.
+- Writes default to `approval: "required"`, which stages the same approval card the Assistant raises and returns HTTP 202 (a success, not an error) with a `requestId`; the write runs once the user approves it in the Melaya app. Pass `approval: "none"` to run a write immediately — it is still audit-logged.
+- Tools that move money or trade are refused under both approval modes.
+
+```ts
+const { tools } = await melaya.agents.connectorTools.search("unread email");
+
+// Fire-and-forget: poll callStatus(requestId) yourself.
+const staged = await melaya.agents.connectorTools.call("gmail_send", { to: "a@b.c" });
+if (staged.status === "pending_approval") {
+  const outcome = await melaya.agents.connectorTools.callStatus(staged.requestId);
+}
+
+// Or block until the approval is decided (or it times out).
+const outcome = await melaya.agents.connectorTools.callAndWait("gmail_send", { to: "a@b.c" });
+if (outcome.status === "done" && outcome.ok) console.log(outcome.result);
+```
 
 ---
 

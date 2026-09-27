@@ -281,6 +281,39 @@ type PickFolderStatus struct {
 	Path      string `json:"path,omitempty"`
 }
 
+// DBTestStartResult is returned by DBTestStart (personal or project-scoped).
+// Ok is false when the service is unsupported or the caller's runner is
+// offline — Error then carries a machine-readable reason (e.g.
+// "unsupported_service", "runner_offline") and Hint a human-readable next
+// step. Poll DBTestStatus with SessionID until it reports "complete".
+type DBTestStartResult struct {
+	Ok        bool   `json:"ok"`
+	SessionID string `json:"sessionId,omitempty"`
+	Error     string `json:"error,omitempty"`
+	Hint      string `json:"hint,omitempty"`
+}
+
+// DBTestStatusResult is the poll result for a database connection test.
+// State is "pending", "complete", or "expired"; Ok/Message/Error are only
+// meaningful once State is "complete".
+type DBTestStatusResult struct {
+	State   string `json:"state"`
+	Ok      bool   `json:"ok,omitempty"`
+	Message string `json:"message,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// WhatsappSignupExchangeBody is the request body for
+// CredentialsAPI.WhatsappSignupExchange.
+type WhatsappSignupExchangeBody struct {
+	Code          string `json:"code"`
+	PhoneNumberID string `json:"phoneNumberId"`
+	WabaID        string `json:"wabaId"`
+	// Project scopes the stored credential to a project (editor/owner
+	// required); omit to store it at personal scope.
+	Project string `json:"project,omitempty"`
+}
+
 // ── AI Models ─────────────────────────────────────────────────────────────────
 
 // AIModel describes one available AI model.
@@ -367,6 +400,23 @@ type PhonePairResult struct {
 type PhoneApp struct {
 	Package string `json:"package"`
 	Label   string `json:"label,omitempty"`
+}
+
+// PhoneGrantAppResult is returned by PhoneAPI.GrantApp.
+type PhoneGrantAppResult struct {
+	Ok bool `json:"ok"`
+	// Synced reports whether the allowlist reached the phone immediately
+	// (false if it was offline — it picks up the cached policy on its next poll).
+	Synced          bool     `json:"synced"`
+	AllowedPackages []string `json:"allowedPackages"`
+}
+
+// PhoneRequestCastResult is returned by PhoneAPI.RequestCast.
+type PhoneRequestCastResult struct {
+	Ok bool `json:"ok"`
+	// Online reports whether the phone was already online when the request
+	// was enqueued (an offline phone is nudged with a best-effort wake).
+	Online bool `json:"online"`
 }
 
 // ── Team ─────────────────────────────────────────────────────────────────────
@@ -524,6 +574,126 @@ type TraceStats struct {
 	TracesByStatus []TraceStatusCount `json:"tracesByStatus"`
 }
 
+// ── Tool-call audit ───────────────────────────────────────────────────────────
+
+// ToolCallApproval describes how a tool call was authorized.
+type ToolCallApproval struct {
+	// Mode is "auto" (no HITL gate) or "approved" (a human approved it).
+	Mode       string  `json:"mode"`
+	ApprovedBy *string `json:"approvedBy"`
+	ApprovedAt *string `json:"approvedAt"`
+	// Reason is only populated on ToolCallDetail.
+	Reason *string `json:"reason,omitempty"`
+}
+
+// ToolCall is one row in a project's tool-call audit ledger, as returned by
+// PipelinesAPI.ProjectToolCalls. Input/output are 4KB-truncated previews —
+// call ToolCallDetail for the full values.
+type ToolCall struct {
+	ID              string           `json:"id"`
+	TraceID         string           `json:"traceId"`
+	RunID           string           `json:"runId"`
+	ToolName        string           `json:"toolName"`
+	ToolDescription *string          `json:"toolDescription"`
+	ToolCallID      *string          `json:"toolCallId"`
+	Service         *string          `json:"service"`
+	Agent           *string          `json:"agent"`
+	Pipeline        string           `json:"pipeline"`
+	Project         string           `json:"project"`
+	RanBy           *string          `json:"ranBy"`
+	RanByEmail      *string          `json:"ranByEmail"`
+	ConnectorSource *string          `json:"connectorSource"`
+	Approval        ToolCallApproval `json:"approval"`
+	Model           *string          `json:"model"`
+	Provider        string           `json:"provider"`
+	InputTokens     *int64           `json:"inputTokens"`
+	OutputTokens    *int64           `json:"outputTokens"`
+	CostUSD         *float64         `json:"costUsd"`
+	// Status is "ok" or "error".
+	Status          string   `json:"status"`
+	LatencyMs       *float64 `json:"latencyMs"`
+	Timestamp       string   `json:"timestamp"`
+	InputPreview    string   `json:"inputPreview"`
+	InputTruncated  bool     `json:"inputTruncated"`
+	OutputPreview   string   `json:"outputPreview"`
+	OutputTruncated bool     `json:"outputTruncated"`
+}
+
+// ToolCallCursor is the keyset-pagination cursor for ProjectToolCalls (only
+// populated for the "recent"/"oldest" time sorts; "slowest"/"fastest" return a
+// bounded top-N snapshot instead, with Capped=true and no cursor).
+type ToolCallCursor struct {
+	BeforeCreatedAt string `json:"beforeCreatedAt"`
+	BeforeID        string `json:"beforeId"`
+}
+
+// ProjectToolCallsResult is the paginated envelope returned by ProjectToolCalls.
+type ProjectToolCallsResult struct {
+	Items      []ToolCall      `json:"items"`
+	NextCursor *ToolCallCursor `json:"nextCursor"`
+	// Capped is true for the latency sorts ("slowest"/"fastest"), which return
+	// a bounded top-N snapshot rather than a paginated feed.
+	Capped bool `json:"capped"`
+}
+
+// ProjectToolCallsParams filters and paginates ProjectToolCalls. All fields
+// are optional.
+type ProjectToolCallsParams struct {
+	// BeforeCreatedAt + BeforeID form a descending keyset cursor from a
+	// previous ProjectToolCallsResult.NextCursor (time sorts only).
+	BeforeCreatedAt string
+	BeforeID        string
+	// Limit is 1-100 (default 30 server-side).
+	Limit int
+	Tool  string
+	Agent string
+	RunID string
+	// Status is "ok" or "error".
+	Status string
+	Search string
+	// ConnectorSource is "project" or "personal".
+	ConnectorSource string
+	// Approval is "auto", "approved" (any approver), or "by:<username>".
+	Approval string
+	Provider string
+	// Sort is "recent" (default), "oldest", "slowest", or "fastest".
+	Sort string
+}
+
+// ToolCallFacetCount is one entry in ProjectToolCallFacets.Tools: a tool name
+// and how many times it was called.
+type ToolCallFacetCount struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
+}
+
+// ProjectToolCallFacets holds the distinct filter values seen in a project's
+// tool-call ledger — powers the audit UI's filter dropdowns.
+type ProjectToolCallFacets struct {
+	Tools     []ToolCallFacetCount `json:"tools"`
+	Agents    []string             `json:"agents"`
+	Approvers []string             `json:"approvers,omitempty"`
+	Providers []string             `json:"providers,omitempty"`
+}
+
+// ToolCallDetail is the full, untruncated input/output for one tool-call span
+// within a run, as returned by PipelinesAPI.ToolCallDetail.
+type ToolCallDetail struct {
+	ToolName        string           `json:"toolName"`
+	ToolDescription *string          `json:"toolDescription"`
+	Input           string           `json:"input"`
+	Output          string           `json:"output"`
+	Status          string           `json:"status"`
+	LatencyMs       *float64         `json:"latencyMs"`
+	Model           *string          `json:"model"`
+	Provider        string           `json:"provider"`
+	InputTokens     *int64           `json:"inputTokens"`
+	OutputTokens    *int64           `json:"outputTokens"`
+	CostUSD         *float64         `json:"costUsd"`
+	ConnectorSource *string          `json:"connectorSource"`
+	Approval        ToolCallApproval `json:"approval"`
+}
+
 // ── Assistant profile ─────────────────────────────────────────────────────────
 
 // AssistantProfile is the caller's onboarding / persona configuration.
@@ -548,6 +718,33 @@ type EvalRun struct {
 type EvalSummary struct {
 	TotalRuns *int     `json:"totalRuns,omitempty"`
 	PassRate  *float64 `json:"passRate,omitempty"`
+}
+
+// ── Crew memory (edit / delete) ──────────────────────────────────────────────
+
+// MemoryEntryPatch is the set of fields that can be changed on a persisted
+// crew-memory entry. Unset (zero-value) fields are left unchanged server-side.
+type MemoryEntryPatch struct {
+	Topic        string   `json:"topic,omitempty"`
+	Content      string   `json:"content,omitempty"`
+	Tags         []string `json:"tags,omitempty"`
+	Priority     *int     `json:"priority,omitempty"`
+	AgentTargets []string `json:"agent_targets,omitempty"`
+}
+
+// MemoryEditEntryBody is the request body for EvalsAPI.EditMemoryEntry.
+type MemoryEditEntryBody struct {
+	Pipeline string           `json:"pipeline"`
+	EntryID  string           `json:"entryId"`
+	Project  string           `json:"project,omitempty"`
+	Patch    MemoryEntryPatch `json:"patch"`
+}
+
+// MemoryDeleteEntryBody is the request body for EvalsAPI.DeleteMemoryEntry.
+type MemoryDeleteEntryBody struct {
+	Pipeline string `json:"pipeline"`
+	EntryID  string `json:"entryId"`
+	Project  string `json:"project,omitempty"`
 }
 
 // ── Project connectors ────────────────────────────────────────────────────────
@@ -594,9 +791,23 @@ type CreditBalance struct {
 
 // ── Embeddable pipeline lifecycle ────────────────────────────────────────────
 
-// PipelineConfig is the full pipeline configuration (agents, prompts, models,
-// tools, and wiring). It is a free-form map; Name and Project are the only
-// well-known top-level fields.
+// PipelineConfig is the full pipeline configuration. It is a free-form map;
+// Name and Project are the only well-known top-level fields. A few fields are
+// worth knowing about:
+//
+//   - The run is generated ONLY from steps[]. A top-level agents[] array alone
+//     produces an EMPTY pipeline — every agent must be embedded in its own
+//     step: steps: [{kind: "agent", agent: {name, role, instruction,
+//     model: {provider, name}, agent_tools, human_approval_tools}}].
+//   - There is no "prompt" field. The prompt-shaped fields on an agent are
+//     "instruction" (the per-run task) and "system_prompt_override".
+//   - hitl_mode is "safe" (default) | "autonomous" | "payments_only"; only
+//     "safe" honors each agent's human_approval_tools.
+//   - connector_source is "personal" | "project".
+//   - force_local_runner routes execution to the caller's own runner.
+//   - inputs[] declares the run_inputs.values keys a pipeline accepts.
+//
+// See Get and Update for how the server envelope wraps this config.
 type PipelineConfig map[string]interface{}
 
 // PipelineCreateBody is the request body for creating a pipeline.
@@ -618,12 +829,32 @@ type PipelineUpdateBody struct {
 type PipelineRunOptions struct {
 	// Project narrows tenant scope.
 	Project string `json:"project,omitempty"`
-	// ExecutionTarget overrides where the run executes ("local-runner" | "cloud-spawn").
+	// ExecutionTarget is used for the TIER CHECK only (e.g. gating cloud-spawn
+	// to paid tiers). It does NOT decide where the run actually executes —
+	// that is decided by the pipeline's stored config (its configured local
+	// model providers / force_local_runner), never by this per-run field.
 	ExecutionTarget string `json:"executionTarget,omitempty"`
 	// StudioURL is an optional callback URL for run-event notifications.
 	StudioURL string `json:"studio_url,omitempty"`
-	// EnvOverrides are per-run env var overrides layered over stored credentials.
+	// EnvOverrides are per-run env var overrides layered over stored
+	// credentials. Any key matching MEL_* or MELAYA_* (case-insensitive) is
+	// stripped server-side — those are trusted, server-stamped identifiers
+	// (tier, owner, crew, pipeline id) that a caller can never override.
 	EnvOverrides map[string]string `json:"env_overrides,omitempty"`
+	// RunInputs threads a brief and/or named input values through to the run
+	// (e.g. for a pipeline whose steps read run_inputs.brief / .values.<key>).
+	RunInputs *RunInputs `json:"run_inputs,omitempty"`
+}
+
+// RunInputs are values threaded through to a pipeline run: an optional brief
+// and a map of named input values. A file value inside Values may be one of:
+//
+//   - {"file_id": "..."}       — from a prior UploadRunFile call (single-use, 24h)
+//   - {"url": "..."}           — fetched server-side, ≤25 MB
+//   - {"base64": "...", "name": "..."} — inlined, ≤7 MB
+type RunInputs struct {
+	Brief  string                 `json:"brief,omitempty"`
+	Values map[string]interface{} `json:"values,omitempty"`
 }
 
 // PipelineRunAccepted is the response envelope returned when a pipeline run is
@@ -631,6 +862,41 @@ type PipelineRunOptions struct {
 type PipelineRunAccepted struct {
 	RunID  string `json:"run_id"`
 	Queued bool   `json:"queued"`
+	// RunInputs echoes back the resolved run_inputs (e.g. with {url}/{base64}
+	// file references normalized to {file_id}) when the run was started with any.
+	RunInputs *RunInputs `json:"run_inputs,omitempty"`
+}
+
+// PipelineRunInputs is the persisted run_inputs record for one run, as
+// originally passed to Run (or resolved server-side from url/base64 file
+// references into file_id references).
+type PipelineRunInputs struct {
+	Brief  string                 `json:"brief,omitempty"`
+	Values map[string]interface{} `json:"values,omitempty"`
+	Files  []interface{}          `json:"files,omitempty"`
+}
+
+// UploadRunFileOptions holds optional parameters for UploadRunFile.
+type UploadRunFileOptions struct {
+	// Project narrows tenant scope.
+	Project string
+	// ContentType overrides the multipart part's Content-Type
+	// (default: detected from the filename by the server).
+	ContentType string
+}
+
+// RunFileUploadResult is returned by UploadRunFile: a single-use file
+// reference, valid 24h, to pass as a Values entry in RunInputs.
+type RunFileUploadResult struct {
+	FileID string `json:"file_id"`
+}
+
+// UploadDocOptions holds optional parameters for UploadDoc and
+// UploadRetrievalDoc.
+type UploadDocOptions struct {
+	// ContentType overrides the multipart part's Content-Type
+	// (default: detected from the filename by the server).
+	ContentType string
 }
 
 // PipelineRunIDsResult is the response for listing run IDs.

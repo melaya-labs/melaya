@@ -14,6 +14,7 @@ import org.json.JSONObject
  *   - `DELETE /api/v1/private/projects/:project/members/:userId`                  — remove member
  *   - `GET    /api/v1/private/projects/:project/pipelines/:pipeline/visibility`   — get visibility
  *   - `PUT    /api/v1/private/projects/:project/pipelines/:pipeline/visibility`   — set visibility
+ *   - `POST   /api/v1/private/projects/:project/transfer-ownership`               — transfer ownership
  *
  * @example
  * ```kotlin
@@ -97,6 +98,14 @@ class TeamAPI internal constructor(private val http: HttpClient) {
         return http.put(
             "/api/v1/private/projects/${enc(project)}/pipelines/${enc(pipeline)}/visibility",
             body
+        ).asObject()
+    }
+
+    /** Transfer project ownership (creator) to another active member. */
+    fun transferOwnership(project: String, newOwnerUserId: String): JSONObject {
+        return http.post(
+            "/api/v1/private/projects/${enc(project)}/transfer-ownership",
+            mapOf("newOwnerUserId" to newOwnerUserId)
         ).asObject()
     }
 

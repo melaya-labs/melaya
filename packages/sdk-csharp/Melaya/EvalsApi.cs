@@ -43,14 +43,14 @@ public sealed class EvalsApi
     /// <summary>Get memory graph visualization data for eval runs.</summary>
     public async Task<JsonElement> MemoryGraphAsync(CancellationToken ct = default)
     {
-        return await _http.GetAsync<JsonElement>("/api/v1/private/evals/memory-graph", ct: ct).ConfigureAwait(false);
+        return await _http.GetAsync<JsonElement>("/api/v1/private/memory/graph", ct: ct).ConfigureAwait(false);
     }
 
     /// <summary>Get memory usage for a specific eval run.</summary>
     public async Task<JsonElement> RunMemoryAsync(string runId, CancellationToken ct = default)
     {
         return await _http.GetAsync<JsonElement>(
-            $"/api/v1/private/evals/runs/{Uri.EscapeDataString(runId)}/memory", ct: ct).ConfigureAwait(false);
+            $"/api/v1/private/memory/runs/{Uri.EscapeDataString(runId)}", ct: ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -60,13 +60,30 @@ public sealed class EvalsApi
     public async Task<JsonElement> CrewMemoryAsync(string? pipeline = null, string? project = null, CancellationToken ct = default)
     {
         var q = Q(("pipeline", pipeline), ("project", project));
-        return await _http.GetAsync<JsonElement>("/api/v1/private/evals/crew-memory", q, ct).ConfigureAwait(false);
+        return await _http.GetAsync<JsonElement>("/api/v1/private/memory/crew", q, ct).ConfigureAwait(false);
     }
 
     /// <summary>Get benchmark scores across eval runs.</summary>
     public async Task<JsonElement> BenchmarksAsync(CancellationToken ct = default)
     {
         return await _http.GetAsync<JsonElement>("/api/v1/private/evals/benchmarks", ct: ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Edit one persisted cross-run crew-memory entry (topic, content, and/or tags).</summary>
+    public async Task<BoolResult> EditCrewMemoryEntryAsync(CrewMemoryEditRequest body, CancellationToken ct = default)
+    {
+        return await _http.PostAsync<BoolResult>("/api/v1/private/memory/crew/edit", body, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Delete one persisted cross-run crew-memory entry.</summary>
+    /// <param name="pipeline">Pipeline / crew name that owns the entry.</param>
+    /// <param name="entryId">Entry id to delete.</param>
+    /// <param name="project">Optional project to disambiguate the pipeline name.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<BoolResult> DeleteCrewMemoryEntryAsync(string pipeline, string entryId, string? project = null, CancellationToken ct = default)
+    {
+        var body = new { pipeline, entryId, project };
+        return await _http.PostAsync<BoolResult>("/api/v1/private/memory/crew/delete", body, ct).ConfigureAwait(false);
     }
 
     private static Dictionary<string, string?> Q(params (string Key, string? Value)[] pairs)

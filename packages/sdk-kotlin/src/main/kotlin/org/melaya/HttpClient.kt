@@ -2,6 +2,7 @@ package org.melaya
 
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -103,13 +104,52 @@ internal class HttpClient(
         else -> body.toString().toRequestBody(JSON_MEDIA_TYPE)
     }
 
-    fun post(path: String, body: Any? = null): Any? {
+    /**
+     * @param timeoutMs Optional per-call timeout override in ms (e.g. for a slow endpoint like
+     *   retrieval ingestion). Defaults to the client's [requestTimeoutMs] when omitted.
+     */
+    fun post(path: String, body: Any? = null, timeoutMs: Long? = null): Any? {
         val jsonBody = toRequestBody(body)
         val req = Request.Builder()
             .url(buildUrl(path))
             .header("Authorization", "Bearer $apiKey")
             .header("Content-Type", "application/json")
             .post(jsonBody)
+            .build()
+        return execute(req, timeoutMs)
+    }
+
+    /**
+     * POST [path] as `multipart/form-data` with a single file part, built by hand on top of
+     * OkHttp's own [MultipartBody] (no extra dependency — OkHttp is already the SDK's HTTP client).
+     *
+     * Never retried: [RetryInterceptor] only retries GET requests. Parses the response exactly
+     * like [post] (same envelope unwrap + [MelayaException] on failure).
+     *
+     * @param query       Query parameters appended to [path] (e.g. `key`, `project`).
+     * @param fieldName   The multipart field name for the file part (e.g. `"file"`).
+     * @param bytes       Raw file bytes.
+     * @param filename    Filename sent with the file part.
+     * @param contentType Optional MIME type for the file part (defaults to `application/octet-stream`).
+     */
+    fun postMultipart(
+        path: String,
+        query: Map<String, Any?> = emptyMap(),
+        fieldName: String,
+        bytes: ByteArray,
+        filename: String,
+        contentType: String? = null,
+    ): Any? {
+        val mediaType = (contentType ?: "application/octet-stream").toMediaType()
+        val filePart = bytes.toRequestBody(mediaType)
+        val multipartBody = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart(fieldName, filename, filePart)
+            .build()
+        val req = Request.Builder()
+            .url(buildUrl(path, query))
+            .header("Authorization", "Bearer $apiKey")
+            .post(multipartBody)
             .build()
         return execute(req)
     }
@@ -150,26 +190,31 @@ internal class HttpClient(
 
     // ── Response parsing + envelope unwrap ──────────────────────────────────
 
-    private fun execute(req: Request): Any? {
-        // Apply a per-request call timeout without modifying the shared OkHttpClient.
-        val callClient = if (requestTimeoutMs > 0) {
+    /** Apply a per-request call timeout without modifying the shared OkHttpClient. */
+    private fun callClient(timeoutMs: Long? = null): OkHttpClient {
+        val effective = timeoutMs ?: requestTimeoutMs
+        return if (effective > 0) {
             okHttp.newBuilder()
-                .callTimeout(requestTimeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+                .callTimeout(effective, java.util.concurrent.TimeUnit.MILLISECONDS)
                 .build()
         } else {
             okHttp
         }
-        val resp = callClient.newCall(req).execute()
+    }
+
+    private fun parseBody(text: String): Any? = try {
+        if (text.isBlank()) null
+        else if (text.trimStart().startsWith("[")) JSONArray(text)
+        else JSONObject(text)
+    } catch (_: Exception) {
+        text
+    }
+
+    private fun execute(req: Request, timeoutMs: Long? = null): Any? {
+        val resp = callClient(timeoutMs).newCall(req).execute()
         val text = resp.body?.string() ?: ""
         val status = resp.code
-
-        val data: Any? = try {
-            if (text.isBlank()) null
-            else if (text.trimStart().startsWith("[")) JSONArray(text)
-            else JSONObject(text)
-        } catch (_: Exception) {
-            text
-        }
+        val data = parseBody(text)
 
         if (status >= 400) {
             val code = (data as? JSONObject)?.optString("error", null)
@@ -188,6 +233,30 @@ internal class HttpClient(
         }
 
         return data
+    }
+
+    /**
+     * GET [path] and return the raw response body bytes — never JSON-parsed. For binary
+     * downloads such as run input files. Subject to the same retry policy as [get]
+     * ([RetryInterceptor] only retries idempotent GETs).
+     */
+    fun getBytes(path: String, query: Map<String, Any?> = emptyMap()): ByteArray {
+        val req = Request.Builder()
+            .url(buildUrl(path, query))
+            .header("Authorization", "Bearer $apiKey")
+            .get()
+            .build()
+        val resp = callClient().newCall(req).execute()
+        val status = resp.code
+        if (status >= 400) {
+            val data = parseBody(resp.body?.string() ?: "")
+            val code = (data as? JSONObject)?.optString("error", null)
+            throw MelayaException(
+                "Melaya API $status" + if (code != null) " ($code)" else "",
+                status, code, data
+            )
+        }
+        return resp.body?.bytes() ?: ByteArray(0)
     }
 }
 

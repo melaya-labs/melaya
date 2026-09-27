@@ -405,6 +405,231 @@ func (c *CredentialsAPI) GoogleOAuthStart(ctx context.Context, body map[string]i
 	return v, nil
 }
 
+// GoogleStatus lists the Google OAuth capabilities actually granted to the caller.
+//
+// GET /api/v1/private/credentials/google/status
+func (c *CredentialsAPI) GoogleStatus(ctx context.Context) (map[string]interface{}, error) {
+	data, err := c.h.get(ctx, "/api/v1/private/credentials/google/status", nil)
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// GoogleSetDefault selects which connected Google account is used for one
+// capability. accountId is a 24-hex-char id. capability is one of: gmail,
+// calendar, drive, sheets, docs, search_console, youtube, google_ads,
+// analytics, meet, slides.
+//
+// PUT /api/v1/private/credentials/google/default
+func (c *CredentialsAPI) GoogleSetDefault(ctx context.Context, capability, accountID string) (bool, error) {
+	data, err := c.h.put(ctx, "/api/v1/private/credentials/google/default", map[string]string{
+		"capability": capability, "accountId": accountID,
+	})
+	if err != nil {
+		return false, err
+	}
+	var v successResult
+	if err := unmarshal(data, &v); err != nil {
+		return false, err
+	}
+	return v.Success, nil
+}
+
+// GoogleDisconnect disconnects one Google product (capability) or an entire
+// connected Google account. Pass an empty capability to disconnect the whole
+// account.
+//
+// DELETE /api/v1/private/credentials/google/access
+// (JSON body: {accountId, capability?})
+func (c *CredentialsAPI) GoogleDisconnect(ctx context.Context, accountID, capability string) (bool, error) {
+	body := map[string]string{"accountId": accountID}
+	if capability != "" {
+		body["capability"] = capability
+	}
+	data, err := c.h.delWithBody(ctx, "/api/v1/private/credentials/google/access", nil, body)
+	if err != nil {
+		return false, err
+	}
+	var v successResult
+	if err := unmarshal(data, &v); err != nil {
+		return false, err
+	}
+	return v.Success, nil
+}
+
+// ── Database connector test ──────────────────────────────────────────────────
+
+// DBTestStart probes a database connector from the caller's own runner
+// (reaches IP-allow-listed / VPC hosts the cloud can't). Pass credentials to
+// test freshly-typed values before saving; omit to test the stored personal
+// credential. Poll the result with DBTestStatus.
+//
+// POST /api/v1/private/credentials/db-test
+func (c *CredentialsAPI) DBTestStart(ctx context.Context, service string, credentials map[string]string) (*DBTestStartResult, error) {
+	body := map[string]interface{}{"service": service}
+	if len(credentials) > 0 {
+		body["credentials"] = credentials
+	}
+	data, err := c.h.post(ctx, "/api/v1/private/credentials/db-test", body)
+	if err != nil {
+		return nil, err
+	}
+	var v DBTestStartResult
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+// DBTestStatus polls a database connector runner-test result started by DBTestStart.
+//
+// GET /api/v1/private/credentials/db-test/:sessionId
+func (c *CredentialsAPI) DBTestStatus(ctx context.Context, sessionID string) (*DBTestStatusResult, error) {
+	path := "/api/v1/private/credentials/db-test/" + url.PathEscape(sessionID)
+	data, err := c.h.get(ctx, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	var v DBTestStatusResult
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+// ── Telegram QR login ─────────────────────────────────────────────────────────
+
+// TelegramQrStart starts Telegram user QR-code login (an alternative to the
+// SMS-code flow started by TelegramAuthStart). Returns a handle (prefixed
+// "tgauth_") plus a qr_url to render as a QR code — poll with TelegramQrPoll.
+//
+// POST /api/v1/private/credentials/telegram/auth/qr/start
+func (c *CredentialsAPI) TelegramQrStart(ctx context.Context, apiID int, apiHash string) (map[string]interface{}, error) {
+	data, err := c.h.post(ctx, "/api/v1/private/credentials/telegram/auth/qr/start", map[string]interface{}{
+		"api_id": apiID, "api_hash": apiHash,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// TelegramQrPoll polls a Telegram QR login started by TelegramQrStart. handle
+// starts with "tgauth_".
+//
+// POST /api/v1/private/credentials/telegram/auth/qr/poll
+func (c *CredentialsAPI) TelegramQrPoll(ctx context.Context, handle string) (map[string]interface{}, error) {
+	data, err := c.h.post(ctx, "/api/v1/private/credentials/telegram/auth/qr/poll", map[string]string{"handle": handle})
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// ── WhatsApp Embedded Signup ──────────────────────────────────────────────────
+
+// WhatsappSignupConfig returns the WhatsApp Embedded Signup config (appId,
+// configId) needed to launch Meta's signup flow client-side.
+//
+// GET /api/v1/private/credentials/whatsapp/embedded-signup/config
+func (c *CredentialsAPI) WhatsappSignupConfig(ctx context.Context) (map[string]interface{}, error) {
+	data, err := c.h.get(ctx, "/api/v1/private/credentials/whatsapp/embedded-signup/config", nil)
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// WhatsappSignupExchange exchanges a WhatsApp Embedded Signup authorization
+// code for a business-scoped access token. Set body.Project to store the
+// credential at project scope (editor/owner required); omit for personal scope.
+//
+// POST /api/v1/private/credentials/whatsapp/embedded-signup/exchange
+func (c *CredentialsAPI) WhatsappSignupExchange(ctx context.Context, body WhatsappSignupExchangeBody) (map[string]interface{}, error) {
+	data, err := c.h.post(ctx, "/api/v1/private/credentials/whatsapp/embedded-signup/exchange", body)
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// ── TikTok ────────────────────────────────────────────────────────────────────
+
+// TiktokCreatorInfo returns the connected TikTok account's creator info
+// (nickname, allowed privacy levels, interaction availability) for a
+// compliant post-to-TikTok approval UI.
+//
+// GET /api/v1/private/credentials/tiktok/creator-info
+func (c *CredentialsAPI) TiktokCreatorInfo(ctx context.Context) (map[string]interface{}, error) {
+	data, err := c.h.get(ctx, "/api/v1/private/credentials/tiktok/creator-info", nil)
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// ── Substack ──────────────────────────────────────────────────────────────────
+
+// SubstackEmailLinkSend asks Substack to email a sign-in link to email.
+//
+// POST /api/v1/private/credentials/substack/email-link
+func (c *CredentialsAPI) SubstackEmailLinkSend(ctx context.Context, email string) (map[string]interface{}, error) {
+	data, err := c.h.post(ctx, "/api/v1/private/credentials/substack/email-link", map[string]string{"email": email})
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// SubstackEmailLinkRedeem finishes Substack sign-in using the link emailed by
+// SubstackEmailLinkSend. email is optional.
+//
+// POST /api/v1/private/credentials/substack/email-link/redeem
+func (c *CredentialsAPI) SubstackEmailLinkRedeem(ctx context.Context, link, email string) (map[string]interface{}, error) {
+	body := map[string]string{"link": link}
+	if email != "" {
+		body["email"] = email
+	}
+	data, err := c.h.post(ctx, "/api/v1/private/credentials/substack/email-link/redeem", body)
+	if err != nil {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
 // ── CLI auth ──────────────────────────────────────────────────────────────────
 
 // CliAuthStart starts a CLI authentication flow (device-code style).

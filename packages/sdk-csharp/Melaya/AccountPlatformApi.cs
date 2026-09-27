@@ -54,4 +54,17 @@ public sealed class AccountPlatformApi
         return await _http.DeleteAsync<BoolResult>(
             $"/api/v1/private/keys/{Uri.EscapeDataString(keyId)}", ct: ct).ConfigureAwait(false);
     }
+
+    /// <summary>Re-send the account email verification message.</summary>
+    public async Task<BoolResult> ResendEmailVerificationAsync(CancellationToken ct = default)
+    {
+        return await _http.PostAsync<BoolResult>("/api/v1/private/accounts/resend-email-verification", null, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Confirm the account email address from a verification link token (64 hex chars).</summary>
+    public async Task<BoolResult> VerifyEmailAsync(string token, CancellationToken ct = default)
+    {
+        var body = new { token };
+        return await _http.PostAsync<BoolResult>("/api/v1/private/accounts/verify-email", body, ct).ConfigureAwait(false);
+    }
 }

@@ -3,6 +3,7 @@ package org.melaya;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -12,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -88,6 +90,31 @@ public class HttpClient {
         return execute(req);
     }
 
+    /**
+     * POST with a per-call timeout override (e.g. a slow ingestion endpoint).
+     * Never retried, same as {@link #post(String, Object)}.
+     *
+     * @param path      request path
+     * @param body      request body (JSON-serialized); may be {@code null}
+     * @param timeoutMs request timeout in milliseconds, overriding {@link #REQUEST_TIMEOUT_MS}
+     */
+    public JsonNode post(String path, Object body, long timeoutMs) {
+        String url = buildUrl(path, null);
+        String json;
+        try {
+            json = body == null ? "" : MAPPER.writeValueAsString(body);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize request body", e);
+        }
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Authorization", "Bearer " + apiKey)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
+                .build();
+        return execute(req, timeoutMs);
+    }
+
     public JsonNode put(String path, Object body) {
         String url = buildUrl(path, null);
         String json;
@@ -132,6 +159,97 @@ public class HttpClient {
         return execute(req);
     }
 
+    /**
+     * DELETE with a JSON request body (per the REST bridge rule: DELETE → path
+     * params + query + JSON body). {@code body} may be {@code null}, in which
+     * case this behaves exactly like {@link #delete(String, Map)}.
+     */
+    public JsonNode delete(String path, Map<String, Object> query, Object body) {
+        String url = buildUrl(path, query);
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Authorization", "Bearer " + apiKey);
+        if (body != null) {
+            String json;
+            try {
+                json = MAPPER.writeValueAsString(body);
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to serialize request body", e);
+            }
+            builder.header("Content-Type", "application/json")
+                    .method("DELETE", HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8));
+        } else {
+            builder.DELETE();
+        }
+        return execute(builder.build());
+    }
+
+    /**
+     * POST a single file as {@code multipart/form-data; boundary=...}. Builds the
+     * multipart body by hand (no third-party dependency). Sends exactly one file
+     * part named {@code fieldName}. Never retried (POST is never retried — see
+     * {@link #execute(HttpRequest)}). Parses the response exactly like
+     * {@link #post(String, Object)} (same error type, same {@code ok: false} check).
+     *
+     * @param path        request path
+     * @param query       optional query params (e.g. {@code key}, {@code project}); may be {@code null}
+     * @param fieldName   the multipart field name (e.g. {@code "file"})
+     * @param fileBytes   the file content
+     * @param filename    the filename reported in the {@code Content-Disposition} header
+     * @param contentType the file's MIME type (defaults to {@code application/octet-stream} if {@code null})
+     */
+    public JsonNode postMultipart(String path, Map<String, Object> query, String fieldName,
+                                   byte[] fileBytes, String filename, String contentType) {
+        String url = buildUrl(path, query);
+        String boundary = "MelayaFormBoundary" + UUID.randomUUID().toString().replace("-", "");
+        byte[] body = buildMultipartBody(boundary, fieldName,
+                fileBytes != null ? fileBytes : new byte[0],
+                filename != null ? filename : "file",
+                contentType != null ? contentType : "application/octet-stream");
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Authorization", "Bearer " + apiKey)
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(body))
+                .build();
+        return execute(req);
+    }
+
+    /** Builds a single-file {@code multipart/form-data} body by hand. */
+    private static byte[] buildMultipartBody(String boundary, String fieldName, byte[] fileBytes,
+                                              String filename, String contentType) {
+        String safeFilename = filename.replace("\\", "\\\\").replace("\"", "\\\"");
+        String safeFieldName = fieldName.replace("\\", "\\\\").replace("\"", "\\\"");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try {
+            out.write(("--" + boundary + "\r\n").getBytes(StandardCharsets.UTF_8));
+            out.write(("Content-Disposition: form-data; name=\"" + safeFieldName
+                    + "\"; filename=\"" + safeFilename + "\"\r\n").getBytes(StandardCharsets.UTF_8));
+            out.write(("Content-Type: " + contentType + "\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+            out.write(fileBytes);
+            out.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            // ByteArrayOutputStream never throws IOException in practice.
+            throw new RuntimeException(e);
+        }
+        return out.toByteArray();
+    }
+
+    /**
+     * GET raw bytes (e.g. a binary file download). Unlike {@link #get}, this never
+     * attempts to JSON-parse a successful response body and does not apply the
+     * {@code ok: false} envelope check. Retries like other GETs (network error / 429 / 5xx).
+     */
+    public byte[] getBytes(String path, Map<String, Object> query) {
+        String url = buildUrl(path, query);
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Authorization", "Bearer " + apiKey)
+                .GET()
+                .build();
+        return executeBytes(req);
+    }
+
     /** Per-request timeout in milliseconds (default 30 s). */
     static final long REQUEST_TIMEOUT_MS = 30_000;
 
@@ -145,13 +263,17 @@ public class HttpClient {
     private static final long RETRY_BASE_MS = 500;
 
     private JsonNode execute(HttpRequest req) {
+        return execute(req, REQUEST_TIMEOUT_MS);
+    }
+
+    private JsonNode execute(HttpRequest req, long timeoutMs) {
         boolean isGet = req.method().equalsIgnoreCase("GET");
         int maxRetries = isGet ? MAX_GET_RETRIES : 0;
         IOException lastIoEx = null;
 
         // Rebuild the request with a per-request timeout.
         req = HttpRequest.newBuilder(req, (k, v) -> true)
-                .timeout(Duration.ofMillis(REQUEST_TIMEOUT_MS))
+                .timeout(Duration.ofMillis(timeoutMs))
                 .build();
 
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
@@ -202,6 +324,72 @@ public class HttpClient {
                     }
                 }
                 return data;
+            } catch (MelayaException me) {
+                throw me; // never retry business-logic errors
+            } catch (IOException e) {
+                lastIoEx = e;
+                if (isGet && attempt < maxRetries) {
+                    sleep(backoffDelay(attempt), req);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("HTTP request interrupted: " + req.uri(), e);
+            }
+        }
+        throw new RuntimeException(
+                "HTTP request failed after " + maxRetries + " retries: " + req.uri(), lastIoEx);
+    }
+
+    /**
+     * Same retry/timeout/error-handling shape as {@link #execute(HttpRequest)}, but
+     * returns the raw response bytes on success instead of parsing JSON, and never
+     * applies the {@code ok: false} envelope check (used by {@link #getBytes}).
+     */
+    private byte[] executeBytes(HttpRequest req) {
+        boolean isGet = req.method().equalsIgnoreCase("GET");
+        int maxRetries = isGet ? MAX_GET_RETRIES : 0;
+        IOException lastIoEx = null;
+
+        req = HttpRequest.newBuilder(req, (k, v) -> true)
+                .timeout(Duration.ofMillis(REQUEST_TIMEOUT_MS))
+                .build();
+
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                HttpResponse<byte[]> resp = http.send(req, HttpResponse.BodyHandlers.ofByteArray());
+                int status = resp.statusCode();
+                byte[] rawBody = resp.body();
+
+                if (isGet && (status == 429 || status >= 500) && attempt < maxRetries) {
+                    long delay = backoffDelay(attempt);
+                    String retryAfter = resp.headers().firstValue("Retry-After").orElse(null);
+                    if (retryAfter != null) {
+                        try { delay = Long.parseLong(retryAfter.trim()) * 1000L; } catch (NumberFormatException ignored) {}
+                    }
+                    sleep(delay, req);
+                    continue;
+                }
+                if (status >= 400) {
+                    String code = null;
+                    String message = null;
+                    JsonNode data = null;
+                    if (rawBody != null && rawBody.length > 0) {
+                        try {
+                            data = MAPPER.readTree(rawBody);
+                        } catch (Exception ignored) {
+                            // not JSON; leave data null (no text-node fallback needed for an error body)
+                        }
+                    }
+                    if (data != null && data.isObject()) {
+                        if (data.has("error")) code = data.get("error").asText(null);
+                        if (data.has("message")) message = data.get("message").asText(null);
+                    }
+                    String detail = code != null ? " (" + code + ")" : (message != null ? " (" + message + ")" : "");
+                    throw new MelayaException(
+                            "Melaya API " + status + detail,
+                            status, code, data);
+                }
+                return rawBody != null ? rawBody : new byte[0];
             } catch (MelayaException me) {
                 throw me; // never retry business-logic errors
             } catch (IOException e) {
