@@ -10,7 +10,7 @@ https://api.melaya.org/mcp
 
 MCP is a vendor-neutral standard, so this one endpoint works in every host that speaks it. Nothing is installed and no SDK is required.
 
-![Melaya Device Control](https://melaya.org/blog/device-control/control-hero.png)
+![Melaya Device Control](https://melaya.org/blog/device-control/control-hero.webp)
 
 ## Requirements
 
@@ -76,11 +76,11 @@ The assistant calls `melaya_setup_status`, which reports what is ready and what 
 
 The assistant reads the screen, navigates, and reports back. It reads before every action and re-reads after, so it acts on what is actually on screen rather than on an assumption.
 
-![The agent working, with a live step trace and a stop control](https://melaya.org/blog/july-2026/device-agent-overlay.png)
+![The agent working, with a live step trace and a stop control](https://melaya.org/blog/july-2026/device-agent-overlay.webp)
 
 Melaya keeps navigation notes for common apps, so the agent arrives knowing where things are instead of exploring.
 
-![App playbooks: navigation map, stable control ids, canonical step sequence](https://melaya.org/blog/july-2026/app-playbooks.png)
+![App playbooks: navigation map, stable control ids, canonical step sequence](https://melaya.org/blog/july-2026/app-playbooks.webp)
 
 **Work on a desktop site**
 
@@ -134,11 +134,11 @@ That asymmetry is deliberate. The agent reads text off your screen, and that tex
 
 **Publishing and paying always ask you.** Posting a comment, creating a post, or anything that looks like a payment stages an approval card and waits. You see the exact text before it goes out.
 
-![An approval card, showing the exact text before it publishes](https://melaya.org/blog/july-2026/on-device-approval.png)
+![An approval card, showing the exact text before it publishes](https://melaya.org/blog/july-2026/on-device-approval.webp)
 
 Approvals reach you even when the phone is locked.
 
-![An approval on a locked phone](https://melaya.org/blog/july-2026/sleeping-phone.png)
+![An approval on a locked phone](https://melaya.org/blog/july-2026/sleeping-phone.webp)
 
 **There is a STOP control.** On the phone overlay and in the Melaya app. It halts everything immediately, across every agent and every connected assistant.
 
