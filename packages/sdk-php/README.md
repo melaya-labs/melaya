@@ -79,8 +79,8 @@ work unchanged.
 
 ### Agent Builder & Device Control (GA)
 
-Pipelines draw from catalogs of 1,500+ scoped tools, 100+ specialized
-subagents, and 20+ model providers.
+Pipelines draw from catalogs of 8,000+ scoped tools, 100+ specialized
+subagents, and 48 AI providers.
 
 Pair a phone:
 
@@ -625,7 +625,7 @@ $m->projects->list(...);
 | `outputs($name)` | auth | List output artifacts |
 | `output($name, $path, $download)` | auth | Get/download an artifact |
 | `previewCode($config)` | auth | Preview generated code |
-| `tools()` | auth | Tool registry (1,500+ scoped tools) |
+| `tools()` | auth | Tool registry (8,000+ scoped tools) |
 | `subagents()` | auth | Subagent registry (100+ specialized subagents) |
 | `instantiateTemplate($templateId, $body)` | auth | Instantiate a template |
 | `buildWithAI($brief)` | auth | AI-assisted pipeline generation |

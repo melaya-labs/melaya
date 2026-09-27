@@ -2,7 +2,7 @@
 
 > **Current production scope:** Agent Builder and Mobile Device Control are available now. Melaya Trading namespaces are preview-only and not generally available; do not use them with real funds.
 
-Official SDK for the **[Melaya](https://melaya.org)** Agent Builder and flagship Mobile Device Control APIs. Build agents from 1,500+ scoped tools, 100+ specialized subagents, and 20+ model providers; pair an Android phone and let an authorized agent operate approved apps through the visible interface. Trading namespaces are included only as a preview of a later product.
+Official SDK for the **[Melaya](https://melaya.org)** Agent Builder and flagship Mobile Device Control APIs. Build agents from 8,000+ scoped tools, 100+ specialized subagents, and 48 AI providers; pair an Android phone and let an authorized agent operate approved apps through the visible interface. Trading namespaces are included only as a preview of a later product.
 
 **Melaya products:** [Melaya Agents](https://melaya.org/en/product/agentic-framework) · [Melaya Assistant](https://melaya.org/en/product/assistant) · [Device Control](https://melaya.org/en/product/agentic-device-control) · [Browser Control](https://melaya.org/en/product/agentic-browser-control) · [MCP Server](https://melaya.org/en/product/mcp) · [Melaya Marketing](https://melaya.org/en/product/marketing)
 

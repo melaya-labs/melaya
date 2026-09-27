@@ -8,7 +8,7 @@ Official SDK for the **[Melaya](https://melaya.org)** Agent Builder and flagship
 
 - Zero runtime gem dependencies (stdlib `net/http`, `openssl`, `json` only).
 - Full Agent Builder lifecycle: projects, pipelines, templates, Connectors, HITL, evals, events, billing, team, and runner management.
-- Catalogs of **1,500+ scoped tools**, **100+ specialized subagents**, and **20+ model providers** (runtime catalog endpoints are the source of truth).
+- Catalogs of **8,000+ scoped tools**, **100+ specialized subagents**, and **48 AI providers** (runtime catalog endpoints are the source of truth).
 - Pure Ruby WebSocket client (RFC 6455) — no external gem required for streaming.
 
 ## Install

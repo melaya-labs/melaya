@@ -12,9 +12,9 @@ Melaya is a governed platform for AI agents that do real work — in the cloud o
 [**Website**](https://melaya.org) · [**Documentation**](https://melaya.org/documentation) · [**MCP Server**](https://melaya.org/en/product/mcp) · [**Agent Skill**](#agent-skill-teach-any-ai-to-run-melaya) · [**Discord**](https://discord.gg/2BBMUUdnkj)
 
 [![SDKs](https://img.shields.io/badge/SDKs-9_languages-6E56CF)](#official-sdks)
-[![Tools](https://img.shields.io/badge/scoped_tools-6,900%2B-22D3EE)](#the-catalog)
+[![Tools](https://img.shields.io/badge/scoped_tools-8,200%2B-22D3EE)](#the-catalog)
 [![Subagents](https://img.shields.io/badge/subagents-103-8B5CF6)](#the-catalog)
-[![AI providers](https://img.shields.io/badge/AI_providers-26-F59E0B)](#bring-your-own-model)
+[![AI providers](https://img.shields.io/badge/AI_providers-48-F59E0B)](#bring-your-own-model)
 [![MCP](https://img.shields.io/badge/MCP-88_tools-10B981)](https://github.com/melaya-labs/melaya-mcp)
 [![Agent Skill](https://img.shields.io/badge/Agent_Skill-11_modules-EC4899)](./skills/melaya)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
@@ -62,7 +62,7 @@ Melaya is a governed platform for AI agents that do real work — in the cloud o
 
 | | | |
 |:--:|:--:|:--:|
-| **6,912** | **103** | **26** |
+| **8,222** | **103** | **48** |
 | scoped tools | specialized subagents | AI providers |
 | **88** | **9** | **9** |
 | MCP tools | official SDKs | MCP permission domains |
@@ -73,26 +73,37 @@ Runtime catalog endpoints remain the source of truth; the numbers above move as 
 
 ## Bring your own model
 
-Cloud or local, per agent. Your credentials stay in encrypted Connectors, never in prompts or pipeline JSON.
+48 providers, chosen per agent. Credentials stay in encrypted Connectors, never in prompts or pipeline JSON.
 
-<div align="center">
-<img src="assets/providers/anthropic.webp" height="30" alt="Anthropic">&nbsp;&nbsp;
-<img src="assets/providers/openai.webp" height="30" alt="OpenAI">&nbsp;&nbsp;
-<img src="assets/providers/gemini.webp" height="30" alt="Google Gemini">&nbsp;&nbsp;
-<img src="assets/providers/mistral.webp" height="30" alt="Mistral">&nbsp;&nbsp;
-<img src="assets/providers/grok.webp" height="30" alt="Grok">&nbsp;&nbsp;
-<img src="assets/providers/deepseek.webp" height="30" alt="DeepSeek">&nbsp;&nbsp;
-<img src="assets/providers/qwen.webp" height="30" alt="Qwen">&nbsp;&nbsp;
-<img src="assets/providers/groq.webp" height="30" alt="Groq">&nbsp;&nbsp;
-<img src="assets/providers/cerebras.webp" height="30" alt="Cerebras">&nbsp;&nbsp;
-<img src="assets/providers/moonshot.webp" height="30" alt="Moonshot">&nbsp;&nbsp;
-<img src="assets/providers/nvidia.webp" height="30" alt="NVIDIA">&nbsp;&nbsp;
-<img src="assets/providers/sambanova.webp" height="30" alt="SambaNova">&nbsp;&nbsp;
-<img src="assets/providers/ollama.webp" height="30" alt="Ollama">&nbsp;&nbsp;
-<img src="assets/providers/lmstudio.webp" height="30" alt="LM Studio">
-</div>
+### Local and self-hosted
 
-Local models through Ollama and LM Studio run on a user-controlled runner, so the data never leaves the machine.
+Models on your own machine or your own server, reached through the Melaya runner. The data never leaves your network.
+
+<table>
+<tr><td align="center" width="25%"><img src="assets/providers/tiles/ollama.webp" width="52" alt="Ollama"><br><sub>Ollama</sub></td><td align="center" width="25%"><img src="assets/providers/tiles/lmstudio.webp" width="52" alt="LM Studio"><br><sub>LM Studio</sub></td><td align="center" width="25%"><img src="assets/providers/tiles/openai_compatible.webp" width="52" alt="OpenAI-Compatible"><br><sub>OpenAI-Compatible</sub></td><td align="center" width="25%"><img src="assets/providers/tiles/litellm.webp" width="52" alt="LiteLLM Proxy"><br><sub>LiteLLM Proxy</sub></td></tr>
+</table>
+
+### CLIs on your runner
+
+Use the AI subscription you already pay for: the runner drives the official command-line tool on your machine.
+
+<table>
+<tr><td align="center" width="33%"><img src="assets/providers/tiles/claude_code.webp" width="52" alt="Claude Code"><br><sub>Claude Code</sub></td><td align="center" width="33%"><img src="assets/providers/tiles/codex.webp" width="52" alt="Codex"><br><sub>Codex</sub></td><td align="center" width="33%"><img src="assets/providers/tiles/github_copilot.webp" width="52" alt="GitHub Copilot"><br><sub>GitHub Copilot</sub></td></tr>
+</table>
+
+### Cloud
+
+Frontier labs, open-model hosts and gateways. Bring your key, or use Melaya AI with no key at all.
+
+<table>
+<tr><td align="center" width="16%"><img src="assets/providers/tiles/melaya_ai.webp" width="52" alt="Melaya AI"><br><sub>Melaya AI</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/bedrock.webp" width="52" alt="Amazon Bedrock"><br><sub>Amazon Bedrock</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/anthropic.webp" width="52" alt="Anthropic"><br><sub>Anthropic</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/avis.webp" width="52" alt="Avis"><br><sub>Avis</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/azure_ai.webp" width="52" alt="Azure AI Foundry"><br><sub>Azure AI Foundry</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/baseten.webp" width="52" alt="Baseten"><br><sub>Baseten</sub></td></tr>
+<tr><td align="center" width="16%"><img src="assets/providers/tiles/braintrust.webp" width="52" alt="Braintrust AI Gateway"><br><sub>Braintrust AI Gateway</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/cerebras.webp" width="52" alt="Cerebras"><br><sub>Cerebras</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/chutes.webp" width="52" alt="Chutes"><br><sub>Chutes</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/cohere.webp" width="52" alt="Cohere"><br><sub>Cohere</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/deepinfra.webp" width="52" alt="DeepInfra"><br><sub>DeepInfra</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/deepseek.webp" width="52" alt="DeepSeek"><br><sub>DeepSeek</sub></td></tr>
+<tr><td align="center" width="16%"><img src="assets/providers/tiles/featherless.webp" width="52" alt="Featherless"><br><sub>Featherless</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/fireworks.webp" width="52" alt="Fireworks AI"><br><sub>Fireworks AI</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/friendli.webp" width="52" alt="FriendliAI"><br><sub>FriendliAI</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/gonka.webp" width="52" alt="Gonka"><br><sub>Gonka</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/google.webp" width="52" alt="Google Gemini"><br><sub>Google Gemini</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/grok.webp" width="52" alt="Grok (xAI)"><br><sub>Grok (xAI)</sub></td></tr>
+<tr><td align="center" width="16%"><img src="assets/providers/tiles/groq.webp" width="52" alt="Groq"><br><sub>Groq</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/huggingface.webp" width="52" alt="Hugging Face"><br><sub>Hugging Face</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/minimax.webp" width="52" alt="MiniMax"><br><sub>MiniMax</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/mistral.webp" width="52" alt="Mistral AI"><br><sub>Mistral AI</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/modelrush.webp" width="52" alt="ModelRush"><br><sub>ModelRush</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/moonshot.webp" width="52" alt="Moonshot"><br><sub>Moonshot</sub></td></tr>
+<tr><td align="center" width="16%"><img src="assets/providers/tiles/nebius.webp" width="52" alt="Nebius Token Factory"><br><sub>Nebius Token Factory</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/novita.webp" width="52" alt="Novita AI"><br><sub>Novita AI</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/nvidia.webp" width="52" alt="NVIDIA NIM"><br><sub>NVIDIA NIM</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/openai.webp" width="52" alt="OpenAI"><br><sub>OpenAI</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/openrouter.webp" width="52" alt="OpenRouter"><br><sub>OpenRouter</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/portkey.webp" width="52" alt="Portkey"><br><sub>Portkey</sub></td></tr>
+<tr><td align="center" width="16%"><img src="assets/providers/tiles/qwen.webp" width="52" alt="Qwen (Alibaba)"><br><sub>Qwen (Alibaba)</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/reka.webp" width="52" alt="Reka AI"><br><sub>Reka AI</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/requesty.webp" width="52" alt="Requesty"><br><sub>Requesty</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/sambanova.webp" width="52" alt="SambaNova"><br><sub>SambaNova</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/scaleway.webp" width="52" alt="Scaleway Generative APIs"><br><sub>Scaleway Generative APIs</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/siliconflow.webp" width="52" alt="SiliconFlow"><br><sub>SiliconFlow</sub></td></tr>
+<tr><td align="center" width="16%"><img src="assets/providers/tiles/together.webp" width="52" alt="Together AI"><br><sub>Together AI</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/upstage.webp" width="52" alt="Upstage Solar"><br><sub>Upstage Solar</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/vercel.webp" width="52" alt="Vercel AI Gateway"><br><sub>Vercel AI Gateway</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/writingmate.webp" width="52" alt="Writingmate"><br><sub>Writingmate</sub></td><td align="center" width="16%"><img src="assets/providers/tiles/zhipu.webp" width="52" alt="Zhipu AI"><br><sub>Zhipu AI</sub></td></tr>
+</table>
 
 ## Why teams use Melaya
 
@@ -143,66 +154,32 @@ Setup for Claude, ChatGPT, Cursor, VS Code, Le Chat, Gemini CLI, Zed, Cline, Goo
 
 ## Agent Skill: teach any AI to run Melaya
 
-The MCP server gives your assistant the tools. The **[Melaya skill](./skills/melaya)** gives it the method: how to connect services, build and validate pipelines on real runs, set triggers and approvals, read results and hand work over to a client. It is a free, open playbook your assistant reads before it acts, so it gets it right the first time instead of guessing.
+The MCP server gives your assistant the tools. The **[Melaya skill](./skills/melaya)** gives it the method: connecting services, building and validating pipelines on real runs, triggers and approvals, reading results and handing work over. A free, open playbook your assistant reads before it acts, so it gets things right the first time.
 
-<table>
-<tr>
-<td width="33%" valign="top">
-
-**Any AI assistant**
-
-Paste this line into ChatGPT, Gemini, Cursor or any assistant that can read a web page:
+**Any assistant** (ChatGPT, Gemini, Cursor, …): paste this line.
 
 ```text
-Install the Melaya skill from
-https://github.com/melaya-labs/melaya/tree/main/skills/melaya
-and use it whenever I ask you
-to work with Melaya.
+Install the Melaya skill from https://github.com/melaya-labs/melaya/tree/main/skills/melaya and use it whenever I ask you to work with Melaya.
 ```
 
-</td>
-<td width="33%" valign="top">
-
-**Claude Code**
+**Claude Code**: copy it into your skills folder, then restart. It loads on its own when you mention Melaya.
 
 ```bash
-git clone --depth 1 \
-  https://github.com/melaya-labs/melaya \
-  /tmp/melaya
-cp -r /tmp/melaya/skills/melaya \
-  ~/.claude/skills/
+git clone --depth 1 https://github.com/melaya-labs/melaya /tmp/melaya && cp -r /tmp/melaya/skills/melaya ~/.claude/skills/
 ```
 
-Restart Claude Code. The skill loads on its own when you mention Melaya.
+**Claude.ai and Claude Desktop**: download [`skills/melaya`](./skills/melaya) as a .zip and upload it under **Settings → Capabilities → Skills**. Anywhere else, add [`SKILL.md`](./skills/melaya/SKILL.md) as a project instruction or rules file.
 
-</td>
-<td width="33%" valign="top">
+The skill is one short router with the rules that always apply, plus eleven modules the assistant opens only when the task needs them:
 
-**Claude.ai and Claude Desktop**
-
-Download the [`skills/melaya`](./skills/melaya) folder as a .zip and upload it under **Settings → Capabilities → Skills**.
-
-Other tools: add [`SKILL.md`](./skills/melaya/SKILL.md) as a project instruction or rules file.
-
-</td>
-</tr>
+<table>
+<tr><td width="50%" valign="top"><a href="./skills/melaya/modules/quickstart"><b>quickstart</b></a><br><sub>Plain-language journeys for non-technical users</sub></td><td width="50%" valign="top"><a href="./skills/melaya/modules/discovery"><b>discovery</b></a><br><sub>Finding the right tools, templates and connected services</sub></td></tr>
+<tr><td width="50%" valign="top"><a href="./skills/melaya/modules/runners-models"><b>runners-models</b></a><br><sub>The runner and models: Claude Code, Codex, Copilot, Ollama, LM Studio, cloud</sub></td><td width="50%" valign="top"><a href="./skills/melaya/modules/projects-templates"><b>projects-templates</b></a><br><sub>Projects, teams and starting from a validated template</sub></td></tr>
+<tr><td width="50%" valign="top"><a href="./skills/melaya/modules/pipeline-authoring"><b>pipeline-authoring</b></a><br><sub>Pipeline configs that generate and run correctly</sub></td><td width="50%" valign="top"><a href="./skills/melaya/modules/agentic-systems"><b>agentic-systems</b></a><br><sub>Complete multi-pipeline systems, designed end to end</sub></td></tr>
+<tr><td width="50%" valign="top"><a href="./skills/melaya/modules/data-spine"><b>data-spine</b></a><br><sub>Google Sheets data stores, bulk scoring, clean records</sub></td><td width="50%" valign="top"><a href="./skills/melaya/modules/automation-governance"><b>automation-governance</b></a><br><sub>Schedules, event triggers, approvals and cost limits</sub></td></tr>
+<tr><td width="50%" valign="top"><a href="./skills/melaya/modules/validate-debug"><b>validate-debug</b></a><br><sub>Proving a pipeline on real runs and fixing what fails</sub></td><td width="50%" valign="top"><a href="./skills/melaya/modules/client-handover"><b>client-handover</b></a><br><sub>Documentation and handover for the people who will use it</sub></td></tr>
+<tr><td width="50%" valign="top"><a href="./skills/melaya/modules/devices-browser"><b>devices-browser</b></a><br><sub>Agents that use a phone or a browser like a person</sub></td><td width="50%"></td></tr>
 </table>
-
-One short router (`SKILL.md`) holds the rules that always apply; the assistant opens only the module the task needs:
-
-| Module | What it teaches |
-|---|---|
-| [quickstart](./skills/melaya/modules/quickstart) | Plain-language journeys for non-technical users |
-| [discovery](./skills/melaya/modules/discovery) | Finding the right tools, templates and connected services |
-| [runners-models](./skills/melaya/modules/runners-models) | The local runner and models: Claude Code, Codex, Copilot, Ollama, LM Studio, cloud providers |
-| [projects-templates](./skills/melaya/modules/projects-templates) | Projects, teams and starting from a validated template |
-| [pipeline-authoring](./skills/melaya/modules/pipeline-authoring) | Writing pipeline configs that generate and run correctly |
-| [agentic-systems](./skills/melaya/modules/agentic-systems) | Designing complete multi-pipeline systems end to end |
-| [data-spine](./skills/melaya/modules/data-spine) | Data stores in Google Sheets, bulk scoring, keeping records clean |
-| [automation-governance](./skills/melaya/modules/automation-governance) | Schedules, event triggers, approvals and cost limits |
-| [validate-debug](./skills/melaya/modules/validate-debug) | Proving a pipeline on real runs and fixing what fails |
-| [client-handover](./skills/melaya/modules/client-handover) | Documentation and handover for the people who will use it |
-| [devices-browser](./skills/melaya/modules/devices-browser) | Agents that use a phone or a browser the way a person does |
 
 ## Official SDKs
 

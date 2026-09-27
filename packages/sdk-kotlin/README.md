@@ -38,7 +38,7 @@ To build from source instead, publish to your local Maven repository:
 
 ## Agent Builder & Device Control
 
-Agent Builder and Mobile Device Control are the generally available surface. Current catalogs expose **1,500+ scoped tools**, **100+ specialized subagents**, and **20+ model providers** — runtime catalog endpoints remain the source of truth.
+Agent Builder and Mobile Device Control are the generally available surface. Current catalogs expose **8,000+ scoped tools**, **100+ specialized subagents**, and **48 AI providers** — runtime catalog endpoints remain the source of truth.
 
 ### Pair a phone
 

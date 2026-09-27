@@ -539,7 +539,7 @@ the public Web PKI root set.
 | `outputs(name)` | List output artifacts |
 | `output(name, output_path, download)` | Get one output artifact |
 | `preview_code(config)` | Preview generated code without persisting |
-| `tools()` | Agent tool registry (1,500+ scoped tools) |
+| `tools()` | Agent tool registry (8,000+ scoped tools) |
 | `subagents()` | Subagent registry (100+ specialized subagents) |
 | `instantiate_template(template_id, name, project, overrides)` | Instantiate a pipeline from a template |
 | `build_with_ai(brief)` | Generate a pipeline config from a brief |

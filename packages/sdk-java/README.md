@@ -41,7 +41,7 @@ Melaya melaya = new Melaya(apiKey);
 
 ## Quick Start: Agent Builder & Device Control
 
-Pair an Android phone, then let an authorized agent operate approved apps through the visible interface. The tool registry exposes 1,500+ scoped tools and 100+ specialized subagents across 20+ model providers (`melaya.agents().pipelines().tools()` / `.subagents()`).
+Pair an Android phone, then let an authorized agent operate approved apps through the visible interface. The tool registry exposes 8,000+ scoped tools and 100+ specialized subagents across 48 AI providers (`melaya.agents().pipelines().tools()` / `.subagents()`).
 
 ```java
 import org.melaya.Melaya;

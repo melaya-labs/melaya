@@ -170,8 +170,8 @@ var inputs = await m.Pipelines.RunInputsAsync("mobile-review", run.RunId!);
 var active = await m.Pipelines.RunActiveAsync("mobile-review", run.RunId!);
 ```
 
-The platform catalogs currently expose **1,500+ scoped tools**, **100+ specialized
-subagents**, and **20+ model providers** (`m.Pipelines.ToolsAsync()`,
+The platform catalogs currently expose **8,000+ scoped tools**, **100+ specialized
+subagents**, and **48 AI providers** (`m.Pipelines.ToolsAsync()`,
 `m.Pipelines.SubagentsAsync()`, `m.Agents.Models.ListModelsAsync()`; live counts via
 `m.Market.CatalogCountsAsync()`).
 
@@ -268,7 +268,7 @@ domain accessors (`m.Agents.Pipelines`, `m.Platform.Projects`, …) point to the
 | `RunActiveAsync(name, runId)` | Whether a run is still queued/running |
 | `CancelRunAsync(name, runId)` | Cancel a run |
 | `OutputsAsync(name)` / `OutputAsync(name, path, download?)` | Run artifacts |
-| `ToolsAsync()` | Scoped tool catalog (1,500+ tools) |
+| `ToolsAsync()` | Scoped tool catalog (8,000+ tools) |
 | `SubagentsAsync()` | Subagent catalog (100+ subagents) |
 | `InstantiateTemplateAsync(templateId, body)` | Instantiate a template |
 | `PreviewCodeAsync(body)` / `BuildWithAIAsync(body)` | Authoring helpers |
