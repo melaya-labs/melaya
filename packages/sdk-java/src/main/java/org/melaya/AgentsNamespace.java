@@ -30,6 +30,7 @@ package org.melaya;
  *   <li>{@link #phone()} — Android device pairing and control</li>
  *   <li>{@link #evals()} — pipeline evaluation results and comparisons</li>
  *   <li>{@link #connectorTools()} — discover and call connector tools (the MCP tool surface over REST)</li>
+ *   <li>{@link #triggers()}: read, diagnose and dry-run event triggers</li>
  * </ul>
  */
 public final class AgentsNamespace {
@@ -40,6 +41,7 @@ public final class AgentsNamespace {
     private final PhoneAPI          phone;
     private final EvalsAPI          evals;
     private final ConnectorToolsAPI connectorTools;
+    private final TriggersAPI       triggers;
 
     AgentsNamespace(
             PipelinesAPI      pipelines,
@@ -47,13 +49,15 @@ public final class AgentsNamespace {
             AssistantAPI      assistant,
             PhoneAPI          phone,
             EvalsAPI          evals,
-            ConnectorToolsAPI connectorTools) {
+            ConnectorToolsAPI connectorTools,
+            TriggersAPI       triggers) {
         this.pipelines      = pipelines;
         this.hitl           = hitl;
         this.assistant      = assistant;
         this.phone          = phone;
         this.evals          = evals;
         this.connectorTools = connectorTools;
+        this.triggers       = triggers;
     }
 
     /** Pipeline run overview, traces, and cron schedules. */
@@ -78,4 +82,11 @@ public final class AgentsNamespace {
      * {@link ConnectorToolsAPI#callAndWait}.
      */
     public ConnectorToolsAPI connectorTools() { return connectorTools; }
+
+    /**
+     * Event triggers: list, deliveries, stats, live events, dry runs, and poll
+     * status. Read and diagnose only; create, edit and delete stay in the Agent
+     * Builder and the MCP server.
+     */
+    public TriggersAPI triggers() { return triggers; }
 }

@@ -220,7 +220,7 @@ class HttpClient
         $headers = array_merge([
             'Authorization: Bearer ' . $this->bearer,
             'Accept: application/json',
-            'User-Agent: melaya-php-sdk/0.3.0',
+            'User-Agent: melaya-php-sdk/0.4.0',
         ], $extraHeaders);
 
         $maxAttempts = $retryable ? (max(0, $this->maxRetries) + 1) : 1;

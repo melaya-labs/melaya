@@ -146,6 +146,27 @@ outcome = melaya.agents.connector_tools.call_and_wait("gmail_send", args: { to: 
 melaya.connector_tools.services
 ```
 
+### Quick start: diagnose an event trigger
+
+Read, diagnose and dry-run the event triggers that start your pipelines.
+Creating, editing and deleting a trigger stay in the Agent Builder and the MCP
+server. No method returns a signing secret. `test` and `poll_test` are dry
+runs: the action never executes.
+
+```ruby
+triggers = melaya.agents.triggers.list(project: "support")
+id = triggers[0]["id"]
+
+melaya.agents.triggers.stats(id, hours: 24)            # counts by verdict
+melaya.agents.triggers.events(trigger_id: id, verdicts: %w[rejected failed], limit: 50)
+melaya.agents.triggers.test(id, payload: { type: "refund.created" })  # dry run
+
+# Poll triggers
+melaya.agents.triggers.poll_status(id)
+dry = melaya.agents.triggers.poll_test(id)             # what it found and would publish
+puts dry["ok"] ? "#{dry["found"]} found, #{dry["wouldPublish"]} new" : dry["error"]
+```
+
 ## Trading quick start (preview)
 
 ```ruby
@@ -267,6 +288,7 @@ Public market-data and account/strategy reads work with the `mk_` key alone. **L
 | Projects | `projects.list`, `create`, `rename`, `runner_projects` |
 | Connectors | `connectors.connected_services`, `set`, `delete`, `env_handle`, `google_oauth_start`, `apply_personal`, `shared_by`, `google_status`, `google_set_default`, `google_disconnect`, `db_test_start`, `db_test_status` |
 | Connector Tools | `connector_tools.services`, `search`, `describe`, `test`, `connect`, `call`, `call_status`, `call_and_wait` |
+| Triggers | `triggers.list`, `get`, `deliveries`, `stats`, `pending_approvals`, `test`, `events`, `poll_status`, `poll_test`, `poll_now`, `poll_sync`, `presets`, `limits`, `sources` |
 | Credentials | `credentials.list`, `connected_services`, `get`, `set`, `delete`, `test`, `list_models`, `google_status`, `google_set_default`, `google_disconnect`, `db_test_start`, `db_test_status`, `telegram_qr_start`, `telegram_qr_poll`, `whatsapp_signup_config`, `whatsapp_signup_exchange`, `tiktok_creator_info`, `substack_email_link_send`, `substack_email_link_redeem`, plus operator-profile, OAuth, and RAG helpers |
 | Pipelines | `pipelines.create`, `get`, `update`, `delete_pipeline`, `list_pipelines`, `run`, `upload_run_file`, `run_inputs`, `run_input_file`, `run_active`, `run_ids`, `run_status`, `cancel_run`, `outputs`, `output`, `preview_code`, `tools`, `subagents`, `instantiate_template`, `build_with_ai` |
 | Pipeline docs & RAG | `pipelines.list_docs`, `upload_doc`, `delete_doc`, `upload_retrieval_doc`, `ingest_retrieval`, `delete_retrieval_doc` |
@@ -286,7 +308,7 @@ Public market-data and account/strategy reads work with the `mk_` key alone. **L
 | Assistant | `assistant.get_profile`, `set_profile` |
 | Bugs | `bugs.create`, `list_mine`, `get`, `add_comment`, `list_notifications`, `mark_notifications_read` |
 
-Every area is also reachable through the domain namespaces: `melaya.agents.*` (pipelines/runs, hitl, assistant, phone, evals, models, connector_tools) and `melaya.platform.*` (projects, credentials, connectors, billing, team, templates, overview, runner, auth, mfa, accounts, bugs, events).
+Every area is also reachable through the domain namespaces: `melaya.agents.*` (pipelines/runs, hitl, assistant, phone, evals, models, connector_tools, triggers) and `melaya.platform.*` (projects, credentials, connectors, billing, team, templates, overview, runner, auth, mfa, accounts, bugs, events).
 
 ### Trading (preview — not generally available)
 

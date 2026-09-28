@@ -220,6 +220,7 @@ Create an API key in the dashboard (**melaya.org → Settings → API Keys**). K
 | HITL | `hitl.pending`, `history`, `approve`, `reject`, `bulk_decide`, `run_messages`, `run_tool_calls`, `run_tool_stats`, `run_tool_stats_by_agent` |
 | Evals | `evals.list_runs`, `summary`, `run_detail`, `compare`, `memory_graph`, `run_memory`, `crew_memory`, `benchmarks` |
 | Memory | `memory.edit_entry`, `delete_entry` |
+| Event triggers | `triggers.list`, `get`, `deliveries`, `stats`, `pending_approvals`, `test`, `events`, `poll_status`, `poll_test`, `poll_now`, `poll_sync`, `presets`, `limits`, `sources` |
 | Events (real-time) | `events.connect`, `on_run_update`, `on_init_phase`, `on_project_event`, `on_hitl_approval`, `on_pipeline_created`, `on_pipeline_updated`, `on_pipeline_deleted`, `leave_run`, `leave_project`, `wait_closed`, `close` |
 | Billing | `billing.subscription`, `plans`, `create_checkout`, `create_portal`, `ambassador_perk`, `redeem_code`, `reserved_promo` |
 | Runner | `runner.create_token`, `list_tokens`, `revoke_token` |

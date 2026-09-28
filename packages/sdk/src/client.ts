@@ -17,6 +17,7 @@ import { ProjectsAPI } from "./projects.js";
 import { PipelinesAPI } from "./pipelines.js";
 import { EvalsAPI } from "./evals.js";
 import { MemoryAPI } from "./memory.js";
+import { TriggersAPI } from "./triggers.js";
 import { HitlAPI } from "./hitl.js";
 import { CredentialsAPI } from "./credentials.js";
 import { ConnectorsAPI } from "./connectors.js";
@@ -450,6 +451,11 @@ export interface AgentsNamespace {
   readonly evals: EvalsAPI;
   /** Agent memory: constellation graph, per-run memory drill-down, crew memory. */
   readonly memory: MemoryAPI;
+  /**
+   * Event triggers: list, inspect, delivery receipts, stats, live events,
+   * dry runs and poll diagnostics. Create / update / delete stay in the app.
+   */
+  readonly triggers: TriggersAPI;
   /** Human-in-the-loop approval queue: list pending, approve, reject. */
   readonly hitl: HitlAPI;
   /** Assistant onboarding profile (get + set). */
@@ -593,6 +599,8 @@ export class Melaya {
   readonly evals: EvalsAPI;
   /** @deprecated Use `melaya.agents.memory` instead. */
   readonly memory: MemoryAPI;
+  /** @deprecated Use `melaya.agents.triggers` instead. */
+  readonly triggers: TriggersAPI;
   /** @deprecated Use `melaya.agents.hitl` instead. */
   readonly hitl: HitlAPI;
   /** @deprecated Use `melaya.platform.credentials` instead. */
@@ -656,6 +664,7 @@ export class Melaya {
     const pipelines = new PipelinesAPI(http);
     const evals = new EvalsAPI(http);
     const memory = new MemoryAPI(http);
+    const triggers = new TriggersAPI(http);
     const hitl = new HitlAPI(http);
     const credentials = new CredentialsAPI(http);
     const connectors = new ConnectorsAPI(http);
@@ -683,7 +692,7 @@ export class Melaya {
 
     // ── Domain namespaces ────────────────────────────────────────────────────
     this.trading = { market, account, sim, strategies, trade, backtest, stream };
-    this.agents = { pipelines, evals, memory, hitl, assistant, phone, models, connectorTools };
+    this.agents = { pipelines, evals, memory, triggers, hitl, assistant, phone, models, connectorTools };
     this.platform = {
       auth,
       mfa,
@@ -712,6 +721,7 @@ export class Melaya {
     this.pipelines = pipelines;
     this.evals = evals;
     this.memory = memory;
+    this.triggers = triggers;
     this.hitl = hitl;
     this.credentials = credentials;
     this.connectors = connectors;

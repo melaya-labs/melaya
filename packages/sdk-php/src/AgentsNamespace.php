@@ -31,6 +31,9 @@ namespace Melaya;
  *
  * // Connector tools — call the same tools the Assistant/MCP surface expose
  * $result = $m->agents->connectorTools->call('gmail_list_messages');
+ *
+ * // Event triggers: diagnose and dry-run
+ * $live = $m->agents->triggers->events(['verdicts' => ['rejected', 'failed']]);
  * ```
  */
 final class AgentsNamespace
@@ -53,6 +56,9 @@ final class AgentsNamespace
     /** Discover and call connector tools (Gmail, Slack, Stripe, …) directly. */
     public readonly ConnectorToolsAPI $connectorTools;
 
+    /** Event triggers: list, inspect, diagnose and dry-run triggers and poll triggers. */
+    public readonly TriggersAPI $triggers;
+
     /** @internal Constructed by {@see Melaya}. */
     public function __construct(
         PipelinesAPI $pipelines,
@@ -61,6 +67,7 @@ final class AgentsNamespace
         PhoneAPI $phone,
         EvalsAPI $evals,
         ConnectorToolsAPI $connectorTools,
+        TriggersAPI $triggers,
     ) {
         $this->pipelines      = $pipelines;
         $this->hitl           = $hitl;
@@ -68,5 +75,6 @@ final class AgentsNamespace
         $this->phone          = $phone;
         $this->evals          = $evals;
         $this->connectorTools = $connectorTools;
+        $this->triggers       = $triggers;
     }
 }

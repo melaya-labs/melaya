@@ -49,6 +49,7 @@ class TradingNamespace internal constructor(
  * melaya.agents.evals.benchmarks()
  * melaya.agents.memory.deleteEntry(pipeline = "daily-digest", entryId = "mem_123")
  * melaya.agents.connectorTools.search("unread email")
+ * melaya.agents.triggers.list(project = "my-project")
  * ```
  */
 class AgentsNamespace internal constructor(
@@ -66,6 +67,8 @@ class AgentsNamespace internal constructor(
     val memory: MemoryAPI,
     /** Call any unlocked connector tool directly (reads, staged/immediate writes, discovery). */
     val connectorTools: ConnectorToolsAPI,
+    /** Read, diagnose and dry-run event triggers (deliveries, stats, live events, poll status). */
+    val triggers: TriggersAPI,
 )
 
 /**

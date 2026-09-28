@@ -96,6 +96,7 @@ Namespaced access is the primary API (`melaya.agents.*`, `melaya.platform.*`); f
 | HITL | `agents.hitl.pending`, `history`, `approve`, `reject`, `bulkDecide`, `runToolStats`, `runToolStatsByAgent`, `runMessages`, `runToolCalls` |
 | Evals | `agents.evals.listRuns`, `summary`, `runDetail`, `compare`, `benchmarks` |
 | Memory | `agents.memory.graph`, `runMemory`, `crew`, `editEntry`, `deleteEntry` |
+| Event triggers | `agents.triggers.list`, `get`, `deliveries`, `stats`, `pendingApprovals`, `test`, `events`, `pollStatus`, `pollTest`, `pollNow`, `pollSync`, `presets`, `limits`, `sources` |
 | Models | `agents.models.listModels` |
 | Connector tools | `agents.connectorTools.services`, `search`, `describe`, `test`, `connect`, `call`, `callStatus`, `callAndWait` |
 | Assistant | `agents.assistant.getProfile`, `setProfile` |
@@ -135,6 +136,21 @@ if (staged.status === "pending_approval") {
 // Or block until the approval is decided (or it times out).
 const outcome = await melaya.agents.connectorTools.callAndWait("gmail_send", { to: "a@b.c" });
 if (outcome.status === "done" && outcome.ok) console.log(outcome.result);
+```
+
+## Event triggers
+
+`agents.triggers` (flat alias: `melaya.triggers`) reads and diagnoses the triggers that start your pipelines from outside events. Create, edit and delete triggers in the Agent Builder or the MCP server; they are not on REST.
+
+- `deliveries` and `stats` show what happened to each event: verdict, decision, action, run id and timings.
+- `events` is the live log, including events that never got a receipt (filtered, shed, rejected at ingress).
+- `test` dry-runs an event: prefilter, decide and routing run for real, the action never executes.
+- `pollTest` calls a poll trigger's tool now and shows what it would publish, publishing nothing. `pollNow` makes a real poll due now.
+
+```ts
+const [trigger] = await melaya.agents.triggers.list({ project: "acme" });
+await melaya.agents.triggers.test(trigger.id, { amount: 120 });
+const { events } = await melaya.agents.triggers.events({ triggerId: trigger.id, verdicts: ["filtered", "rejected"] });
 ```
 
 ---

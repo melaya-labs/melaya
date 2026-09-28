@@ -64,7 +64,7 @@ so the domain structure is immediately visible:
 
 ```
 $m->trading   — market, account, sim, strategies, trade, backtest, stream, optimize
-$m->agents    — pipelines, hitl, assistant, phone, evals, connectorTools
+$m->agents    — pipelines, hitl, assistant, phone, evals, connectorTools, triggers
 $m->platform  — projects, credentials, connectors, billing, team, templates,
                  overview, runner, auth, accounts, bugs, events
 ```
@@ -180,6 +180,7 @@ Other config fields worth knowing: `hitl_mode` (`"safe"` default | `"autonomous"
 | team | `$m->platform->team` / `$m->team` | Members, roles, invites |
 | assistant | `$m->agents->assistant` / `$m->assistant` | Assistant onboarding profile |
 | connectorTools | `$m->agents->connectorTools` / `$m->connectorTools` | Discover and call connector tools (Gmail, Slack, Stripe, …) |
+| triggers | `$m->agents->triggers` / `$m->triggers` | Read, diagnose and dry-run event triggers |
 | bugs | `$m->platform->bugs` / `$m->bugs` | Bug reports and notifications |
 
 Full method tables are in the [Module Reference](#module-reference) below.
@@ -832,6 +833,37 @@ or trade are always refused, under both approval modes, and raise a
 | `call($tool, $args, $approval)` | auth | Call a tool — read runs immediately; write stages (202) unless `$approval = "none"` |
 | `callStatus($requestId)` | auth | Poll the outcome of a staged write |
 | `callAndWait($tool, $args, $approval, $pollIntervalMs, $timeoutMs)` | auth | `call()` + blocks polling `callStatus()` to a final outcome |
+
+### `$m->triggers`
+
+Read, diagnose and dry-run the event triggers that start your pipelines.
+Creating, editing and deleting a trigger stay in the Agent Builder and the MCP
+server. No method returns a signing secret. `test()` and `pollTest()` are dry
+runs: the action never executes.
+
+| Method | Auth | Description |
+|---|---|---|
+| `list($params)` | auth | Your triggers (`project`, `pipelineName` filters) |
+| `get($id)` | auth | One trigger with its config |
+| `deliveries($id, $limit)` | auth | Recent receipts: verdict, decision, action, run id, timings |
+| `stats($id, $hours)` | auth | Counts by verdict over a window (1-168 h, default 24) |
+| `pendingApprovals($id)` | auth | Approvals still waiting on this trigger |
+| `test($id, $payload)` | auth | Dry run one event; returns `accepted`, `eventId`, `reason` |
+| `events($params)` | auth | Live events, newest first, including events with no receipt (`triggerId`, `since`, `verdicts`, `limit`) |
+| `pollStatus($triggerId)` | auth | Poll runtime state: status, last error, next poll, counters, intervals |
+| `pollTest($triggerId)` | auth | Dry poll: what the tool found and would publish (publishes nothing) |
+| `pollNow($triggerId)` | auth | Queue a real poll now |
+| `pollSync($triggerId)` | auth | Re-create the poll runtime row from the saved config |
+| `presets()` | auth | Presets for your connected services and plan |
+| `limits()` | auth | Plan caps and usage |
+| `sources()` | auth | WebSocket and SSE stream sources |
+
+```php
+$live = $m->triggers->events(['verdicts' => ['rejected', 'failed'], 'limit' => 50]);
+$test = $m->triggers->test($triggerId, ['type' => 'refund.created']);
+$dry  = $m->triggers->pollTest($pollTriggerId);
+echo $dry['ok'] ? "{$dry['found']} found, {$dry['wouldPublish']} new" : $dry['error'];
+```
 
 ### `$m->bugs`
 

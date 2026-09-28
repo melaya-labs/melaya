@@ -2,6 +2,16 @@
 
 All notable changes to the Melaya SDKs are documented here. This project follows [Semantic Versioning](https://semver.org).
 
+## [0.4.0] — Preview
+
+Event triggers become visible from code: every SDK can now read, diagnose and dry-run the triggers that start your pipelines, including the poll status and the live event log. Same surface in all 9 languages.
+
+### Added
+- **Event triggers diagnostics** (TypeScript and Python): a new `triggers` module under `agents` reads the triggers that start your pipelines from outside events. List and inspect triggers, read delivery receipts (verdict, decision, action, run id, timings), verdict stats, pending approvals and the live event log, which also shows events that never got a receipt. `test` dry-runs an event without executing the action. For poll triggers, `pollStatus` shows the runtime state, `pollTest` shows what a poll would publish without publishing, `pollNow` makes a real poll due now and `pollSync` re-arms a poller. Also `presets`, `limits` and `sources`. Create, update, delete and secret rotation stay in the Agent Builder and the MCP server.
+- **Event triggers diagnostics** (Java and Kotlin): the same `triggers` module, at `melaya.agents().triggers()` in Java and `melaya.agents.triggers` in Kotlin (flat alias `triggers` in both). Same 14 methods. A failed dry poll (`{ ok: false, error }`) is returned as a result, not thrown; a throttled dry poll (429) still throws `MelayaException`.
+- **Event triggers diagnostics** (Go and Rust): the same `triggers` module, at `m.Agents.Triggers` in Go and `melaya.agents.triggers` in Rust (flat alias `Triggers` / `triggers`). Same 14 methods. Go returns typed structs (config, decision and preset objects stay generic JSON); Rust returns `serde_json::Value` like its other modules, with a `TriggerEventsQuery` for the event log filters. A failed dry poll (`{ ok: false, error }`) is returned as a result, not an error; a throttled dry poll (429) still returns an error.
+- **Event triggers diagnostics** (C#, PHP and Ruby): the same `triggers` module, at `m.Agents.Triggers` in C#, `$m->agents->triggers` in PHP and `melaya.agents.triggers` in Ruby (flat alias `Triggers` / `triggers` in all three). Same 14 methods, named `ListAsync` ... `SourcesAsync` in C# and `pending_approvals`, `poll_status`, `poll_test`, `poll_now`, `poll_sync` in Ruby. C# returns typed results (trigger config, deliveries, approvals, limits and sources stay `JsonElement`); PHP and Ruby return decoded arrays and hashes. A failed dry poll (`{ ok: false, error }`) is returned as a result, not thrown; a throttled dry poll (429) still throws. Ruby gains its first offline unit tests (`test/triggers_test.rb`, minitest).
+
 ## [0.3.0] — Preview
 
 Every SDK catches up with the platform as of September 2026: run inputs, pipeline documents, the tool-call audit log, project connectors, and the account, billing and phone calls added since 0.2.0. Same surface in all 9 languages.

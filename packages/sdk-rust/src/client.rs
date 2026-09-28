@@ -96,6 +96,13 @@ impl HttpClient {
 
     /// Parse a response: check HTTP status, then check `ok` field.
     async fn parse(&self, resp: reqwest::Response) -> Result<Value> {
+        self.parse_with(resp, false).await
+    }
+
+    /// [`parse`](Self::parse), optionally letting a 2xx dry-run body
+    /// (`dry: true`) with `ok: false` through as a result instead of an
+    /// error. Only [`post_dry_run`](Self::post_dry_run) sets the flag.
+    async fn parse_with(&self, resp: reqwest::Response, allow_dry_failure: bool) -> Result<Value> {
         let status = resp.status().as_u16();
         let text = resp.text().await?;
         let data: Value = if text.is_empty() {
@@ -116,7 +123,8 @@ impl HttpClient {
             });
         }
 
-        if let Some(ok) = data.get("ok") {
+        let dry_failure_allowed = allow_dry_failure && data.get("dry") == Some(&Value::Bool(true));
+        if let Some(ok) = data.get("ok").filter(|_| !dry_failure_allowed) {
             if ok == &Value::Bool(false) {
                 let code = data
                     .get("error")
@@ -256,6 +264,24 @@ impl HttpClient {
             .send()
             .await?;
         self.parse(resp).await
+    }
+
+    /// POST for a dry run (no retry). Same as [`post`](Self::post), except a
+    /// 2xx body with `dry: true` and `ok: false` (a failed dry run, such as
+    /// a dry poll whose tool call failed) is returned as a result, not an
+    /// error. HTTP errors (4xx / 5xx, including 429) still return an error.
+    pub(crate) async fn post_dry_run(&self, path: &str, body: &Value) -> Result<Value> {
+        let url = self.build_url(path, None)?;
+        let timeout = Duration::from_millis(self.timeout_ms);
+        let resp = self
+            .inner
+            .post(url)
+            .header(CONTENT_TYPE, "application/json")
+            .json(body)
+            .timeout(timeout)
+            .send()
+            .await?;
+        self.parse_with(resp, true).await
     }
 
     /// POST with a JSON body and a caller-supplied timeout override (no

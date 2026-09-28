@@ -122,7 +122,8 @@ func (e *MelayaError) IsMoneyMovingRefused() bool {
 // immediately visible:
 //
 //	m.Trading  — Market, Account, Sim, Strategies, Trade, Backtest, Stream
-//	m.Agents   — Pipelines, Hitl, Assistant, Phone, Evals, ConnectorTools
+//	m.Agents   — Pipelines, Hitl, Assistant, Phone, Evals, ConnectorTools,
+//	             Triggers
 //	m.Platform — Projects, Credentials, Connectors, Billing, Team, Templates,
 //	             Overview, Runner, Auth, Accounts, Bugs, Events
 //
@@ -202,6 +203,10 @@ type Client struct {
 	// exposes. Not to be confused with Connectors, which stores project-scoped
 	// connector credentials.
 	ConnectorTools *ConnectorToolsAPI
+	// Triggers provides read, diagnose, and dry-run calls for event
+	// triggers: list, get, deliveries, stats, live events, pending
+	// approvals, dry tests, and poll runtime state.
+	Triggers *TriggersAPI
 }
 
 // New creates a new Melaya client authenticated with an mk_ platform API key.
@@ -283,6 +288,7 @@ func New(apiKey string, opts ...Options) (*Client, error) {
 	c.Bugs = &BugsAPI{h: h}
 	c.Events = newEventsClient(h, strings.TrimRight(o.BaseURL, "/"))
 	c.ConnectorTools = &ConnectorToolsAPI{h: h}
+	c.Triggers = &TriggersAPI{h: h}
 
 	// ── Domain namespaces — wire existing pointers under their group ───────
 	c.Trading = &TradingNamespace{
@@ -301,6 +307,7 @@ func New(apiKey string, opts ...Options) (*Client, error) {
 		Phone:          c.Phone,
 		Evals:          c.Evals,
 		ConnectorTools: c.ConnectorTools,
+		Triggers:       c.Triggers,
 	}
 	c.Platform = &PlatformNamespace{
 		Projects:    c.Projects,

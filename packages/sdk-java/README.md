@@ -142,6 +142,29 @@ System.out.println(outcome.get("status").asText()); // "done" or "rejected" (or 
 melaya.agents().connectorTools().call("gmail_send", Map.of("to", "a@b.c"), "none");
 ```
 
+## Quick Start: Event Triggers
+
+`melaya.agents().triggers()` (flat alias: `melaya.triggers()`) reads and diagnoses the triggers
+that start your pipelines. Use it to find out why an event did or did not start a run. It is read
+and diagnose only: create, edit and delete a trigger in the Agent Builder or through MCP. No
+method returns a signing secret.
+
+```java
+JsonNode triggers = melaya.agents().triggers().list("my-project", null);
+String id = triggers.get(0).get("id").asText();
+
+// Verdict counts for the last 24 hours, and the live log (includes events with no receipt).
+JsonNode stats  = melaya.agents().triggers().stats(id, 24);
+JsonNode events = melaya.agents().triggers().events(id, null, List.of("filtered", "failed"), 50);
+
+// Dry run: prefilter, decide and routing run, the action never executes.
+JsonNode test = melaya.agents().triggers().test(id, Map.of("subject", "Refund request"));
+
+// Poll triggers: state, and what the next poll would find (publishes nothing).
+JsonNode state = melaya.agents().triggers().pollStatus(id);
+JsonNode dry   = melaya.agents().triggers().pollTest(id); // { ok: false, error } is returned, not thrown
+```
+
 ## Quick Start: Trading (preview — paper only)
 
 ```java
@@ -248,6 +271,7 @@ Reachable through `melaya.agents()`, `melaya.platform()`, or the equivalent flat
 | `bugs` | `melaya.platform().bugs()` | `create`, `listMine`, `get`, `addComment`, `listNotifications`, `markNotificationsRead` |
 | `overview` | `melaya.platform().overview()` | `get`, `usageSummary`, `modelPrices`, `chartData`, `costBreakdown`, `pipelineCount`, `pipelineList`, `recentPipelines` |
 | `connectorTools` | `melaya.agents().connectorTools()` (flat alias: `melaya.connectorTools()`) | `services`, `search(q, limit)`, `describe(tool)`, `test(service)`, `connect(service)`, `call(tool, args, approval)`, `callStatus(requestId)`, `callAndWait(tool, args, approval, pollIntervalMs, timeoutMs)` |
+| `triggers` | `melaya.agents().triggers()` (flat alias: `melaya.triggers()`) | `list(project, pipelineName)`, `get(id)`, `deliveries(id, limit)`, `stats(id, hours)`, `pendingApprovals(id)`, `test(id, payload)`, `events(triggerId, since, verdicts, limit)`, `pollStatus(triggerId)`, `pollTest(triggerId)`, `pollNow(triggerId)`, `pollSync(triggerId)`, `presets`, `limits`, `sources`. Read and diagnose only: create, edit and delete stay in the Agent Builder and MCP |
 
 ### Trading namespaces (preview — not generally available)
 

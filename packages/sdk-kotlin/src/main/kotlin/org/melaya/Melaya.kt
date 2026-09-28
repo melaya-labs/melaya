@@ -7,7 +7,7 @@ const val DEFAULT_BASE_URL = "https://api.melaya.org"
 const val DEFAULT_WS_URL   = "wss://wss.melaya.org"
 
 /**
- * The Melaya SDK entry point — v0.3.0.
+ * The Melaya SDK entry point — v0.4.0.
  *
  * Covers the full REST surface across trading, agents, and platform planes,
  * plus real-time events via Socket.IO at `/api/v1/events`.
@@ -148,6 +148,12 @@ class Melaya @JvmOverloads constructor(
      */
     val connectorTools = ConnectorToolsAPI(http)
 
+    /**
+     * Read, diagnose and dry-run event triggers: list, deliveries, stats, live events,
+     * dry runs, and poll status. Create, edit and delete stay in the Agent Builder and MCP.
+     */
+    val triggers = TriggersAPI(http)
+
     /** Phone device control: pair, list, screen-tree, apps, active run registration. */
     val phone = PhoneAPI(http)
 
@@ -206,7 +212,7 @@ class Melaya @JvmOverloads constructor(
 
     /**
      * Agents plane: pipeline runs, HITL approvals, assistant, phone control,
-     * evaluations, crew memory, and connector tool calls.
+     * evaluations, crew memory, connector tool calls, and event triggers.
      *
      * ```kotlin
      * melaya.agents.pipelines.recent()
@@ -214,6 +220,7 @@ class Melaya @JvmOverloads constructor(
      * melaya.agents.evals.benchmarks()
      * melaya.agents.memory.editEntry(pipeline = "daily-digest", entryId = "mem_123", patch = mapOf("content" to "…"))
      * melaya.agents.connectorTools.search("unread email")
+     * melaya.agents.triggers.stats(triggerId, hours = 24)
      * ```
      */
     val agents = AgentsNamespace(
@@ -224,6 +231,7 @@ class Melaya @JvmOverloads constructor(
         evals          = evals,
         memory         = memory,
         connectorTools = connectorTools,
+        triggers       = triggers,
     )
 
     /**

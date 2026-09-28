@@ -989,3 +989,170 @@ public sealed class ConnectorToolCallStatusResult
     [JsonExtensionData]             public Dictionary<string, JsonElement>? Extra { get; set; }
 }
 
+// ── Event triggers ────────────────────────────────────────────────────────────
+
+/// <summary>
+/// One event trigger (<c>TriggersApi.ListAsync</c> / <c>GetAsync</c>). <c>Kind</c> is
+/// <c>webhook</c>, <c>wss</c>, <c>engine</c>, <c>poll</c> or <c>push</c>. <c>Config</c> is the
+/// saved trigger config, returned as-is. Signing secrets are never included.
+/// </summary>
+public sealed class TriggerRecord
+{
+    [JsonPropertyName("id")]                  public string?      Id                  { get; set; }
+    [JsonPropertyName("publicId")]            public string?      PublicId            { get; set; }
+    [JsonPropertyName("name")]                public string?      Name                { get; set; }
+    [JsonPropertyName("kind")]                public string?      Kind                { get; set; }
+    [JsonPropertyName("project")]             public string?      Project             { get; set; }
+    [JsonPropertyName("pipelineName")]        public string?      PipelineName        { get; set; }
+    [JsonPropertyName("enabled")]             public bool?        Enabled             { get; set; }
+    [JsonPropertyName("pausedReason")]        public string?      PausedReason        { get; set; }
+    [JsonPropertyName("signingScheme")]       public string?      SigningScheme       { get; set; }
+    [JsonPropertyName("sourceId")]            public string?      SourceId            { get; set; }
+    [JsonPropertyName("config")]              public JsonElement? Config              { get; set; }
+    [JsonPropertyName("maxEventsPerMin")]     public int?         MaxEventsPerMin     { get; set; }
+    [JsonPropertyName("maxRunsPerDay")]       public int?         MaxRunsPerDay       { get; set; }
+    [JsonPropertyName("maxConcurrentRuns")]   public int?         MaxConcurrentRuns   { get; set; }
+    [JsonPropertyName("consecutiveFailures")] public int?         ConsecutiveFailures { get; set; }
+    [JsonPropertyName("lastEventAt")]         public string?      LastEventAt         { get; set; }
+    [JsonPropertyName("createdAt")]           public string?      CreatedAt           { get; set; }
+    [JsonPropertyName("updatedAt")]           public string?      UpdatedAt           { get; set; }
+    [JsonPropertyName("webhookUrl")]          public string?      WebhookUrl          { get; set; }
+    [JsonPropertyName("projectAccess")]       public bool?        ProjectAccess       { get; set; }
+    [JsonExtensionData]                       public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>Count and latency percentiles for one verdict in <see cref="TriggerStats"/>.</summary>
+public sealed class TriggerVerdictStats
+{
+    [JsonPropertyName("n")]   public int?    N   { get; set; }
+    [JsonPropertyName("p50")] public double? P50 { get; set; }
+    [JsonPropertyName("p95")] public double? P95 { get; set; }
+    [JsonExtensionData]       public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>
+/// Delivery counts by verdict over a window (<c>TriggersApi.StatsAsync</c>). <c>Filtered</c> counts
+/// events the prefilter dropped (null when the counter is unavailable). <c>Sampled</c> is true when
+/// the window held more receipts than the stats sample.
+/// </summary>
+public sealed class TriggerStats
+{
+    [JsonPropertyName("hours")]     public int?  Hours     { get; set; }
+    [JsonPropertyName("byVerdict")] public Dictionary<string, TriggerVerdictStats>? ByVerdict { get; set; }
+    [JsonPropertyName("filtered")]  public int?  Filtered  { get; set; }
+    [JsonPropertyName("sampled")]   public bool? Sampled   { get; set; }
+    [JsonExtensionData]             public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>Result of a dry-run test event (<c>TriggersApi.TestAsync</c>). The action never executes.</summary>
+public sealed class TriggerTestResult
+{
+    [JsonPropertyName("accepted")] public bool?   Accepted { get; set; }
+    [JsonPropertyName("eventId")]  public string? EventId  { get; set; }
+    [JsonPropertyName("reason")]   public string? Reason   { get; set; }
+    [JsonExtensionData]            public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>
+/// One live trigger event (<c>TriggersApi.EventsAsync</c>). <c>Verdict</c> is one of
+/// <c>accepted</c>, <c>duplicate</c>, <c>rejected</c>, <c>rate_limited</c>, <c>filtered</c>,
+/// <c>decided</c>, <c>dispatched</c>, <c>skipped</c>, <c>failed</c>. <c>DeliveryId</c> is null for
+/// events that wrote no receipt. <c>At</c> is epoch milliseconds.
+/// </summary>
+public sealed class TriggerLiveEvent
+{
+    [JsonPropertyName("triggerId")]     public string? TriggerId     { get; set; }
+    [JsonPropertyName("deliveryId")]    public string? DeliveryId    { get; set; }
+    [JsonPropertyName("eventId")]       public string? EventId       { get; set; }
+    [JsonPropertyName("source")]        public string? Source        { get; set; }
+    [JsonPropertyName("verdict")]       public string? Verdict       { get; set; }
+    [JsonPropertyName("action")]        public string? Action        { get; set; }
+    [JsonPropertyName("runId")]         public string? RunId         { get; set; }
+    [JsonPropertyName("detail")]        public string? Detail        { get; set; }
+    [JsonPropertyName("latencyMs")]     public double? LatencyMs     { get; set; }
+    [JsonPropertyName("resultExcerpt")] public string? ResultExcerpt { get; set; }
+    [JsonPropertyName("at")]            public long?   At            { get; set; }
+    [JsonExtensionData]                 public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>How long live trigger events are kept.</summary>
+public sealed class TriggerLiveEventsRetention
+{
+    [JsonPropertyName("maxEvents")] public int? MaxEvents { get; set; }
+    [JsonPropertyName("ttlSec")]    public int? TtlSec    { get; set; }
+    [JsonExtensionData]             public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>Recent live trigger events, newest first (<c>TriggersApi.EventsAsync</c>).</summary>
+public sealed class TriggerLiveEventsResult
+{
+    [JsonPropertyName("events")]    public List<TriggerLiveEvent>?     Events    { get; set; }
+    [JsonPropertyName("scanned")]   public int?                        Scanned   { get; set; }
+    [JsonPropertyName("retention")] public TriggerLiveEventsRetention? Retention { get; set; }
+    [JsonExtensionData]             public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>
+/// Runtime state of a poll trigger (<c>TriggersApi.PollStatusAsync</c>). <c>Synced</c> is false when
+/// the trigger has no runtime row yet (see <c>PollSyncAsync</c>). Times are ISO 8601 strings.
+/// </summary>
+public sealed class TriggerPollState
+{
+    [JsonPropertyName("synced")]               public bool?   Synced               { get; set; }
+    [JsonPropertyName("status")]               public string? Status               { get; set; }
+    [JsonPropertyName("lastError")]            public string? LastError            { get; set; }
+    [JsonPropertyName("lastPolledAt")]         public string? LastPolledAt         { get; set; }
+    [JsonPropertyName("nextPollAt")]           public string? NextPollAt           { get; set; }
+    [JsonPropertyName("armed")]                public bool?   Armed                { get; set; }
+    [JsonPropertyName("baselinePending")]      public bool?   BaselinePending      { get; set; }
+    [JsonPropertyName("seenCount")]            public int?    SeenCount            { get; set; }
+    [JsonPropertyName("itemsPublished")]       public int?    ItemsPublished       { get; set; }
+    [JsonPropertyName("consecutiveErrors")]    public int?    ConsecutiveErrors    { get; set; }
+    [JsonPropertyName("requestedIntervalSec")] public int?    RequestedIntervalSec { get; set; }
+    [JsonPropertyName("effectiveIntervalSec")] public int?    EffectiveIntervalSec { get; set; }
+    [JsonPropertyName("tierFloorSec")]         public int?    TierFloorSec         { get; set; }
+    [JsonExtensionData]                        public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>One item a dry poll found, with a short redacted preview.</summary>
+public sealed class TriggerPollItem
+{
+    [JsonPropertyName("id")]      public string? Id      { get; set; }
+    [JsonPropertyName("preview")] public string? Preview { get; set; }
+    [JsonExtensionData]           public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>
+/// Result of <c>TriggersApi.PollTestAsync</c> (<c>Dry == true</c>) or <c>PollNowAsync</c>
+/// (<c>Dry == false</c>, only <c>Queued</c> is set). A dry poll either succeeds
+/// (<c>Ok == true</c>: <c>Found</c>, <c>Baseline</c>, <c>WouldPublish</c>, <c>Items</c>,
+/// <c>SamplePayload</c>) or fails (<c>Ok == false</c>, <c>Error</c> code). On the first poll after
+/// arming, <c>Baseline</c> is true and nothing would be published.
+/// </summary>
+public sealed class TriggerPollTestResult
+{
+    [JsonPropertyName("dry")]           public bool?                  Dry           { get; set; }
+    [JsonPropertyName("ok")]            public bool?                  Ok            { get; set; }
+    [JsonPropertyName("error")]         public string?                Error         { get; set; }
+    [JsonPropertyName("found")]         public int?                   Found         { get; set; }
+    [JsonPropertyName("baseline")]      public bool?                  Baseline      { get; set; }
+    [JsonPropertyName("wouldPublish")]  public int?                   WouldPublish  { get; set; }
+    [JsonPropertyName("items")]         public List<TriggerPollItem>? Items         { get; set; }
+    [JsonPropertyName("samplePayload")] public JsonElement?           SamplePayload { get; set; }
+    [JsonPropertyName("queued")]        public bool?                  Queued        { get; set; }
+    [JsonExtensionData]                 public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>
+/// Trigger presets available to the caller (<c>TriggersApi.PresetsAsync</c>). Each preset and the
+/// <c>Beta</c> block are returned as raw JSON.
+/// </summary>
+public sealed class TriggerPresetsResult
+{
+    [JsonPropertyName("tier")]         public string?            Tier         { get; set; }
+    [JsonPropertyName("tierFloorSec")] public int?               TierFloorSec { get; set; }
+    [JsonPropertyName("presets")]      public List<JsonElement>? Presets      { get; set; }
+    [JsonPropertyName("beta")]         public JsonElement?       Beta         { get; set; }
+    [JsonExtensionData]                public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+

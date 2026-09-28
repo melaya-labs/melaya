@@ -459,6 +459,251 @@ public class UnitTests {
             }
         });
 
+        // ── triggers ──────────────────────────────────────────────────────────
+
+        String tid = "0b6f3c2e-7a41-4c1e-9d55-2f8a1b3c4d5e";
+
+        check("triggers.list() sends project and pipelineName and decodes the array", () -> {
+            CapturedRequest[] captured = new CapturedRequest[1];
+            HttpServer server = startServer(exchange -> {
+                captured[0] = CapturedRequest.capture(exchange);
+                respondJson(exchange, 200,
+                        "[{\"id\":\"" + tid + "\",\"name\":\"refunds\",\"kind\":\"poll\",\"enabled\":true,\"config\":{\"poll\":{\"service\":\"gmail\"}}}]");
+            });
+            try {
+                TriggersAPI triggers = new TriggersAPI(new HttpClient("mk_test", baseUrl(server)));
+                JsonNode resp = triggers.list("acme", "refund bot");
+
+                assertEquals("GET", captured[0].method, "method");
+                assertEquals("/api/v1/private/triggers", captured[0].path, "path");
+                Map<String, String> q = parseQuery(captured[0].rawQuery);
+                assertEquals("acme", q.get("project"), "query.project");
+                assertEquals("refund bot", q.get("pipelineName"), "query.pipelineName");
+                assertTrue(resp.isArray() && resp.size() == 1, "response is an array of one");
+                assertEquals("gmail", resp.at("/0/config/poll/service").asText(), "config stays raw JSON");
+            } finally {
+                server.stop(0);
+            }
+        });
+
+        check("triggers.list(null, null) sends no query string", () -> {
+            CapturedRequest[] captured = new CapturedRequest[1];
+            HttpServer server = startServer(exchange -> {
+                captured[0] = CapturedRequest.capture(exchange);
+                respondJson(exchange, 200, "[]");
+            });
+            try {
+                new TriggersAPI(new HttpClient("mk_test", baseUrl(server))).list(null, null);
+                assertTrue(captured[0].rawQuery == null, "no query string: " + captured[0].rawQuery);
+            } finally {
+                server.stop(0);
+            }
+        });
+
+        check("triggers read calls hit the right GET paths and queries", () -> {
+            List<CapturedRequest> seen = new java.util.ArrayList<>();
+            HttpServer server = startServer(exchange -> {
+                seen.add(CapturedRequest.capture(exchange));
+                String path = exchange.getRequestURI().getPath();
+                String json;
+                if (path.endsWith("/stats")) json = "{\"hours\":6,\"byVerdict\":{\"filtered\":{\"n\":3,\"p50\":null,\"p95\":null}},\"filtered\":3,\"sampled\":false}";
+                else if (path.endsWith("/limits")) json = "{\"tierClass\":\"pro\",\"triggers\":{\"used\":2,\"cap\":20},\"pollIntervalFloorSec\":60}";
+                else if (path.endsWith("/presets")) json = "{\"tier\":\"pro\",\"tierFloorSec\":60,\"presets\":[],\"beta\":{\"allowed\":true}}";
+                else if (path.endsWith("/deliveries") || path.endsWith("/approvals") || path.endsWith("/sources")) json = "[]";
+                else json = "{\"id\":\"" + tid + "\",\"name\":\"refunds\"}";
+                respondJson(exchange, 200, json);
+            });
+            try {
+                TriggersAPI triggers = new TriggersAPI(new HttpClient("mk_test", baseUrl(server)));
+                JsonNode one = triggers.get(tid);
+                JsonNode deliveries = triggers.deliveries(tid, 25);
+                JsonNode stats = triggers.stats(tid, 6);
+                JsonNode approvals = triggers.pendingApprovals(tid);
+                JsonNode presets = triggers.presets();
+                JsonNode limits = triggers.limits();
+                JsonNode sources = triggers.sources();
+
+                String base = "/api/v1/private/triggers";
+                String[] paths = {
+                        base + "/" + tid, base + "/" + tid + "/deliveries", base + "/" + tid + "/stats",
+                        base + "/" + tid + "/approvals", base + "/presets", base + "/limits", base + "/sources"};
+                assertEquals(paths.length, seen.size(), "request count");
+                for (int i = 0; i < paths.length; i++) {
+                    assertEquals("GET", seen.get(i).method, "method #" + i);
+                    assertEquals(paths[i], seen.get(i).path, "path #" + i);
+                }
+                assertEquals("25", parseQuery(seen.get(1).rawQuery).get("limit"), "deliveries query.limit");
+                assertEquals("6", parseQuery(seen.get(2).rawQuery).get("hours"), "stats query.hours");
+                assertTrue(seen.get(0).rawQuery == null, "get sends no query");
+
+                assertEquals("refunds", one.get("name").asText(), "get decodes the record");
+                assertTrue(deliveries.isArray() && approvals.isArray() && sources.isArray(), "array responses");
+                assertEquals(3, stats.at("/byVerdict/filtered/n").asInt(), "stats byVerdict");
+                assertEquals(60, presets.get("tierFloorSec").asInt(), "presets tierFloorSec");
+                assertEquals(20, limits.at("/triggers/cap").asInt(), "limits triggers.cap");
+            } finally {
+                server.stop(0);
+            }
+        });
+
+        check("triggers.events() sends triggerId, since, a comma list of verdicts and limit", () -> {
+            CapturedRequest[] captured = new CapturedRequest[1];
+            HttpServer server = startServer(exchange -> {
+                captured[0] = CapturedRequest.capture(exchange);
+                respondJson(exchange, 200,
+                        "{\"events\":[{\"triggerId\":\"" + tid + "\",\"deliveryId\":null,\"eventId\":\"e1\",\"source\":\"poll\",\"verdict\":\"filtered\",\"at\":1790000000000}],"
+                                + "\"scanned\":12,\"retention\":{\"maxEvents\":500,\"ttlSec\":86400}}");
+            });
+            try {
+                TriggersAPI triggers = new TriggersAPI(new HttpClient("mk_test", baseUrl(server)));
+                JsonNode resp = triggers.events(tid, 1789999999000L, Arrays.asList("filtered", "failed"), 50);
+
+                assertEquals("GET", captured[0].method, "method");
+                assertEquals("/api/v1/private/triggers/events", captured[0].path, "path");
+                Map<String, String> q = parseQuery(captured[0].rawQuery);
+                assertEquals(tid, q.get("triggerId"), "query.triggerId");
+                assertEquals("1789999999000", q.get("since"), "query.since");
+                assertEquals("filtered,failed", q.get("verdicts"), "query.verdicts is a comma list");
+                assertEquals("50", q.get("limit"), "query.limit");
+                assertEquals("filtered", resp.at("/events/0/verdict").asText(), "events[0].verdict");
+                assertTrue(resp.at("/events/0/deliveryId").isNull(), "an event with no receipt has deliveryId null");
+                assertEquals(500, resp.at("/retention/maxEvents").asInt(), "retention.maxEvents");
+            } finally {
+                server.stop(0);
+            }
+        });
+
+        check("triggers.test() POSTs {payload} and decodes {accepted, eventId}", () -> {
+            CapturedRequest[] captured = new CapturedRequest[1];
+            HttpServer server = startServer(exchange -> {
+                captured[0] = CapturedRequest.capture(exchange);
+                respondJson(exchange, 200, "{\"accepted\":false,\"eventId\":\"test-1\",\"reason\":\"disabled\"}");
+            });
+            try {
+                TriggersAPI triggers = new TriggersAPI(new HttpClient("mk_test", baseUrl(server)));
+                JsonNode resp = triggers.test(tid, Map.of("subject", "Refund request"));
+
+                assertEquals("POST", captured[0].method, "method");
+                assertEquals("/api/v1/private/triggers/" + tid + "/test", captured[0].path, "path");
+                JsonNode sent = MAPPER.readTree(captured[0].body);
+                assertEquals("Refund request", sent.at("/payload/subject").asText(), "body.payload");
+                assertTrue(!resp.get("accepted").asBoolean(), "accepted");
+                assertEquals("test-1", resp.get("eventId").asText(), "eventId");
+                assertEquals("disabled", resp.get("reason").asText(), "reason");
+            } finally {
+                server.stop(0);
+            }
+        });
+
+        check("triggers.pollStatus() GETs the poll state", () -> {
+            CapturedRequest[] captured = new CapturedRequest[1];
+            HttpServer server = startServer(exchange -> {
+                captured[0] = CapturedRequest.capture(exchange);
+                respondJson(exchange, 200,
+                        "{\"synced\":true,\"status\":\"ok\",\"lastError\":null,\"armed\":true,\"baselinePending\":false,"
+                                + "\"seenCount\":40,\"itemsPublished\":7,\"consecutiveErrors\":0,"
+                                + "\"requestedIntervalSec\":30,\"effectiveIntervalSec\":60,\"tierFloorSec\":60}");
+            });
+            try {
+                TriggersAPI triggers = new TriggersAPI(new HttpClient("mk_test", baseUrl(server)));
+                JsonNode resp = triggers.pollStatus(tid);
+
+                assertEquals("GET", captured[0].method, "method");
+                assertEquals("/api/v1/private/triggers/" + tid + "/poll", captured[0].path, "path");
+                assertTrue(resp.get("synced").asBoolean(), "synced");
+                assertEquals(60, resp.get("effectiveIntervalSec").asInt(), "effectiveIntervalSec");
+            } finally {
+                server.stop(0);
+            }
+        });
+
+        check("triggers.pollTest() POSTs {dry:true} and decodes the dry poll", () -> {
+            CapturedRequest[] captured = new CapturedRequest[1];
+            HttpServer server = startServer(exchange -> {
+                captured[0] = CapturedRequest.capture(exchange);
+                respondJson(exchange, 200,
+                        "{\"dry\":true,\"ok\":true,\"found\":2,\"baseline\":false,\"wouldPublish\":1,"
+                                + "\"items\":[{\"id\":\"m1\",\"preview\":\"Refund\"}],\"samplePayload\":{\"id\":\"m1\"}}");
+            });
+            try {
+                TriggersAPI triggers = new TriggersAPI(new HttpClient("mk_test", baseUrl(server)));
+                JsonNode resp = triggers.pollTest(tid);
+
+                assertEquals("POST", captured[0].method, "method");
+                assertEquals("/api/v1/private/triggers/" + tid + "/poll/test", captured[0].path, "path");
+                assertEquals("{\"dry\":true}", new String(captured[0].body, StandardCharsets.UTF_8), "body");
+                assertEquals(1, resp.get("wouldPublish").asInt(), "wouldPublish");
+                assertEquals("m1", resp.at("/items/0/id").asText(), "items[0].id");
+                assertEquals("m1", resp.at("/samplePayload/id").asText(), "samplePayload");
+            } finally {
+                server.stop(0);
+            }
+        });
+
+        check("triggers.pollTest() returns a failed dry poll {ok:false, error} instead of throwing", () -> {
+            HttpServer server = startServer(exchange ->
+                    respondJson(exchange, 200, "{\"dry\":true,\"ok\":false,\"error\":\"auth_expired\"}"));
+            try {
+                TriggersAPI triggers = new TriggersAPI(new HttpClient("mk_test", baseUrl(server)));
+                JsonNode resp = triggers.pollTest(tid);
+                assertTrue(!resp.get("ok").asBoolean(), "ok is false");
+                assertEquals("auth_expired", resp.get("error").asText(), "error");
+            } finally {
+                server.stop(0);
+            }
+        });
+
+        check("triggers.pollTest() still throws on a 429 throttle", () -> {
+            HttpServer server = startServer(exchange ->
+                    respondJson(exchange, 429, "{\"error\":\"poll_dry_run_throttled\"}"));
+            try {
+                TriggersAPI triggers = new TriggersAPI(new HttpClient("mk_test", baseUrl(server)));
+                try {
+                    triggers.pollTest(tid);
+                    throw new AssertionError("expected a MelayaException for a 429");
+                } catch (MelayaException e) {
+                    assertEquals(429, e.getStatus(), "exception status");
+                    assertEquals("poll_dry_run_throttled", e.getCode(), "exception code");
+                }
+            } finally {
+                server.stop(0);
+            }
+        });
+
+        check("triggers.pollNow() POSTs {dry:false} and pollSync() POSTs to /poll/sync", () -> {
+            List<CapturedRequest> seen = new java.util.ArrayList<>();
+            HttpServer server = startServer(exchange -> {
+                seen.add(CapturedRequest.capture(exchange));
+                if (exchange.getRequestURI().getPath().endsWith("/sync")) {
+                    respondJson(exchange, 200, "{\"result\":\"armed\"}");
+                } else {
+                    respondJson(exchange, 200, "{\"dry\":false,\"queued\":true}");
+                }
+            });
+            try {
+                TriggersAPI triggers = new TriggersAPI(new HttpClient("mk_test", baseUrl(server)));
+                JsonNode now = triggers.pollNow(tid);
+                JsonNode sync = triggers.pollSync(tid);
+
+                assertEquals("POST", seen.get(0).method, "pollNow method");
+                assertEquals("/api/v1/private/triggers/" + tid + "/poll/test", seen.get(0).path, "pollNow path");
+                assertEquals("{\"dry\":false}", new String(seen.get(0).body, StandardCharsets.UTF_8), "pollNow body");
+                assertTrue(now.get("queued").asBoolean(), "queued");
+
+                assertEquals("POST", seen.get(1).method, "pollSync method");
+                assertEquals("/api/v1/private/triggers/" + tid + "/poll/sync", seen.get(1).path, "pollSync path");
+                assertEquals("armed", sync.get("result").asText(), "result");
+            } finally {
+                server.stop(0);
+            }
+        });
+
+        check("melaya.agents().triggers() and melaya.triggers() are the same module", () -> {
+            Melaya melaya = new Melaya("mk_test", "http://127.0.0.1:1", "ws://127.0.0.1:1");
+            assertTrue(melaya.agents().triggers() != null, "agents().triggers() is set");
+            assertTrue(melaya.agents().triggers() == melaya.triggers(), "flat alias shares the instance");
+        });
+
         System.out.println();
         System.out.printf("UNIT TESTS: %d passed, %d failed (%d total)%n",
                 passCount, failCount, passCount + failCount);

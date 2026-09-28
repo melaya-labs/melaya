@@ -178,6 +178,28 @@ println(outcome.optString("status"))   // "done" or "rejected"
 melaya.connectorTools.call("gmail_send", args = mapOf("to" to "a@b.com"), approval = "none")
 ```
 
+### Diagnose event triggers
+
+`melaya.triggers` (also `melaya.agents.triggers`) reads and diagnoses the triggers that start
+your pipelines. Use it to find out why an event did or did not start a run. It is read and
+diagnose only: create, edit and delete a trigger in the Agent Builder or through MCP. No method
+returns a signing secret.
+
+```kotlin
+val id = melaya.triggers.list(project = "my-project")[0].getString("id")
+
+// Verdict counts for the last 24 hours, and the live log (includes events with no receipt).
+val stats  = melaya.triggers.stats(id, hours = 24)
+val events = melaya.triggers.events(triggerId = id, verdicts = listOf("filtered", "failed"))
+
+// Dry run: prefilter, decide and routing run, the action never executes.
+val test = melaya.triggers.test(id, payload = mapOf("subject" to "Refund request"))
+
+// Poll triggers: state, and what the next poll would find (publishes nothing).
+val state = melaya.triggers.pollStatus(id)
+val dry   = melaya.triggers.pollTest(id)   // { ok: false, error } is returned, not thrown
+```
+
 ## Quick start — market data (trading preview)
 
 ```kotlin
@@ -296,6 +318,7 @@ Public market-data and account/strategy reads work with the key alone.  **Live**
 | Projects | `projects.list`, `create`, `rename`, `runnerProjects` |
 | Connectors | `connectors.set`, `delete`, `connectedServices`, `envHandle`, `googleOAuthStart`, `applyPersonal`, `sharedBy`, `googleStatus`, `googleSetDefault`, `googleDisconnect`, `dbTestStart`, `dbTestStatus` |
 | Connector Tools | `connectorTools.services`, `search`, `describe`, `test`, `connect`, `call`, `callStatus`, `callAndWait` |
+| Triggers | `triggers.list`, `get`, `deliveries`, `stats`, `pendingApprovals`, `test`, `events`, `pollStatus`, `pollTest`, `pollNow`, `pollSync`, `presets`, `limits`, `sources` (read and diagnose only; create, edit and delete stay in the Agent Builder and MCP) |
 | Credentials | `credentials.list`, `set`, `get`, `delete`, `test`, `connectedServices`, `listModels`, `googleStatus`, `googleSetDefault`, `googleDisconnect`, `dbTestStart`, `dbTestStatus`, `telegramQrStart`, `telegramQrPoll`, `whatsappSignupConfig`, `whatsappSignupExchange`, `tiktokCreatorInfo`, `substackEmailLinkSend`, `substackEmailLinkRedeem`, plus OAuth / RAG / operator-profile helpers |
 | Pipelines | `pipelines.create`, `listPipelines`, `get`, `update`, `delete`, `run`, `runIds`, `runStatus`, `cancelRun`, `runActive`, `uploadRunFile`, `runInputs`, `runInputFile`, `listDocs`, `uploadDoc`, `deleteDoc`, `uploadRetrievalDoc`, `ingestRetrieval`, `deleteRetrievalDoc`, `outputs`, `output`, `previewCode`, `tools`, `subagents`, `instantiateTemplate`, `buildWithAI`, `overview`, `list`, `recent`, `count`, `chartData`, `costBreakdown`, `modelPrices`, `traces`, `trace`, `traceStats`, `deleteTraces`, `listSchedules`, `getSchedule`, `upsertSchedule`, `pauseSchedule`, `resumeSchedule`, `serverVersion` |
 | Templates | `templates.list`, `listGlobal`, `listValidated`, `save`, `update`, `duplicate`, `delete`, `share`, `listAssignments`, `assign(templateId, userId = … / projectId = …)`, `unassign(templateId, userId = … / projectId = …)`, `shareTargets` |
@@ -311,7 +334,7 @@ Public market-data and account/strategy reads work with the key alone.  **Live**
 | Assistant | `assistant.getProfile`, `setProfile` |
 | Bugs | `bugs.create`, `get`, `listMine`, `addComment`, `listNotifications`, `markNotificationsRead` |
 
-All modules are also grouped by plane: `melaya.agents.*` (pipelines, hitl, assistant, phone, evals, memory, connectorTools), `melaya.platform.*` (projects, credentials, connectors, billing, team, templates, runner, auth, mfa, accounts, bugs, events), and `melaya.trading.*`.
+All modules are also grouped by plane: `melaya.agents.*` (pipelines, hitl, assistant, phone, evals, memory, connectorTools, triggers), `melaya.platform.*` (projects, credentials, connectors, billing, team, templates, runner, auth, mfa, accounts, bugs, events), and `melaya.trading.*`.
 
 ### Trading (preview)
 

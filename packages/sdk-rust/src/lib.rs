@@ -12,7 +12,7 @@
 //! | Namespace | Modules |
 //! |---|---|
 //! | `melaya.trading` | `market`, `account`, `sim`, `strategies`, `trade`, `backtest`, `stream` |
-//! | `melaya.agents`  | `pipelines`, `hitl`, `assistant`, `phone`, `evals`, `memory`, `connector_tools` |
+//! | `melaya.agents`  | `pipelines`, `hitl`, `assistant`, `phone`, `evals`, `memory`, `connector_tools`, `triggers` |
 //! | `melaya.platform`| `projects`, `credentials`, `connectors`, `billing`, `team`, `templates`, `runner`, `auth`, `mfa`, `accounts`, `bugs`, `events` |
 //!
 //! Flat accessors (`melaya.market`, `melaya.pipelines`, …) remain available for
@@ -80,6 +80,7 @@ mod projects;
 mod runner;
 mod team;
 mod templates;
+mod triggers;
 
 // ── Domain namespaces ─────────────────────────────────────────────────────────
 pub mod namespaces;
@@ -120,6 +121,7 @@ pub use projects::ProjectsAPI;
 pub use runner::RunnerAPI;
 pub use team::TeamAPI;
 pub use templates::TemplatesAPI;
+pub use triggers::{TriggerEventsQuery, TriggersAPI, TRIGGER_VERDICTS};
 
 // ── MelayaOptions ────────────────────────────────────────────────────────────
 
@@ -199,7 +201,7 @@ pub struct Melaya {
     pub trading: TradingNamespace,
 
     /// Agents-plane namespace: `pipelines`, `hitl`, `assistant`, `phone`,
-    /// `evals`, `memory`, `connector_tools`.
+    /// `evals`, `memory`, `connector_tools`, `triggers`.
     pub agents: AgentsNamespace,
 
     /// Platform-plane namespace: `projects`, `credentials`, `connectors`,
@@ -260,6 +262,9 @@ pub struct Melaya {
     /// server exposes): search, describe, test, connect, and call, with
     /// staged approval for writes.
     pub connector_tools: ConnectorToolsAPI,
+    /// Event triggers: read, diagnose, and dry-run (list, get, deliveries,
+    /// stats, live events, pending approvals, dry tests, poll state).
+    pub triggers: TriggersAPI,
     /// Bug reports: create, comment, notifications.
     pub bugs: BugsAPI,
     /// Platform real-time events over Socket.IO at `/api/v1/events`.
@@ -310,6 +315,7 @@ impl Melaya {
         let evals = EvalsAPI::new(http.clone());
         let memory = MemoryAPI::new(http.clone());
         let connector_tools = ConnectorToolsAPI::new(http.clone());
+        let triggers = TriggersAPI::new(http.clone());
         let bugs = BugsAPI::new(http.clone());
         let events = MelayaEvents::new(opts.api_key.clone(), base_url);
 
@@ -331,6 +337,7 @@ impl Melaya {
             evals: evals.clone(),
             memory: memory.clone(),
             connector_tools: connector_tools.clone(),
+            triggers: triggers.clone(),
         };
         let platform = PlatformNamespace {
             projects: projects.clone(),
@@ -377,6 +384,7 @@ impl Melaya {
             evals,
             memory,
             connector_tools,
+            triggers,
             bugs,
             events,
         })

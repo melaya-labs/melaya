@@ -2,7 +2,7 @@
 
 Covers the full surface: platform/agents (projects, pipelines, HITL,
 credentials, connectors, connector tool calls, billing, templates, team,
-phone, assistant, evals, bugs, runner) + real-time events (Socket.IO
+phone, assistant, evals, event triggers, bugs, runner) + real-time events (Socket.IO
 /api/v1/events) + trading preview (market data, streaming, strategies,
 backtests, live trading, paper trading).
 
@@ -11,7 +11,7 @@ The client exposes three grouped namespaces as the primary API surface:
   melaya.trading   — market, account, sim, strategies, backtest, trade, stream
                      (preview — not for real funds)
   melaya.agents    — pipelines, hitl, assistant, phone, evals, memory,
-                     connector_tools
+                     triggers, connector_tools
   melaya.platform  — projects, credentials, connectors, billing, team,
                      templates, runner, auth, mfa, accounts, bugs, events
 
@@ -66,6 +66,7 @@ from .assistant import AssistantAPI
 from .bugs import BugsAPI
 from .evals import EvalsAPI
 from .memory import MemoryAPI
+from .triggers import TriggersAPI
 from .events import MelayaEvents
 
 __all__ = [
@@ -105,7 +106,8 @@ __all__ = [
     "BugsAPI",
     "EvalsAPI",
     "MemoryAPI",
+    "TriggersAPI",
     "MelayaEvents",
 ]
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"

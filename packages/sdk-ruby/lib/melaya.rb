@@ -24,6 +24,7 @@ require_relative "melaya/hitl"
 require_relative "melaya/credentials"
 require_relative "melaya/connectors"
 require_relative "melaya/connector_tools"
+require_relative "melaya/triggers"
 require_relative "melaya/phone"
 require_relative "melaya/team"
 require_relative "melaya/templates"
@@ -59,7 +60,7 @@ module Melaya
   # **Namespace groupings**:
   # - +trading+  — market, account, sim, strategies, backtest, stream, trade
   # - +agents+   — pipelines (also +.runs+), hitl, assistant, phone, evals, models,
-  #                connector_tools
+  #                connector_tools, triggers
   # - +platform+ — projects, credentials, connectors, billing, team, templates,
   #                overview, runner, auth (also +.mfa+), accounts, bugs, events
   #
@@ -132,6 +133,9 @@ module Melaya
     # — the same surface the MCP server and Assistant use. Not to be confused
     # with +connectors+ (credential storage).
     attr_reader :connector_tools
+    # Event triggers: list, inspect, diagnose and dry-run triggers and poll
+    # triggers. Create, update and delete stay in the Agent Builder and MCP.
+    attr_reader :triggers
     # Phone device control: pair, list, screen-tree, apps.
     attr_reader :phone
     # Project team management: members, roles, invite links.
@@ -163,7 +167,7 @@ module Melaya
 
     # Agent-plane namespace.
     # Groups: pipelines (alias: runs), hitl, assistant, phone, evals, models,
-    # connector_tools.
+    # connector_tools, triggers.
     #
     # @return [AgentsNamespace]
     # @example
@@ -174,6 +178,7 @@ module Melaya
     #   melaya.agents.evals.list_runs
     #   melaya.agents.models.list_models(provider: "anthropic")
     #   melaya.agents.connector_tools.services
+    #   melaya.agents.triggers.events(limit: 50)
     attr_reader :agents
 
     # Platform-plane namespace.
@@ -239,6 +244,7 @@ module Melaya
       @credentials = CredentialsAPI.new(http)
       @connectors  = ConnectorsAPI.new(http)
       @connector_tools = ConnectorToolsAPI.new(http)
+      @triggers    = TriggersAPI.new(http)
       @phone       = PhoneAPI.new(http)
       @team        = TeamAPI.new(http)
       @templates   = TemplatesAPI.new(http)
@@ -278,7 +284,8 @@ module Melaya
         # credentials#list_models is the canonical "models" surface; expose the
         # full CredentialsAPI object here so callers can do agents.models.list_models(...)
         models:    @credentials,
-        connector_tools: @connector_tools
+        connector_tools: @connector_tools,
+        triggers:  @triggers
       )
 
       # Platform namespace: events slot uses a lazy proxy so the Socket.IO

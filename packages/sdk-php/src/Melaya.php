@@ -35,6 +35,7 @@ namespace Melaya;
  * $tree     = $m->agents->phone->screenTree();
  * $summary  = $m->agents->evals->summary();
  * $result   = $m->agents->connectorTools->call('gmail_list_messages');
+ * $live     = $m->agents->triggers->events(['limit' => 50]);
  *
  * // Platform namespace
  * $projects = $m->platform->projects->list();
@@ -73,7 +74,7 @@ class Melaya
     public readonly TradingNamespace $trading;
 
     /**
-     * Agents plane: pipelines (runs), hitl, assistant, phone, evals, connectorTools.
+     * Agents plane: pipelines (runs), hitl, assistant, phone, evals, connectorTools, triggers.
      *
      * @see AgentsNamespace
      */
@@ -141,6 +142,8 @@ class Melaya
     public readonly EvalsAPI       $evals;
     /** @see AgentsNamespace::$connectorTools */
     public readonly ConnectorToolsAPI $connectorTools;
+    /** @see AgentsNamespace::$triggers */
+    public readonly TriggersAPI    $triggers;
     /** @see PlatformNamespace::$bugs */
     public readonly BugsAPI        $bugs;
     /**
@@ -221,6 +224,7 @@ class Melaya
         $assistant      = new AssistantAPI($http);
         $evals          = new EvalsAPI($http);
         $connectorTools = new ConnectorToolsAPI($http);
+        $triggers       = new TriggersAPI($http);
         $bugs           = new BugsAPI($http);
         $events         = new EventsClient($bearer, $baseUrl);
 
@@ -243,6 +247,7 @@ class Melaya
             phone:          $phone,
             evals:          $evals,
             connectorTools: $connectorTools,
+            triggers:       $triggers,
         );
 
         $this->platform = new PlatformNamespace(
@@ -286,6 +291,7 @@ class Melaya
         $this->assistant      = $assistant;
         $this->evals          = $evals;
         $this->connectorTools = $connectorTools;
+        $this->triggers       = $triggers;
         $this->bugs           = $bugs;
         $this->events         = $events;
     }

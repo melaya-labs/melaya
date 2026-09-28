@@ -8,7 +8,7 @@
     <AssemblyName>Melaya</AssemblyName>
     <RootNamespace>Melaya</RootNamespace>
     <PackageId>Melaya.SDK</PackageId>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <Description>Official SDK for Melaya Agent Builder and Mobile Device Control. Includes preview Melaya Trading namespaces that are not yet generally available.</Description>
     <Authors>Melaya</Authors>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>

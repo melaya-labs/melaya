@@ -31,6 +31,10 @@ import java.nio.charset.StandardCharsets
  *   - `connectorTools.callStatus()` parses a `done` outcome
  *   - a money-moving 403 raises [MelayaException] with the server's error code
  *   - `connectorTools.callAndWait()` polls a pending staged write to `done`
+ *
+ * Covers (SDK triggers addition):
+ *   - path, method, query and body of every `triggers` call, and response decoding
+ *   - a failed dry poll (`200 {ok:false}`) is returned as is; a 429 throttle still throws
  */
 
 // ── Mock HTTP transport ─────────────────────────────────────────────────────
@@ -393,6 +397,182 @@ private fun testErrorResponseRaisesMelayaException() = withServer { server ->
     }
 }
 
+// ── Triggers ─────────────────────────────────────────────────────────────────
+
+private const val TID = "0b6f3c2e-7a41-4c1e-9d55-2f8a1b3c4d5e"
+
+/** `triggers.list()` sends project + pipelineName and decodes the array (config stays raw JSON). */
+private fun testTriggersList() = withServer { server ->
+    server.responseBody = """[{"id":"$TID","name":"refunds","kind":"poll","enabled":true,"config":{"poll":{"service":"gmail"}}}]"""
+
+    val client = Melaya(apiKey = "mk_test", baseUrl = server.baseUrl)
+    val result = client.agents.triggers.list(project = "acme", pipelineName = "refund bot")
+
+    val req = server.lastRequest!!
+    check("triggers.list: GET method", req.method == "GET")
+    check("triggers.list: path", req.path == "/api/v1/private/triggers")
+    check("triggers.list: query has project", req.query.contains("project=acme"))
+    check("triggers.list: query encodes pipelineName", req.query.contains("pipelineName=refund+bot"))
+    check("triggers.list: decodes one record", result.size == 1 && result[0].optString("id") == TID)
+    check(
+        "triggers.list: config stays raw JSON",
+        result[0].getJSONObject("config").getJSONObject("poll").optString("service") == "gmail",
+    )
+}
+
+/** Read calls: get, deliveries, stats, pendingApprovals, presets, limits, sources. */
+private fun testTriggersReads() = withServer { server ->
+    server.responseQueue = ArrayDeque(
+        listOf(
+            200 to """{"id":"$TID","name":"refunds"}""",
+            200 to """[{"id":"d1","verdict":"dispatched","runId":"r1"}]""",
+            200 to """{"hours":6,"byVerdict":{"filtered":{"n":3,"p50":null,"p95":null}},"filtered":3,"sampled":false}""",
+            200 to """[{"requestId":"a1","tool":"gmail_send","expiresAt":1790000000000}]""",
+            200 to """{"tier":"pro","tierFloorSec":60,"presets":[],"beta":{"allowed":true}}""",
+            200 to """{"tierClass":"pro","triggers":{"used":2,"cap":20},"pollIntervalFloorSec":60}""",
+            200 to """[]""",
+        )
+    )
+
+    val t = Melaya(apiKey = "mk_test", baseUrl = server.baseUrl).triggers
+    val one = t.get(TID)
+    val deliveries = t.deliveries(TID, limit = 25)
+    val stats = t.stats(TID, hours = 6)
+    val approvals = t.pendingApprovals(TID)
+    val presets = t.presets()
+    val limits = t.limits()
+    val sources = t.sources()
+
+    val base = "/api/v1/private/triggers"
+    val expected = listOf(
+        "$base/$TID", "$base/$TID/deliveries", "$base/$TID/stats", "$base/$TID/approvals",
+        "$base/presets", "$base/limits", "$base/sources",
+    )
+    val reqs = server.requests
+    check("triggers reads: request count", reqs.size == expected.size, "count=${reqs.size}")
+    check("triggers reads: all GET", reqs.all { it.method == "GET" })
+    check("triggers reads: paths", reqs.map { it.path } == expected, reqs.map { it.path }.toString())
+    check("triggers reads: get sends no query", reqs[0].query.isEmpty())
+    check("triggers reads: deliveries limit=25", reqs[1].query == "limit=25")
+    check("triggers reads: stats hours=6", reqs[2].query == "hours=6")
+
+    check("triggers reads: get decodes", one.optString("name") == "refunds")
+    check("triggers reads: deliveries decode", deliveries.size == 1 && deliveries[0].optString("runId") == "r1")
+    check("triggers reads: stats byVerdict", stats.getJSONObject("byVerdict").getJSONObject("filtered").optInt("n") == 3)
+    check("triggers reads: approvals decode", approvals.size == 1 && approvals[0].optString("requestId") == "a1")
+    check("triggers reads: presets tierFloorSec", presets.optInt("tierFloorSec") == 60)
+    check("triggers reads: limits triggers.cap", limits.getJSONObject("triggers").optInt("cap") == 20)
+    check("triggers reads: empty sources", sources.isEmpty())
+}
+
+/** `triggers.events()` sends triggerId, since, verdicts as a comma list, and limit. */
+private fun testTriggersEvents() = withServer { server ->
+    server.responseBody = """{"events":[{"triggerId":"$TID","deliveryId":null,"eventId":"e1","source":"poll","verdict":"filtered","at":1790000000000}],"scanned":12,"retention":{"maxEvents":500,"ttlSec":86400}}"""
+
+    val client = Melaya(apiKey = "mk_test", baseUrl = server.baseUrl)
+    val result = client.triggers.events(
+        triggerId = TID,
+        since = 1789999999000L,
+        verdicts = listOf("filtered", "failed"),
+        limit = 50,
+    )
+
+    val req = server.lastRequest!!
+    check("triggers.events: GET method", req.method == "GET")
+    check("triggers.events: path", req.path == "/api/v1/private/triggers/events")
+    check("triggers.events: query has triggerId", req.query.contains("triggerId=$TID"))
+    check("triggers.events: query has since", req.query.contains("since=1789999999000"))
+    check("triggers.events: verdicts is a comma list", req.query.contains("verdicts=filtered%2Cfailed"), req.query)
+    check("triggers.events: query has limit", req.query.contains("limit=50"))
+    val ev = result.getJSONArray("events").getJSONObject(0)
+    check("triggers.events: decodes verdict", ev.optString("verdict") == "filtered")
+    check("triggers.events: no-receipt event has null deliveryId", ev.isNull("deliveryId"))
+    check("triggers.events: retention", result.getJSONObject("retention").optInt("maxEvents") == 500)
+}
+
+/** `triggers.test()` POSTs `{payload}` and decodes `{accepted, eventId, reason}`. */
+private fun testTriggersTest() = withServer { server ->
+    server.responseBody = """{"accepted":false,"eventId":"test-1","reason":"disabled"}"""
+
+    val client = Melaya(apiKey = "mk_test", baseUrl = server.baseUrl)
+    val result = client.triggers.test(TID, payload = mapOf("subject" to "Refund request"))
+
+    val req = server.lastRequest!!
+    check("triggers.test: POST method", req.method == "POST")
+    check("triggers.test: path", req.path == "/api/v1/private/triggers/$TID/test")
+    val body = JSONObject(req.bodyText())
+    check("triggers.test: body carries payload", body.getJSONObject("payload").optString("subject") == "Refund request")
+    check("triggers.test: decodes accepted", !result.optBoolean("accepted", true))
+    check("triggers.test: decodes eventId", result.optString("eventId") == "test-1")
+    check("triggers.test: decodes reason", result.optString("reason") == "disabled")
+}
+
+/** `pollStatus`, `pollTest` (dry true), `pollNow` (dry false), `pollSync`. */
+private fun testTriggersPoll() = withServer { server ->
+    server.responseQueue = ArrayDeque(
+        listOf(
+            200 to """{"synced":true,"status":"ok","lastError":null,"armed":true,"baselinePending":false,"seenCount":40,"itemsPublished":7,"consecutiveErrors":0,"requestedIntervalSec":30,"effectiveIntervalSec":60,"tierFloorSec":60}""",
+            200 to """{"dry":true,"ok":true,"found":2,"baseline":false,"wouldPublish":1,"items":[{"id":"m1","preview":"Refund"}],"samplePayload":{"id":"m1"}}""",
+            200 to """{"dry":false,"queued":true}""",
+            200 to """{"result":"armed"}""",
+        )
+    )
+
+    val t = Melaya(apiKey = "mk_test", baseUrl = server.baseUrl).agents.triggers
+    val status = t.pollStatus(TID)
+    val dry = t.pollTest(TID)
+    val now = t.pollNow(TID)
+    val sync = t.pollSync(TID)
+
+    val r = server.requests
+    check("pollStatus: GET", r[0].method == "GET" && r[0].path == "/api/v1/private/triggers/$TID/poll")
+    check("pollStatus: decodes", status.optBoolean("synced") && status.optInt("effectiveIntervalSec") == 60)
+    check("pollTest: POST /poll/test", r[1].method == "POST" && r[1].path == "/api/v1/private/triggers/$TID/poll/test")
+    check("pollTest: body dry=true", JSONObject(r[1].bodyText()).optBoolean("dry", false))
+    check("pollTest: decodes wouldPublish", dry.optInt("wouldPublish") == 1)
+    check("pollTest: decodes items", dry.getJSONArray("items").getJSONObject(0).optString("id") == "m1")
+    check("pollTest: decodes samplePayload", dry.getJSONObject("samplePayload").optString("id") == "m1")
+    check("pollNow: POST /poll/test", r[2].method == "POST" && r[2].path == "/api/v1/private/triggers/$TID/poll/test")
+    check("pollNow: body dry=false", !JSONObject(r[2].bodyText()).optBoolean("dry", true))
+    check("pollNow: decodes queued", now.optBoolean("queued"))
+    check("pollSync: POST /poll/sync", r[3].method == "POST" && r[3].path == "/api/v1/private/triggers/$TID/poll/sync")
+    check("pollSync: decodes result", sync.optString("result") == "armed")
+}
+
+/** A failed dry poll (`200 {dry:true, ok:false, error}`) is returned, not thrown; a 429 still throws. */
+private fun testTriggersPollTestFailures() = withServer { server ->
+    server.responseQueue = ArrayDeque(
+        listOf(
+            200 to """{"dry":true,"ok":false,"error":"auth_expired"}""",
+            429 to """{"error":"poll_dry_run_throttled"}""",
+        )
+    )
+
+    val client = Melaya(apiKey = "mk_test", baseUrl = server.baseUrl)
+    val failed = try {
+        client.triggers.pollTest(TID)
+    } catch (e: MelayaException) {
+        check("pollTest failed dry poll: must not throw", false, "threw MelayaException(${e.status}): ${e.message}")
+        null
+    }
+    check("pollTest failed dry poll: ok false", failed?.optBoolean("ok", true) == false)
+    check("pollTest failed dry poll: error", failed?.optString("error") == "auth_expired")
+
+    try {
+        client.triggers.pollTest(TID)
+        check("pollTest 429: throws MelayaException", false, "no exception was thrown")
+    } catch (e: MelayaException) {
+        check("pollTest 429: status propagated", e.status == 429)
+        check("pollTest 429: code propagated", e.code == "poll_dry_run_throttled")
+    }
+}
+
+/** `melaya.triggers` and `melaya.agents.triggers` are the same instance. */
+private fun testTriggersExposed() {
+    val client = Melaya(apiKey = "mk_test", baseUrl = "http://127.0.0.1:1")
+    check("triggers: flat alias shares the namespace instance", client.triggers === client.agents.triggers)
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 fun main() {
     println("── Melaya Kotlin SDK — mock-transport unit tests ──")
@@ -410,6 +590,13 @@ fun main() {
     testConnectorToolsMoneyMovingRaisesException()
     testConnectorToolsCallAndWaitPollsToDone()
     testErrorResponseRaisesMelayaException()
+    testTriggersList()
+    testTriggersReads()
+    testTriggersEvents()
+    testTriggersTest()
+    testTriggersPoll()
+    testTriggersPollTestFailures()
+    testTriggersExposed()
 
     println()
     println("PASS $passCount   FAIL $failCount   |  total ${passCount + failCount}")

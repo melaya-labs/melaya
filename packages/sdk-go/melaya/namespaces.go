@@ -104,6 +104,10 @@ type AgentsNamespace struct {
 	// describe, test, connect, and call — the same tools the Melaya MCP
 	// server exposes to an assistant.
 	ConnectorTools *ConnectorToolsAPI
+	// Triggers provides read, diagnose, and dry-run calls for event
+	// triggers: list, get, deliveries, stats, live events, pending
+	// approvals, dry tests, and poll runtime state.
+	Triggers *TriggersAPI
 }
 
 // PlatformNamespace groups every module that concerns the Melaya platform

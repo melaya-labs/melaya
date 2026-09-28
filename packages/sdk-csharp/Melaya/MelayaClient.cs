@@ -28,12 +28,12 @@ public sealed class MelayaOptions
 }
 
 /// <summary>
-/// The Melaya .NET SDK entry point — v0.3.0.
+/// The Melaya .NET SDK entry point — v0.4.0.
 /// <para>
 /// Exposes three domain namespaces as the primary API surface:
 /// <list type="bullet">
 ///   <item><see cref="Trading"/> — market data, CEX account, sim, strategies, backtest, stream, trade</item>
-///   <item><see cref="Agents"/> — pipelines/runs, HITL, assistant, phone, evals, models, connector tools</item>
+///   <item><see cref="Agents"/> — pipelines/runs, HITL, assistant, phone, evals, models, connector tools, event triggers</item>
 ///   <item><see cref="Platform"/> — projects, credentials, connectors, billing, team, templates,
 ///         overview, runner, auth, MFA, accounts, bugs, events</item>
 /// </list>
@@ -78,7 +78,7 @@ public sealed class MelayaClient : IDisposable, IAsyncDisposable
     public TradingNamespace  Trading  { get; }
 
     /// <summary>
-    /// Agents domain — pipeline runs, HITL approvals, assistant, phone control, evals, AI models, and connector tool calls.
+    /// Agents domain — pipeline runs, HITL approvals, assistant, phone control, evals, AI models, connector tool calls, and event triggers.
     /// <code>
     /// var runs    = await m.Agents.Pipelines.ListAsync(project: "my-agents");
     /// var pending = await m.Agents.Hitl.PendingAsync();
@@ -154,6 +154,8 @@ public sealed class MelayaClient : IDisposable, IAsyncDisposable
     public BugsApi         Bugs                { get; }
     /// <summary>Connector tool calls: discover, describe, test, connect, and call tools (same surface as the MCP server).</summary>
     public ConnectorToolsApi ConnectorTools    { get; }
+    /// <summary>Event triggers: list, inspect, diagnose, and dry-run triggers and poll triggers.</summary>
+    public TriggersApi     Triggers            { get; }
 
     // ── Cross-cutting platform endpoints ──────────────────────────────────────
 
@@ -213,6 +215,7 @@ public sealed class MelayaClient : IDisposable, IAsyncDisposable
         Evals              = new EvalsApi(_http);
         Bugs               = new BugsApi(_http);
         ConnectorTools     = new ConnectorToolsApi(_http);
+        Triggers           = new TriggersApi(_http);
 
         // Cross-cutting
         PlatformMarket     = new PlatformMarketApi(_http);
@@ -225,7 +228,7 @@ public sealed class MelayaClient : IDisposable, IAsyncDisposable
 
         // ── Domain namespace accessors ─────────────────────────────────────────
         Trading  = new TradingNamespace(Market, Account, Sim, Strategies, Trade, Backtest, Stream);
-        Agents   = new AgentsNamespace(Pipelines, Hitl, Assistant, Phone, Evals, Credentials, ConnectorTools);
+        Agents   = new AgentsNamespace(Pipelines, Hitl, Assistant, Phone, Evals, Credentials, ConnectorTools, Triggers);
         Platform = new PlatformNamespace(
             Projects, Credentials, Connectors, Billing, Team, Templates,
             Pipelines, Runner, Auth, Mfa, AccountManagement, Bugs, Events);

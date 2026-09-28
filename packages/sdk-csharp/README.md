@@ -370,6 +370,36 @@ var sent = await m.ConnectorTools.CallAsync(
     "gmail_send", new Dictionary<string, object?> { ["to"] = "a@b.c" }, approval: "none");
 ```
 
+### triggers (`m.Triggers`, also `m.Agents.Triggers`)
+
+Read, diagnose and dry-run the event triggers that start your pipelines. Creating, editing and
+deleting a trigger stay in the Agent Builder and the MCP server. No method returns a signing secret.
+`TestAsync` and `PollTestAsync` are dry runs: the action never executes.
+
+| Method | Description |
+|--------|-------------|
+| `ListAsync(project?, pipelineName?)` | Your triggers |
+| `GetAsync(id)` | One trigger with its config |
+| `DeliveriesAsync(id, limit?)` | Recent receipts: verdict, decision, action, run id, timings |
+| `StatsAsync(id, hours?)` | Counts by verdict over a window (1-168 h, default 24) |
+| `PendingApprovalsAsync(id)` | Approvals still waiting on this trigger |
+| `TestAsync(id, payload?)` | Dry run one event; returns `Accepted`, `EventId`, `Reason` |
+| `EventsAsync(triggerId?, since?, verdicts?, limit?)` | Live events, newest first, including events with no receipt |
+| `PollStatusAsync(triggerId)` | Poll runtime state: status, last error, next poll, counters, intervals |
+| `PollTestAsync(triggerId)` | Dry poll: what the tool found and would publish (publishes nothing) |
+| `PollNowAsync(triggerId)` | Queue a real poll now |
+| `PollSyncAsync(triggerId)` | Re-create the poll runtime row from the saved config |
+| `PresetsAsync()` | Presets for your connected services and plan |
+| `LimitsAsync()` | Plan caps and usage |
+| `SourcesAsync()` | WebSocket and SSE stream sources |
+
+```csharp
+var live = await m.Triggers.EventsAsync(verdicts: new[] { "rejected", "failed" }, limit: 50);
+var test = await m.Triggers.TestAsync(triggerId, new { type = "refund.created" });
+var dry  = await m.Triggers.PollTestAsync(pollTriggerId);
+Console.WriteLine(dry.Ok == true ? $"{dry.Found} found, {dry.WouldPublish} new" : dry.Error);
+```
+
 ### events (`m.Events`)
 
 Connects lazily on the first subscription — constructing `MelayaClient` opens no socket.

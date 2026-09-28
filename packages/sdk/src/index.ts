@@ -99,6 +99,28 @@ export type {
   CrewMemoryEditParams,
   CrewMemoryDeleteParams,
 } from "./memory.js";
+export { TriggersAPI } from "./triggers.js";
+export type {
+  TriggerKind,
+  TriggerEventSource,
+  TriggerVerdict,
+  TriggerRecord,
+  TriggerDelivery,
+  TriggerStats,
+  TriggerPendingApproval,
+  TriggerTestResult,
+  TriggerLiveEvent,
+  TriggerEventsResult,
+  TriggerEventsParams,
+  TriggerListParams,
+  TriggerPollStatus,
+  TriggerPollTestResult,
+  TriggerPollNowResult,
+  TriggerPollSyncResult,
+  TriggerPresetsResult,
+  TriggerLimits,
+  TriggerSource,
+} from "./triggers.js";
 export { HitlAPI } from "./hitl.js";
 export { CredentialsAPI } from "./credentials.js";
 export { ConnectorsAPI } from "./connectors.js";

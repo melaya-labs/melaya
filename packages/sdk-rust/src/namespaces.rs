@@ -6,7 +6,7 @@
 //! | Accessor | Modules |
 //! |---|---|
 //! | `melaya.trading` | `market`, `account`, `sim`, `strategies`, `trade`, `backtest`, `stream` |
-//! | `melaya.agents`  | `pipelines`, `hitl`, `assistant`, `phone`, `evals`, `memory`, `connector_tools` |
+//! | `melaya.agents`  | `pipelines`, `hitl`, `assistant`, `phone`, `evals`, `memory`, `connector_tools`, `triggers` |
 //! | `melaya.platform`| `projects`, `credentials`, `connectors`, `billing`, `team`, `templates`, `runner`, `auth`, `mfa`, `accounts`, `bugs`, `events` |
 //!
 //! The underlying API structs are `Clone`, so the namespace fields hold cheap
@@ -37,7 +37,7 @@ use crate::{
     AccountAPI, AccountsPlatformAPI, AssistantAPI, AuthAPI, BacktestAPI, BillingAPI, BugsAPI,
     ConnectorToolsAPI, ConnectorsAPI, CredentialsAPI, EvalsAPI, HitlAPI, MarketAPI, MelayaEvents,
     MemoryAPI, MfaAPI, PhoneAPI, PipelinesAPI, ProjectsAPI, RunnerAPI, SimAPI, StrategiesAPI,
-    StreamAPI, TeamAPI, TemplatesAPI, TradeAPI,
+    StreamAPI, TeamAPI, TemplatesAPI, TradeAPI, TriggersAPI,
 };
 
 // ── Trading namespace ─────────────────────────────────────────────────────────
@@ -103,6 +103,8 @@ pub struct TradingNamespace {
 /// // m.agents.memory.edit_entry(...).await?;
 /// // Connector tools (same surface as the MCP server)
 /// m.agents.connector_tools.services().await.unwrap();
+/// // Event triggers (read, diagnose, dry-run)
+/// m.agents.triggers.limits().await.unwrap();
 /// # }
 /// ```
 pub struct AgentsNamespace {
@@ -122,6 +124,9 @@ pub struct AgentsNamespace {
     /// server exposes): search, describe, test, connect, and call, with
     /// staged approval for writes.
     pub connector_tools: ConnectorToolsAPI,
+    /// Event triggers: read, diagnose, and dry-run (list, get, deliveries,
+    /// stats, live events, pending approvals, dry tests, poll state).
+    pub triggers: TriggersAPI,
 }
 
 // ── Platform namespace ────────────────────────────────────────────────────────

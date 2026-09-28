@@ -479,7 +479,7 @@ class EventsClient
             CURLOPT_HTTPHEADER     => [
                 'Authorization: Bearer ' . $this->apiKey,
                 'Accept: text/plain',
-                'User-Agent: melaya-php-sdk/0.3.0',
+                'User-Agent: melaya-php-sdk/0.4.0',
             ],
         ]);
 
@@ -512,7 +512,7 @@ class EventsClient
                 'Authorization: Bearer ' . $this->apiKey,
                 'Content-Type: text/plain;charset=UTF-8',
                 'Content-Length: ' . strlen($body),
-                'User-Agent: melaya-php-sdk/0.3.0',
+                'User-Agent: melaya-php-sdk/0.4.0',
             ],
         ]);
 

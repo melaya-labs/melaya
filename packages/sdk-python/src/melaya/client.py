@@ -25,7 +25,7 @@ Three grouped namespaces are available as the *primary* documented API:
   melaya.trading   — market, account, sim, strategies, backtest, trade, stream
                      (preview — not for real funds)
   melaya.agents    — pipelines, hitl, assistant, phone, evals, memory,
-                     connector_tools
+                     triggers, connector_tools
   melaya.platform  — projects, credentials, connectors, billing, team,
                      templates, runner, auth, mfa, accounts, bugs, events
 
@@ -74,6 +74,7 @@ from .projects import ProjectsAPI
 from .pipelines import PipelinesAPI
 from .hitl import HitlAPI
 from .memory import MemoryAPI
+from .triggers import TriggersAPI
 from .credentials import CredentialsAPI
 from .connectors import ConnectorsAPI
 from .connector_tools import ConnectorToolsAPI
@@ -195,6 +196,9 @@ class AgentsNamespace:
         Eval runs, summaries, memory graphs, and benchmarks.
     memory:
         Cross-run persistent crew memory entry edits/deletes.
+    triggers:
+        Event triggers: list, inspect, delivery receipts, stats, live events,
+        dry runs and poll diagnostics. Create / update / delete stay in the app.
     connector_tools:
         Discover and call connector tools directly (same surface as the MCP
         server) — search, describe, test, connect, and call, with staged
@@ -218,6 +222,7 @@ class AgentsNamespace:
         evals: EvalsAPI,
         memory: MemoryAPI,
         connector_tools: ConnectorToolsAPI,
+        triggers: TriggersAPI,
     ) -> None:
         self.pipelines = pipelines
         self.hitl = hitl
@@ -226,6 +231,7 @@ class AgentsNamespace:
         self.evals = evals
         self.memory = memory
         self.connector_tools = connector_tools
+        self.triggers = triggers
 
 
 class PlatformNamespace:
@@ -373,6 +379,8 @@ class Melaya:
     """Eval runs, summaries, memory graphs, and benchmarks. Alias: ``m.agents.evals``."""
     memory: MemoryAPI
     """Cross-run persistent crew memory entry edits/deletes. Alias: ``m.agents.memory``."""
+    triggers: TriggersAPI
+    """Event triggers: read, diagnose and dry-run. Alias: ``m.agents.triggers``."""
     connector_tools: ConnectorToolsAPI
     """Discover and call connector tools directly (same surface as the MCP server).
     Alias: ``m.agents.connector_tools``."""
@@ -468,6 +476,7 @@ class Melaya:
         self.bugs = BugsAPI(self._request)
         self.evals = EvalsAPI(self._request)
         self.memory = MemoryAPI(self._request)
+        self.triggers = TriggersAPI(self._request)
         self.events = MelayaEvents(base_url=base_url, api_key=api_key)
 
         # ── Namespace groupings (primary documented API) ───────────────────────
@@ -490,6 +499,7 @@ class Melaya:
             evals=self.evals,
             memory=self.memory,
             connector_tools=self.connector_tools,
+            triggers=self.triggers,
         )
         self.platform = PlatformNamespace(
             projects=self.projects,

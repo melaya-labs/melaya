@@ -256,6 +256,53 @@ fmt.Println(out.Status, out.Result)
 | `CallStatus(ctx, requestID)` | Outcome of a staged write |
 | `CallAndWait(ctx, tool, args, *ConnectorToolCallAndWaitOptions)` | `Call` plus polling `CallStatus` to a terminal outcome (`PollInterval` default 3s, `Timeout` default 10m) |
 
+## Event triggers: read, diagnose, and dry-run
+
+`m.Triggers` (alias `m.Agents.Triggers`) reads your event triggers and helps
+you find out why one did or did not fire. Creating, editing, deleting and
+rotating a trigger are done in the Melaya app; they are not on the REST
+surface. Secrets are never returned.
+
+- **`Test` and `PollTest` are dry runs.** The prefilter, decision and routing
+  run for real, the action never executes. `PollNow` queues a real poll.
+- **`Events` shows what left no receipt**: filtered events, shed events and
+  ingress rejections, next to the normal verdicts. Filter with
+  `TriggerEventsOptions` (`TriggerID`, `Since` in epoch ms, `Verdicts`,
+  `Limit` 1-200). `TriggerVerdicts` lists every verdict.
+- **A failed dry poll is a result, not an error.** When the poll's tool call
+  fails, `PollTest` returns `OK == false` with `Error` set to the poll error
+  code. HTTP errors, such as a 429 when dry polls are throttled, still return
+  a `*MelayaError`.
+
+```go
+res, _ := m.Triggers.Test(ctx, triggerID, map[string]interface{}{"amount": 42})
+ev, _ := m.Triggers.Events(ctx, &melaya.TriggerEventsOptions{TriggerID: triggerID, Limit: 20})
+for _, e := range ev.Events {
+    if e.EventID == res.EventID {
+        fmt.Println(e.Verdict)
+    }
+}
+```
+
+### Triggers (`m.Triggers.*`)
+
+| Method | Description |
+|---|---|
+| `List(ctx, *TriggerListOptions)` | Your triggers, optionally filtered by `Project` and `PipelineName` |
+| `Get(ctx, id)` | One trigger with its config |
+| `Deliveries(ctx, id, limit)` | Recent delivery receipts (`limit` 1-200, 0 = default 50) |
+| `Stats(ctx, id, hours)` | Counts and latency by verdict (`hours` 1-168, 0 = default 24) |
+| `PendingApprovals(ctx, id)` | Tool calls of this trigger waiting on a human decision |
+| `Test(ctx, id, payload)` | Send one event as a dry run |
+| `Events(ctx, *TriggerEventsOptions)` | Live event log, newest first |
+| `PollStatus(ctx, id)` | Poll runtime state: status, last error, next poll, baseline, intervals |
+| `PollTest(ctx, id)` | Dry poll: what the tool found and would publish |
+| `PollNow(ctx, id)` | Queue a real poll now |
+| `PollSync(ctx, id)` | Re-create the poll runtime row from the saved config |
+| `Presets(ctx)` | Trigger presets for your connected services and tier |
+| `Limits(ctx)` | Plan caps and usage |
+| `Sources(ctx)` | WebSocket and SSE stream sources |
+
 ## API surface — Agent Builder & platform (GA)
 
 Flat accessors shown; the same pointers are grouped under `m.Agents.*` and
@@ -274,6 +321,7 @@ Flat accessors shown; the same pointers are grouped under `m.Agents.*` and
 | `m.Hitl` | `Pending`, `History`, `Approve`, `Reject`, `BulkDecide`, `RunToolStats`, `RunToolStatsByAgent`, `RunMessages`, `RunToolCalls` |
 | `m.Evals` | `ListRuns`, `Summary`, `RunDetail`, `Compare`, `MemoryGraph`, `RunMemory`, `CrewMemory`, `EditMemoryEntry`, `DeleteMemoryEntry`, `Benchmarks` |
 | `m.ConnectorTools` | `Services`, `Search`, `Describe`, `Test`, `Connect`, `Call`, `CallStatus`, `CallAndWait` — the same tool-call surface the MCP server exposes; see "Connector tools" above |
+| `m.Triggers` | `List`, `Get`, `Deliveries`, `Stats`, `PendingApprovals`, `Test`, `Events`, `PollStatus`, `PollTest`, `PollNow`, `PollSync`, `Presets`, `Limits`, `Sources`; see "Event triggers" above |
 | `m.Events` | `OnRunUpdate`, `OnInitPhase`, `OnProjectEvent`, `OnHitlApproval`, `OnPipelineCreated`, `OnPipelineUpdated`, `OnPipelineDeleted`, `LeaveRun`, `LeaveProject`, `Close` — connects lazily on first subscription; nothing is opened at client construction |
 | `m.Billing` | `Subscription`, `CreateCheckout`, `CreatePortal`, `Plans`, `AmbassadorPerk`, `RedeemCode`, `ReservedPromo` |
 | `m.Runner` | `CreateToken`, `ListTokens`, `RevokeToken` |

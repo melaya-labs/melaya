@@ -7,7 +7,7 @@ module Melaya
   # grouping the flat module accessors into logical planes:
   #
   #   melaya.trading  — market data, account, sim, strategies, backtest, stream, trade
-  #   melaya.agents   — pipelines/runs, hitl, assistant, phone, evals, models, connector_tools
+  #   melaya.agents   — pipelines/runs, hitl, assistant, phone, evals, models, connector_tools, triggers
   #   melaya.platform — projects, credentials, connectors, billing, team, templates,
   #                     overview (via pipelines), runner, auth, mfa (via auth),
   #                     accounts, bugs, events
@@ -63,6 +63,8 @@ module Melaya
   # - +connector_tools+ — Call already-connected connector tools directly
   #                  (Gmail, Slack, Stripe, ...): list, search, describe, test,
   #                  connect, call, call_status, call_and_wait.
+  # - +triggers+   — Event triggers: list, inspect, diagnose and dry-run
+  #                  triggers and poll triggers.
   AgentsNamespace = Struct.new(
     :pipelines,
     :hitl,
@@ -71,6 +73,7 @@ module Melaya
     :evals,
     :models,
     :connector_tools,
+    :triggers,
     keyword_init: true
   ) do
     # +runs+ is an ergonomic alias for +pipelines+ (agents call them "runs").

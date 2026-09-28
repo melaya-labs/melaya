@@ -19,6 +19,7 @@ package org.melaya;
  * melaya.agents().hitl().approve(pending.get(0).get("requestId").asText(), null);
  * melaya.agents().evals().summary();
  * melaya.agents().connectorTools().call("gmail_list_messages", Map.of(), null);
+ * melaya.agents().triggers().stats("trigger-id", 24);
  *
  * // ── platform ─────────────────────────────────────────────────────────────
  * JsonNode projects = melaya.platform().projects().list();
@@ -98,6 +99,7 @@ public class Melaya {
     private final BugsAPI        bugs;
     private final MelayaEvents   events;
     private final ConnectorToolsAPI connectorTools;
+    private final TriggersAPI    triggers;
 
     /**
      * Create a Melaya client with the given API key.
@@ -151,12 +153,14 @@ public class Melaya {
         this.bugs        = new BugsAPI(http);
         this.events      = new MelayaEvents(apiKey, baseUrl);
         this.connectorTools = new ConnectorToolsAPI(http);
+        this.triggers    = new TriggersAPI(http);
         // ── Namespace wrappers (share the already-constructed module instances) ──
         this.trading  = new TradingNamespace(
                 this.market, this.account, this.sim,
                 this.strategies, this.backtest, this.trade, this.stream);
         this.agents   = new AgentsNamespace(
-                this.pipelines, this.hitl, this.assistant, this.phone, this.evals, this.connectorTools);
+                this.pipelines, this.hitl, this.assistant, this.phone, this.evals, this.connectorTools,
+                this.triggers);
         this.platform = new PlatformNamespace(
                 this.projects, this.credentials, this.connectors, this.billing,
                 this.team, this.templates, this.overview, this.runner,
@@ -193,12 +197,14 @@ public class Melaya {
         this.bugs        = new BugsAPI(http);
         this.events      = new MelayaEvents(apiKey, baseUrl);
         this.connectorTools = new ConnectorToolsAPI(http);
+        this.triggers    = new TriggersAPI(http);
         // ── Namespace wrappers (share the already-constructed module instances) ──
         this.trading  = new TradingNamespace(
                 this.market, this.account, this.sim,
                 this.strategies, this.backtest, this.trade, this.stream);
         this.agents   = new AgentsNamespace(
-                this.pipelines, this.hitl, this.assistant, this.phone, this.evals, this.connectorTools);
+                this.pipelines, this.hitl, this.assistant, this.phone, this.evals, this.connectorTools,
+                this.triggers);
         this.platform = new PlatformNamespace(
                 this.projects, this.credentials, this.connectors, this.billing,
                 this.team, this.templates, this.overview, this.runner,
@@ -330,6 +336,13 @@ public class Melaya {
      * which stores project connector credentials.
      */
     public ConnectorToolsAPI connectorTools() { return connectorTools; }
+
+    /**
+     * Triggers API: read, diagnose and dry-run event triggers (list, deliveries,
+     * stats, live events, dry runs, poll status). Create, edit and delete stay
+     * in the Agent Builder and the MCP server.
+     */
+    public TriggersAPI triggers() { return triggers; }
 
     /**
      * Platform real-time events over Socket.IO at {@code /api/v1/events}.

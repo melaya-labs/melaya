@@ -316,6 +316,150 @@ check('connectorTools.callAndWait: polls callStatus repeatedly, then returns the
     $outcome['status'] === 'done' && $outcome['ok'] === true && $outcome['result'] === 'wrote:gmail_send');
 check('connectorTools.callAndWait: made exactly 4 requests (1 call + 3 polls)', count($GLOBALS['__melaya_requests']) === 4);
 
+// 13) triggers — every read, dry run and poll control ------------------------
+$T = '/api/v1/private/triggers';
+check('triggers: exposed on agents and as a flat alias', $sdk->agents->triggers === $sdk->triggers);
+
+melaya_test_reset();
+melaya_test_queue(200, json_encode([['id' => 't1', 'kind' => 'webhook', 'enabled' => true, 'webhookUrl' => 'https://x/hooks/abc']]));
+$list = $sdk->agents->triggers->list(['project' => 'support', 'pipelineName' => 'refunds']);
+$req  = melaya_test_last_request();
+check('triggers.list: GET /triggers with project + pipelineName', $req['method'] === 'GET'
+    && str_contains($req['url'], $T . '?') && str_contains($req['url'], 'project=support')
+    && str_contains($req['url'], 'pipelineName=refunds'));
+check('triggers.list: decodes the records', ($list[0]['id'] ?? null) === 't1' && $list[0]['enabled'] === true);
+
+melaya_test_reset();
+melaya_test_queue(200, json_encode(['id' => 'a/b', 'kind' => 'poll']));
+$one = $sdk->agents->triggers->get('a/b');
+$req = melaya_test_last_request();
+check('triggers.get: GET /triggers/{id} (id rawurlencoded)', $req['method'] === 'GET'
+    && str_ends_with($req['url'], $T . '/a%2Fb') && $one['kind'] === 'poll');
+
+melaya_test_reset();
+melaya_test_queue(200, json_encode([['id' => 'd1', 'verdict' => 'dispatched']]));
+$rows = $sdk->agents->triggers->deliveries('t1', 20);
+$req  = melaya_test_last_request();
+check('triggers.deliveries: GET /triggers/{id}/deliveries?limit=', $req['method'] === 'GET'
+    && str_ends_with($req['url'], $T . '/t1/deliveries?limit=20') && $rows[0]['verdict'] === 'dispatched');
+
+melaya_test_reset();
+melaya_test_queue(200, json_encode([]));
+$sdk->agents->triggers->deliveries('t1');
+check('triggers.deliveries: no limit sends no query string', str_ends_with(melaya_test_last_request()['url'], $T . '/t1/deliveries'));
+
+melaya_test_reset();
+melaya_test_queue(200, json_encode(['hours' => 48, 'byVerdict' => ['dispatched' => ['n' => 12, 'p50' => 120.5, 'p95' => 900]], 'filtered' => 3, 'sampled' => false]));
+$stats = $sdk->agents->triggers->stats('t1', 48);
+$req   = melaya_test_last_request();
+check('triggers.stats: GET /triggers/{id}/stats?hours=', $req['method'] === 'GET'
+    && str_ends_with($req['url'], $T . '/t1/stats?hours=48'));
+check('triggers.stats: decodes byVerdict', $stats['byVerdict']['dispatched']['n'] === 12 && $stats['filtered'] === 3);
+
+melaya_test_reset();
+melaya_test_queue(200, json_encode([['requestId' => 'r1']]));
+$appr = $sdk->agents->triggers->pendingApprovals('t1');
+$req  = melaya_test_last_request();
+check('triggers.pendingApprovals: GET /triggers/{id}/approvals', $req['method'] === 'GET'
+    && str_ends_with($req['url'], $T . '/t1/approvals') && $appr[0]['requestId'] === 'r1');
+
+melaya_test_reset();
+melaya_test_queue(200, json_encode(['accepted' => false, 'eventId' => 'test-1', 'reason' => 'rate_limited']));
+$test = $sdk->agents->triggers->test('t1', ['type' => 'refund.created', 'amount' => 12]);
+$req  = melaya_test_last_request();
+$body = json_decode((string) $req['body'], true);
+check('triggers.test: POST /triggers/{id}/test', $req['method'] === 'POST' && str_ends_with($req['url'], $T . '/t1/test'));
+check('triggers.test: payload carried in the JSON body', ($body['payload']['type'] ?? null) === 'refund.created'
+    && ($body['payload']['amount'] ?? null) === 12);
+check('triggers.test: decodes accepted/eventId/reason', $test['accepted'] === false && $test['eventId'] === 'test-1'
+    && $test['reason'] === 'rate_limited');
+
+melaya_test_reset();
+melaya_test_queue(200, json_encode(['accepted' => true, 'eventId' => 'test-2']));
+$sdk->agents->triggers->test('t1');
+check('triggers.test: no payload sends an empty JSON object', melaya_test_last_request()['body'] === '{}');
+
+melaya_test_reset();
+melaya_test_queue(200, json_encode([
+    'events'    => [['triggerId' => 't1', 'deliveryId' => null, 'eventId' => 'e1', 'source' => 'webhook', 'verdict' => 'rejected', 'at' => 1790000000000]],
+    'scanned'   => 40,
+    'retention' => ['maxEvents' => 500, 'ttlSec' => 86400],
+]));
+$live = $sdk->agents->triggers->events(['triggerId' => 't1', 'since' => 1789999999000, 'verdicts' => ['rejected', 'failed'], 'limit' => 50]);
+$req  = melaya_test_last_request();
+check('triggers.events: GET /triggers/events', $req['method'] === 'GET' && str_contains($req['url'], $T . '/events?'));
+check('triggers.events: triggerId/since/limit in the query string', str_contains($req['url'], 'triggerId=t1')
+    && str_contains($req['url'], 'since=1789999999000') && str_contains($req['url'], 'limit=50'));
+check('triggers.events: verdicts sent as a comma list', str_contains($req['url'], 'verdicts=rejected%2Cfailed'));
+check('triggers.events: decodes events + retention', $live['events'][0]['verdict'] === 'rejected'
+    && $live['events'][0]['deliveryId'] === null && $live['retention']['maxEvents'] === 500);
+
+melaya_test_reset();
+melaya_test_queue(200, json_encode(['synced' => true, 'status' => 'ok', 'lastError' => null, 'armed' => true, 'baselinePending' => false,
+    'seenCount' => 17, 'itemsPublished' => 4, 'consecutiveErrors' => 0, 'requestedIntervalSec' => 60, 'effectiveIntervalSec' => 300, 'tierFloorSec' => 300]));
+$ps  = $sdk->agents->triggers->pollStatus('t1');
+$req = melaya_test_last_request();
+check('triggers.pollStatus: GET /triggers/{id}/poll', $req['method'] === 'GET' && str_ends_with($req['url'], $T . '/t1/poll'));
+check('triggers.pollStatus: decodes state', $ps['synced'] === true && $ps['effectiveIntervalSec'] === 300);
+
+melaya_test_reset();
+melaya_test_queue(200, json_encode(['dry' => true, 'ok' => true, 'found' => 3, 'baseline' => false, 'wouldPublish' => 2,
+    'items' => [['id' => 'i1', 'preview' => 'a']], 'samplePayload' => ['title' => 'a']]));
+$dry  = $sdk->agents->triggers->pollTest('t1');
+$req  = melaya_test_last_request();
+$body = json_decode((string) $req['body'], true);
+check('triggers.pollTest: POST /triggers/{id}/poll/test with dry=true', $req['method'] === 'POST'
+    && str_ends_with($req['url'], $T . '/t1/poll/test') && ($body['dry'] ?? null) === true);
+check('triggers.pollTest: decodes found/wouldPublish/items', $dry['found'] === 3 && $dry['wouldPublish'] === 2
+    && $dry['items'][0]['id'] === 'i1' && $dry['samplePayload']['title'] === 'a');
+
+melaya_test_reset();
+melaya_test_queue(200, json_encode(['dry' => true, 'ok' => false, 'error' => 'tool_failed']));
+try {
+    $failed = $sdk->agents->triggers->pollTest('t1');
+    check('triggers.pollTest: a failed dry poll is returned as data, not thrown',
+        $failed['ok'] === false && $failed['error'] === 'tool_failed');
+} catch (MelayaException $e) {
+    check('triggers.pollTest: a failed dry poll is returned as data, not thrown', false, 'threw ' . $e->errorCode);
+}
+
+melaya_test_reset();
+melaya_test_queue(429, json_encode(['error' => 'poll_dry_run_throttled']));
+try {
+    $sdk->agents->triggers->pollTest('t1');
+    check('triggers.pollTest: throttled dry poll throws MelayaException', false, 'no exception was thrown');
+} catch (MelayaException $e) {
+    check('triggers.pollTest: throttled dry poll throws MelayaException',
+        $e->status === 429 && $e->errorCode === 'poll_dry_run_throttled');
+}
+
+melaya_test_reset();
+melaya_test_queue(200, json_encode(['dry' => false, 'queued' => true]));
+$now  = $sdk->agents->triggers->pollNow('t1');
+$req  = melaya_test_last_request();
+$body = json_decode((string) $req['body'], true);
+check('triggers.pollNow: POST /triggers/{id}/poll/test with dry=false', $req['method'] === 'POST'
+    && str_ends_with($req['url'], $T . '/t1/poll/test') && ($body['dry'] ?? null) === false);
+check('triggers.pollNow: decodes queued', $now['queued'] === true);
+
+melaya_test_reset();
+melaya_test_queue(200, json_encode(['result' => 'armed']));
+$sync = $sdk->agents->triggers->pollSync('t1');
+$req  = melaya_test_last_request();
+check('triggers.pollSync: POST /triggers/{id}/poll/sync', $req['method'] === 'POST'
+    && str_ends_with($req['url'], $T . '/t1/poll/sync') && $sync['result'] === 'armed');
+
+foreach ([['presets', '/presets', ['tier' => 'pro', 'tierFloorSec' => 60, 'presets' => [], 'beta' => ['allowed' => true]], 'tier'],
+          ['limits', '/limits', ['tierClass' => 'pro', 'triggers' => ['used' => 2, 'cap' => 20]], 'tierClass'],
+          ['sources', '/sources', [['id' => 's1']], 0]] as [$method, $path, $resp, $key]) {
+    melaya_test_reset();
+    melaya_test_queue(200, json_encode($resp));
+    $out = $sdk->agents->triggers->{$method}();
+    $req = melaya_test_last_request();
+    check("triggers.{$method}: GET /triggers{$path}", $req['method'] === 'GET' && str_ends_with($req['url'], $T . $path)
+        && isset($out[$key]));
+}
+
 // ── Summary ──────────────────────────────────────────────────────────────────
 
 $fail = 0;

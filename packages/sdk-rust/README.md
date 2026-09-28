@@ -19,7 +19,7 @@ discoverable via IDE autocomplete:
 | Namespace | Modules |
 |---|---|
 | `melaya.trading` | `market`, `account`, `sim`, `strategies`, `trade`, `backtest`, `stream` |
-| `melaya.agents`  | `pipelines`, `hitl`, `assistant`, `phone`, `evals`, `memory`, `connector_tools` |
+| `melaya.agents`  | `pipelines`, `hitl`, `assistant`, `phone`, `evals`, `memory`, `connector_tools`, `triggers` |
 | `melaya.platform`| `projects`, `credentials`, `connectors`, `billing`, `team`, `templates`, `runner`, `auth`, `mfa`, `accounts`, `bugs`, `events` |
 
 Flat accessors (`melaya.market`, `melaya.pipelines`, …) remain available for
@@ -669,6 +669,36 @@ move money or trade are always refused, under both approval modes.
 | `call(tool, args, approval)` | Call a tool; a staged write returns HTTP 202, not an error |
 | `call_status(request_id)` | Outcome of a staged write |
 | `call_and_wait(tool, args, approval, poll_interval_ms, timeout_ms)` | `call()` and block until a staged write settles |
+
+### `client.agents.triggers` / `client.triggers`
+
+Read, diagnose, and dry-run event triggers. Use it to find out why a trigger
+did or did not fire. Creating, editing, deleting and rotating a trigger are
+done in the Melaya app; they are not on the REST surface. Secrets are never
+returned. `test` and `poll_test` are dry runs: the action never executes.
+
+| Method | Description |
+|---|---|
+| `list(project, pipeline_name)` | Your triggers, optionally filtered by project and pipeline |
+| `get(id)` | One trigger with its config |
+| `deliveries(id, limit)` | Recent delivery receipts: verdict, decision, action, run id, timings (limit 1-200) |
+| `stats(id, hours)` | Counts and latency by verdict over a window (hours 1-168) |
+| `pending_approvals(id)` | Tool calls of this trigger waiting on a human decision |
+| `test(id, payload)` | Send one event as a dry run; returns `{ accepted, eventId, reason? }` |
+| `events(&TriggerEventsQuery)` | Live event log, newest first, including events with no receipt (filtered, shed, ingress rejections) |
+| `poll_status(id)` | Poll runtime state: status, last error, next poll, baseline, intervals |
+| `poll_test(id)` | Dry poll: what the tool found and would publish; nothing is published |
+| `poll_now(id)` | Queue a real poll now |
+| `poll_sync(id)` | Re-create the poll runtime row from the saved config |
+| `presets()` | Trigger presets for your connected services and tier |
+| `limits()` | Plan caps and usage |
+| `sources()` | WebSocket and SSE stream sources |
+
+`TriggerEventsQuery` takes `trigger_id`, `since` (epoch ms), `verdicts` (see
+`TRIGGER_VERDICTS`) and `limit` (1-200). A dry poll whose tool call fails is
+returned as a normal result, `{ dry: true, ok: false, error }`, so check `ok`.
+HTTP errors, such as a 429 when dry polls are throttled, still return
+`MelayaError::Api`.
 
 ### `client.platform.team` / `client.team`
 
