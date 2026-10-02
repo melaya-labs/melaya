@@ -13,7 +13,7 @@ Plain words: a **run input** is something given to ONE run only (a sentence of i
 | `files` | Up to 10 files: `{url: "https://..."}` or `{base64: "...", name: "deck.pdf"}` | Over MCP: URL up to 25 MB, base64 up to 7 MB. Per plan: 25 MB per file and 100 MB per run on paid plans, 10 MB and 25 MB on the entry plans. PDF, Word, PowerPoint, Excel, CSV, TXT, MD, JSON, PNG, JPG, WEBP, GIF. No archives, no executables, no macro-enabled Office files |
 
 Surfaces:
-- App: every Run / Play button (builder, canvas, Monitoring, pipeline list) offers **Run now** or **Run with inputs**, a chat-style composer with a brief box, a file drop zone and the declared fields. The run page shows a **Run inputs** card and a **Run again** button that reuses the same brief and files while they are kept.
+- App: every Run / Play button (builder, canvas, Monitoring, pipeline list) offers **Run now** or **Run with inputs**, a chat-style composer with a brief box, a file drop zone and the declared fields. The composer's **Fields** button (top right, saved pipelines only, editors and owners) is where a user declares the fields themselves (section 2). The run page shows a **Run inputs** card and a **Run again** button that reuses the same brief and files while they are kept.
 - MCP: `melaya_pipeline_run` with `brief`, `files`, `inputs`.
 - REST: the run endpoint's `run_inputs` body.
 
@@ -27,7 +27,17 @@ Uploaded run files are kept about 30 days, then deleted. Every value is validate
 
 ## 2. Declared inputs (optional, typed)
 
-Add `inputs` to the config when a pipeline needs typed or required parameters (API and MCP only; there is no builder control to declare them, but the run composer then shows the fields):
+Add `inputs` to the config when a pipeline needs typed or required parameters. Three ways, all writing the same `config.inputs`:
+
+| Where | How | Notes |
+|---|---|---|
+| App | **Run with inputs** -> **Fields** -> add, reorder, set type / required / help / default / options / file kinds -> **Save fields** | Saves ONLY the fields, never other unsaved builder edits. The key is generated from the label and frozen once saved, so renaming a field keeps its `{{inputs.<key>}}` working. Each field shows its tag to paste into agent instructions |
+| MCP | `melaya_pipeline_get` -> add / change `inputs` in the returned config -> `melaya_pipeline_save` with `mode: "update"` and the WHOLE document | Never send a partial config: the save replaces the pipeline and erases everything missing |
+| REST | `PUT /api/v1/private/pipelines/<name>/inputs?project=<Project>` with `{"inputs": [...]}` | Inputs only, same validation (422 `run_inputs_invalid: <reason>`), editor or owner only |
+
+When you add inputs for a user over MCP, tell them they can now see and adjust these fields in the app under **Run with inputs** -> **Fields**. Keep keys stable once an agent instruction uses `{{inputs.<key>}}`: changing a key silently breaks that placeholder ("(not provided)").
+
+Example:
 
 ```json
 "inputs": [

@@ -22,7 +22,7 @@ Builder = https://app.melaya.org/builder. Its tabs: **Pipeline** (the canvas of 
 | `persistent_memory` | bool | Cross-run memory (context-and-memory.md). Default false | Configure: **Persistent memory** toggle |
 | `schedule` | cron string | e.g. `"0 7 1 * *"`. Not active until armed with `melaya_pipeline_schedule` action `set` | Configure: **Schedule** (Manual, Daily, Weekdays, Weekly, Hourly, Custom cron) |
 | `user_lang` | string | `en`, `fr`, `zh`, `es`, `pt` add an answer-language line; other codes do nothing (limits-costs-languages.md) | follows the app language |
-| `inputs` | array | Declared run inputs (run-inputs.md). API and MCP only | none (the run composer shows the fields) |
+| `inputs` | array | Declared run inputs (run-inputs.md). Set over MCP (full save), REST (`PUT .../inputs`) or in the app (Run with inputs -> Fields) | none |
 | `loop_policy` | object | Default quality loop for agents that set none (quality-loop.md) | per agent: **Quality loop** |
 | `inline_rag_docs` | array | `[{"title", "body"}]` static-context documents written at save; not visible in preview (expected) | Docs tab (they appear as documents) |
 | `rag_mode_retrieval` | bool | With `rag_embedder_provider` + `rag_embedder_model`: retrieval mode, agents get `rag_retrieve` | Docs tab: document source + **Embedder model** |

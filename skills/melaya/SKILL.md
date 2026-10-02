@@ -1,7 +1,7 @@
 ---
 name: melaya
 description: Use for anything done on the Melaya platform through its MCP server (tools named melaya_*). Covers running, building, fixing and handing over Melaya pipelines and complete multi-pipeline agentic systems; connecting services (Google, Slack, CRMs, API keys); the local runner, Claude Code, Codex, Copilot, Ollama and LM Studio models; projects and templates; run inputs (brief and files); schedules, event triggers and approvals; data stores in Google Sheets and bulk scoring; validation, debugging and reading results; client documentation; phone and browser agents. Works for non-technical users (plain-language journeys) and for integrators (full end-to-end method). Load this first, then open only the module the task needs.
-version: 1.1.0
+version: 1.1.1
 ---
 
 # Melaya
@@ -60,6 +60,7 @@ New capability areas (for example dedicated mobile-agent or browser-agent playbo
 
 ## Changelog
 
+- 1.1.1: run inputs can be declared in the app (Run with inputs -> Fields, inputs-only save, keys frozen once saved) and through the REST inputs endpoint, besides a full MCP save; Meta push split into five per-app presets (Facebook, WhatsApp, Meta Ads, Threads, Instagram), each with only its own events and source; Instagram and Threads now have instant triggers; "Connect <App> first" opens the connect dialog in place.
 - 1.1.0: MCP 1.2.0: connector writes with the `melaya:connectors.write` permission (money-moving refused at every level), project tools with `melaya:projects` (a client pilot runs end to end over MCP); click-by-click triggers walkthrough and trigger fixes (secret shown once, no account or action picker on instant triggers, concurrency skips, case-sensitive prefilter); pilot lessons: Drive folders, write-back by column name, composite scores by tool, provenance enforced in code, data health check pattern, designed-document blocks (KPI tiles, charts, status columns, PDF export), deck intake, research quality, UAE regulator checks, model location.
 - 1.0.1: native web search fallbacks (Qwen Token Plan, Groq), Engine header, Gemini runner and retired-model failures.
 - 1.0.0: first packaged release: 11 modules (quickstart, agentic-systems, discovery, runners-models, projects-templates, pipeline-authoring, data-spine, automation-governance, validate-debug, client-handover, devices-browser).

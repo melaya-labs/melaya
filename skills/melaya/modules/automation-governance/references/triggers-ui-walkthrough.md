@@ -17,7 +17,7 @@ How to guide:
 |---|---|---|
 | Plan | "Schedule & Triggers" tab, "Triggers" section | A box "Event triggers are in beta" with "Upgrade to Forge" and "Contact us" means the plan is below Forge. The triggers part is greyed out and cannot be clicked. The "Schedule" part above it still works. |
 | Pipeline saved | "Schedule & Triggers" tab | "Save the pipeline to add triggers" with a "Save pipeline" button: press it first. A trigger always points at a saved pipeline. |
-| App connected (instant and app-check triggers) | "Connectors" page in the left menu | The trigger card shows "Connect <App> first". Connect the app, then come back. |
+| App connected (instant and app-check triggers) | The trigger card itself | The card shows "Connect <App> first". Clicking it opens the connect dialog right there (the user stays on the tab); once connected the card becomes usable. The "Connectors" page in the left menu works too. |
 | Trigger count | Top right of the "Triggers" section: "N of M triggers" | At the limit the "Add trigger" button is disabled and "You reached your plan's trigger limit. Delete one or upgrade to add more." appears, with "Upgrade plan". |
 | Pipeline works | Run it once by hand first | Automating a broken pipeline makes it fail on every event. |
 
@@ -63,7 +63,7 @@ In the "Pipeline" tab:
 - "Connected apps" filter: only apps already connected.
 - Category tabs: "All", "Email", "Social", "Messages", "Code", "CRM", "Tables", "Calendar", "Payments", "Forms", "Trading" ("Trading" appears only when an exchange is connected).
 - Card badges: "Instant" (the app pushes each event), "Live connection" (Melaya keeps a live socket open: Discord, Slack), "Every N min" (a regular check), "Instant (setup pending)" (not switched on yet), "Beta".
-- Card buttons: "Use ->" (ready), "Connect <App> first" (opens Connectors), "Needs a higher plan".
+- Card buttons: "Use ->" (ready), "Connect <App> first" (opens the connect dialog in place), "Needs a higher plan".
 - "Show all" switch: when an app has an instant version, its regular version is hidden ("N regular versions hidden behind instant ones"). Switch "Show all" on to see the regular versions too.
 - First card: "Start from scratch" ("Pick the source and the action yourself, step by step.").
 
@@ -82,7 +82,7 @@ Steps (same for every app):
 1. Make sure the app is connected on the "Connectors" page.
 2. "Schedule & Triggers" tab, "Triggers" section: click "Add trigger" (or use the gallery directly if the list is empty).
 3. Type the app name in the search box (for example "gmail") and click the card with the "Instant" or "Live connection" badge.
-4. The panel shows the app, and "Connected account" with "Uses your connected <App>" and a green check. There is no account picker: it uses the account connected on the Connectors page. If you see "Connect <App> first", connect it and come back.
+4. The panel shows the app, and "Connected account" with "Uses your connected <App>" and a green check. There is no account picker: it uses the account connected on the Connectors page. If you see "Connect <App> first", click it: the connect dialog opens in place, and the panel updates once the app is connected.
 5. "What to watch": fill the fields for that app (table 2.1.1). Required fields are outlined until filled; optional ones say "(optional)". The info dot next to "What to watch" carries the app's setup note.
 6. "Events": tick the event chips you want ("Pick the events this trigger reacts to. You can change them later."). ONLY THE FIRST EVENT IS TICKED BY DEFAULT: check the list. "All" and "None" select or clear everything; long lists have a "Filter events..." box. Up to 32 events.
 7. "Name": keep the suggested name or type your own.
@@ -134,9 +134,11 @@ After creation, the "Setup" tab of an instant trigger shows:
 | "Mailchimp audience events" | "Audience ID" | Setup note: if Mailchimp returns no signing secret, events are treated as hints to check before acting. |
 | "Mailgun email events" | "Sending domain" (optional) | Mailgun key; set the EU region on the connector for EU accounts. |
 | "Marsel activity" | - | Marsel connected. |
-| "Facebook page activity" | "Source" (optional: "Facebook page", "WhatsApp", "Ad account") | Facebook connected. |
-| "WhatsApp Business messages" | "Source" (optional) | WhatsApp connected. |
-| "Meta Ads alerts" | "Source" (optional) | Meta Ads connected. |
+| "Facebook page activity" | "Source" (optional, only "Facebook page") | Facebook connected. Its event list holds Facebook events only (14); WhatsApp, Ads, Threads and Instagram events live in their own presets. |
+| "WhatsApp Business messages" | "Source" (optional, only "WhatsApp") | WhatsApp connected. 4 events. |
+| "Meta Ads alerts" | "Source" (optional: "Ad account", "Catalog") | Meta Ads connected. 8 events (6 ad events, 2 catalog events). |
+| "Threads activity" | "Source" (optional, only "Threads") | Threads connected. 5 events. |
+| "Instagram account activity" | "Source" (optional, only "Instagram") | Instagram connected. 8 events. |
 | "monday.com board changes" | "Board id" | monday token. |
 | "Notion page changes" | "Parent page or database id" (optional) | Only for Notion connected with "Sign in with Notion". |
 | "Odoo record changes" | "Model (for example crm.lead)" | Odoo administrator rights. |
@@ -156,7 +158,7 @@ After creation, the "Setup" tab of an instant trigger shows:
 | "Zendesk ticket changes" | - | Zendesk administrator. |
 | "Zoom meeting events" | "Label" | Manual (event subscription in your Zoom app, secret token into the Zoom connector, "Resync"). |
 
-No instant version today (use a regular app check, a webhook, or email plus the Gmail instant trigger): Reddit, Medium, Substack, Search Console, Analytics, most ad platforms, Zoho Mail, HubSpot, LinkedIn, X, Instagram, Threads, Outlook and other Microsoft 365 apps, public-data sources.
+No instant version today (use a regular app check, a webhook, or email plus the Gmail instant trigger): Reddit, Medium, Substack, Search Console, Analytics, most ad platforms other than Meta Ads, Zoho Mail, HubSpot, LinkedIn, X, Outlook and other Microsoft 365 apps, public-data sources.
 
 ### 2.2 Webhook triggers (a service calls a URL)
 
@@ -429,7 +431,7 @@ The card shows an amber line "Paused: <reason>." with a hint. Causes and fixes:
 | You left the project | "You lost access to the project. Ask to be added back, then switch it on." A "No project access" badge; only off, rename, rotate and delete still work. |
 | Instant trigger: the webhook could not be created | "Melaya could not create the webhook on the app. Fix the cause shown below, then switch the trigger back on." (or "Resync") |
 | Instant trigger: the app connection needs attention | "...It switches back on by itself when the connection recovers. To fix it now, press Resync in Setup." |
-| Instant trigger: the app connection expired | "Reconnect the app in Connectors and it switches back on by itself, or press Resync in Setup." ("Reconnect <App>" button in Setup) |
+| Instant trigger: the app connection expired | "Reconnect the app in Connectors and it switches back on by itself, or press Resync in Setup." ("Reconnect <App>" button in Setup opens the connect dialog in place) |
 
 Skipped, decided, rejected and dry-run events never count toward the failure pause. A trigger the user switched off by hand stays off until switched on.
 
