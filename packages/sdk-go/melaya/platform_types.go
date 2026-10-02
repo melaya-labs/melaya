@@ -234,6 +234,48 @@ type ConnectedService struct {
 	Label     string `json:"label,omitempty"`
 }
 
+// ConnectorAccount is one account of a field-based connector that holds
+// several accounts (two mailboxes, two shops). Only the label and id are ever
+// returned, never credential values. ID "current" is a single connection made
+// before accounts existed (adopted on the first write).
+type ConnectorAccount struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	// IsDefault marks the account agents use unless a tool call names another one.
+	IsDefault bool `json:"isDefault"`
+	// CreatedAt is nil for the legacy "current" connection.
+	CreatedAt *string `json:"createdAt"`
+}
+
+// AddConnectorAccountInput is the body of CredentialsAPI.AddAccount and
+// ConnectorsAPI.AddAccount.
+type AddConnectorAccountInput struct {
+	// Label names the new account (optional).
+	Label string `json:"label,omitempty"`
+	// Fields are the connector's credential fields (same keys as Set). The
+	// connection is tested before it is stored.
+	Fields map[string]string `json:"fields"`
+	// CurrentLabel names the existing single connection when it is adopted as
+	// the first account (optional).
+	CurrentLabel string `json:"currentLabel,omitempty"`
+	// MakeDefault makes the new account the default one (optional).
+	MakeDefault *bool `json:"makeDefault,omitempty"`
+}
+
+// APIKeyRotation is the result of AccountAPI.RotateAPIKey. APIKey is the new
+// platform key, returned ONCE.
+type APIKeyRotation struct {
+	APIKey string `json:"apiKey"`
+}
+
+// DocsPreviewOptions holds optional parameters for PipelinesAPI.DocsPreview.
+type DocsPreviewOptions struct {
+	// ModelName is the model the agents use (query model_name).
+	ModelName string
+	// ModelProvider is that model's provider (query model_provider).
+	ModelProvider string
+}
+
 // OperatorProfile is the persona config injected into agent context.
 type OperatorProfile struct {
 	Name    string `json:"name,omitempty"`
@@ -874,6 +916,28 @@ type PipelineRunInputs struct {
 	Brief  string                 `json:"brief,omitempty"`
 	Values map[string]interface{} `json:"values,omitempty"`
 	Files  []interface{}          `json:"files,omitempty"`
+}
+
+// PipelineInputDeclaration is one declared run input (config.inputs[]), as
+// SetInputs takes it. Key: lower snake case, starts with a letter, max 40,
+// unique; "brief" is reserved. Type: text, long_text, number, boolean,
+// choice, url, email, file, files. Options are required for choice (max 50);
+// Accept applies to file types only (pdf, office, spreadsheet, image, text).
+type PipelineInputDeclaration struct {
+	Key         string      `json:"key"`
+	Label       string      `json:"label,omitempty"`
+	Type        string      `json:"type,omitempty"`
+	Required    bool        `json:"required,omitempty"`
+	Default     interface{} `json:"default,omitempty"`
+	Options     []string    `json:"options,omitempty"`
+	Accept      []string    `json:"accept,omitempty"`
+	Description string      `json:"description,omitempty"`
+}
+
+// PipelineInputsUpdateResult is the normalized declaration SetInputs stored.
+type PipelineInputsUpdateResult struct {
+	Name   string                     `json:"name"`
+	Inputs []PipelineInputDeclaration `json:"inputs"`
 }
 
 // UploadRunFileOptions holds optional parameters for UploadRunFile.

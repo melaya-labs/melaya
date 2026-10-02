@@ -204,6 +204,50 @@ m, _ := melaya.New(os.Getenv("MELAYA_API_KEY"))
   the full reference, including why a top-level `agents[]` array alone
   produces an empty pipeline.
 
+```go
+// Replace only the declared run inputs (max 30; nil/empty removes them all).
+_, err := m.Pipelines.SetInputs(ctx, "lead-scorer", "acme", []melaya.PipelineInputDeclaration{
+    {Key: "brief", Label: "Brief", Type: "text", Required: true},
+})
+
+// See which passages agents would get from the retrieval store (limit 1-20, 0 = default 5).
+hits, _ := m.Pipelines.TestRetrieve(ctx, "lead-scorer", "refund policy", 5)
+fmt.Println(hits)
+```
+
+## Connector accounts and API key rotation
+
+- **Several accounts per connector.** A field-based connector can hold
+  several accounts (two mailboxes, two shops). Agents use the **default**
+  account unless a tool call names another one. Only labels and ids come
+  back, never credential values; an account with `ID == "current"` is a
+  connection made before accounts existed. Every call returns the updated
+  `[]ConnectorAccount`.
+- **Personal** accounts live on `m.Credentials`, **project** accounts on
+  `m.Connectors` (same methods, with the project as first argument).
+- **`RotateAPIKey` replaces the current key at once.** The new key is
+  returned once. If you call it with the key this client uses, every later
+  call of this client fails until you build a new `Client` with the returned
+  key. `RevokeAPIKey` likewise stops this client if it used that key.
+
+```go
+accts, _ := m.Credentials.Accounts(ctx, "shopify")
+accts, _ = m.Credentials.AddAccount(ctx, "shopify", melaya.AddConnectorAccountInput{
+    Label:  "EU shop",
+    Fields: map[string]string{"SHOPIFY_STORE": "eu-shop", "SHOPIFY_ACCESS_TOKEN": os.Getenv("EU_TOKEN")},
+})
+accts, _ = m.Credentials.SetDefaultAccount(ctx, "shopify", accts[len(accts)-1].ID)
+
+// The same for a project's connectors:
+projAccts, _ := m.Connectors.Accounts(ctx, "acme", "shopify")
+fmt.Println(projAccts)
+
+// Rotate the platform key, then switch to a client built with the new one.
+rot, err := m.Account.RotateAPIKey(ctx)
+if err != nil { log.Fatal(err) }
+m, _ = melaya.New(rot.APIKey)
+```
+
 ## Connector tools — calling tools directly over REST
 
 `m.ConnectorTools` (alias `m.Agents.ConnectorTools`) exposes the same
@@ -313,9 +357,9 @@ Flat accessors shown; the same pointers are grouped under `m.Agents.*` and
 |---|---|
 | `m.Auth` | `Login`, `VerifyMFA`, `Register`, `VerifySignup`, `ResendVerification`, `Me`, `Check`, `ChangePassword`, `ForgotPassword`, `ResetPassword`, `CreateMobileHandoff`, `MyPermissions`, `Refresh`, `MFAStatus`, `MFASetup`, `MFAConfirm`, `ResendEmailVerification`, `VerifyEmail`, `ExportMyData`, `RemoveKey`, `UpdateProfile`, `Credits`, `AICredits`, `PortfolioIdeasCredits`, `RiskMonitoringCredits`, `Version` |
 | `m.Projects` | `List`, `Create`, `Rename`, `RunnerProjects` |
-| `m.Connectors` | `ConnectedServices`, `Set`, `Delete`, `EnvHandle`, `GoogleOAuthStart`, `ApplyPersonal`, `SharedBy`, `GoogleStatus`, `GoogleSetDefault`, `GoogleDisconnect`, `DBTestStart`, `DBTestStatus` |
-| `m.Credentials` | `List`, `ConnectedServices`, `Get`, `Set`, `Delete`, `Test`, `GetOperatorProfile`, `SetOperatorProfile`, `ListModels`, `MelayaAccounts`, `GoogleStatus`, `GoogleSetDefault`, `GoogleDisconnect`, `DBTestStart`, `DBTestStatus`, `TelegramQrStart`, `TelegramQrPoll`, `WhatsappSignupConfig`, `WhatsappSignupExchange`, `TiktokCreatorInfo`, `SubstackEmailLinkSend`, `SubstackEmailLinkRedeem`, plus connector auth flows (`RagIngest*`, `RagRetrieve*`, `PickFolder*`, `LinkedInConnect*`, `LumaConnect*`, `GoogleOAuthStart`, `CliAuthStart`, `NotebookLM*`, `TelegramAuth*`) |
-| `m.Pipelines` | `ListPipelines`, `Create`, `Get`, `Update`, `Delete`, `Run`, `RunIDs`, `RunStatus`, `CancelRun`, `UploadRunFile`, `RunInputs`, `RunInputFile`, `RunActive`, `ListDocs`, `UploadDoc`, `DeleteDoc`, `UploadRetrievalDoc`, `IngestRetrieval`, `DeleteRetrievalDoc`, `Outputs`, `Output`, `PreviewCode`, `Tools`, `Subagents`, `InstantiateTemplate`, `BuildWithAI`, `Overview`, `Count`, `List`, `Recent`, `Traces`, `Trace`, `TraceStats`, `DeleteTraces`, `ProjectToolCalls`, `ProjectToolCallFacets`, `ToolCallDetail`, `ListSchedules`, `GetSchedule`, `UpsertSchedule`, `PauseSchedule`, `ResumeSchedule` |
+| `m.Connectors` | `ConnectedServices`, `Set`, `Delete`, `EnvHandle`, `GoogleOAuthStart`, `ApplyPersonal`, `SharedBy`, `Accounts`, `AddAccount`, `SetDefaultAccount`, `RenameAccount`, `RemoveAccount`, `GoogleStatus`, `GoogleSetDefault`, `GoogleDisconnect`, `DBTestStart`, `DBTestStatus` |
+| `m.Credentials` | `List`, `ConnectedServices`, `Get`, `Set`, `Delete`, `Test`, `GetOperatorProfile`, `SetOperatorProfile`, `ListModels`, `MelayaAccounts`, `Accounts`, `AddAccount`, `SetDefaultAccount`, `IdentifyAccount`, `RenameAccount`, `RemoveAccount`, `GoogleStatus`, `GoogleSetDefault`, `GoogleDisconnect`, `DBTestStart`, `DBTestStatus`, `TelegramQrStart`, `TelegramQrPoll`, `WhatsappSignupConfig`, `WhatsappSignupExchange`, `TiktokCreatorInfo`, `SubstackEmailLinkSend`, `SubstackEmailLinkRedeem`, plus connector auth flows (`RagIngest*`, `RagRetrieve*`, `PickFolder*`, `LinkedInConnect*`, `LumaConnect*`, `GoogleOAuthStart`, `CliAuthStart`, `NotebookLM*`, `TelegramAuth*`) |
+| `m.Pipelines` | `ListPipelines`, `Create`, `Get`, `Update`, `Delete`, `Run`, `RunIDs`, `RunStatus`, `CancelRun`, `UploadRunFile`, `SetInputs`, `RunInputs`, `RunInputFile`, `RunActive`, `ListDocs`, `UploadDoc`, `DeleteDoc`, `DocsPreview`, `UploadRetrievalDoc`, `IngestRetrieval`, `DeleteRetrievalDoc`, `RetrievalPreview`, `TestRetrieve`, `Outputs`, `Output`, `PreviewCode`, `Tools`, `Subagents`, `InstantiateTemplate`, `BuildWithAI`, `Overview`, `Count`, `List`, `Recent`, `Traces`, `Trace`, `TraceStats`, `DeleteTraces`, `ProjectToolCalls`, `ProjectToolCallFacets`, `ToolCallDetail`, `ListSchedules`, `GetSchedule`, `UpsertSchedule`, `PauseSchedule`, `ResumeSchedule` |
 | `m.Templates` | `List`, `ListGlobal`, `ListValidated`, `Save`, `Update`, `Duplicate`, `Delete`, `Share`, `ListAssignments`, `Assign`, `Unassign`, `ShareTargets` — `Assign`/`Unassign` take a `TemplateAssignBody` with exactly one of `UserID` or `ProjectID` set (both UUIDs) |
 | `m.Phone` | `Pair`, `ListDevices`, `RevokeDevice`, `ScreenTree`, `ListApps`, `SetAllowedApps`, `GrantApp`, `RegisterActiveRun`, `RequestCast` |
 | `m.Hitl` | `Pending`, `History`, `Approve`, `Reject`, `BulkDecide`, `RunToolStats`, `RunToolStatsByAgent`, `RunMessages`, `RunToolCalls` |
@@ -368,6 +412,9 @@ Flat accessors shown; the same pointers are grouped under `m.Agents.*` and
 | `Keys(ctx)` | Connected exchange API keys |
 | `Usage(ctx)` | Tier + live usage counters |
 | `APIKeyStatus(ctx)` | Platform key status |
+| `RotateAPIKey(ctx)` | New platform key, returned once; replaces the current key at once |
+| `RevokeAPIKey(ctx)` | Revoke the platform key |
+| `APIKeyUsage(ctx)` | Request counts of the platform key |
 
 ### Sim (`m.Sim.*`)
 

@@ -112,13 +112,17 @@ public class UnitTests {
     static final class CapturedRequest {
         final String method;
         final String path;
+        /** The path exactly as sent on the wire (percent-encoding kept). */
+        final String rawPath;
         final String rawQuery;
         final Headers headers;
         final byte[] body;
 
-        private CapturedRequest(String method, String path, String rawQuery, Headers headers, byte[] body) {
+        private CapturedRequest(String method, String path, String rawPath, String rawQuery,
+                                Headers headers, byte[] body) {
             this.method = method;
             this.path = path;
+            this.rawPath = rawPath;
             this.rawQuery = rawQuery;
             this.headers = headers;
             this.body = body;
@@ -129,9 +133,45 @@ public class UnitTests {
             return new CapturedRequest(
                     exchange.getRequestMethod(),
                     exchange.getRequestURI().getPath(),
+                    exchange.getRequestURI().getRawPath(),
                     exchange.getRequestURI().getRawQuery(),
                     exchange.getRequestHeaders(),
                     body);
+        }
+    }
+
+    /** A call made against the fake server: what was sent, and what the SDK returned. */
+    static final class Roundtrip {
+        final CapturedRequest req;
+        final JsonNode resp;
+
+        Roundtrip(CapturedRequest req, JsonNode resp) {
+            this.req = req;
+            this.resp = resp;
+        }
+
+        JsonNode body() throws IOException {
+            return MAPPER.readTree(req.body);
+        }
+    }
+
+    @FunctionalInterface
+    interface ApiCall {
+        JsonNode run(HttpClient http) throws Exception;
+    }
+
+    /** Serve {@code responseJson} once, run {@code call} against it, return the captured request. */
+    private static Roundtrip roundtrip(String responseJson, ApiCall call) throws Exception {
+        CapturedRequest[] captured = new CapturedRequest[1];
+        HttpServer server = startServer(exchange -> {
+            captured[0] = CapturedRequest.capture(exchange);
+            respondJson(exchange, 200, responseJson);
+        });
+        try {
+            JsonNode resp = call.run(new HttpClient("mk_test", baseUrl(server)));
+            return new Roundtrip(captured[0], resp);
+        } finally {
+            server.stop(0);
         }
     }
 
@@ -702,6 +742,200 @@ public class UnitTests {
             Melaya melaya = new Melaya("mk_test", "http://127.0.0.1:1", "ws://127.0.0.1:1");
             assertTrue(melaya.agents().triggers() != null, "agents().triggers() is set");
             assertTrue(melaya.agents().triggers() == melaya.triggers(), "flat alias shares the instance");
+        });
+
+        // ── connector accounts, API key, retrieval previews, setInputs, runMessages ──
+        // Values with a space prove every path segment goes through the SDK's encode
+        // helper (java.net.URLEncoder: a space is sent as '+').
+
+        final String accountsJson = "[{\"id\":\"a1\",\"label\":\"Work\",\"isDefault\":true,\"createdAt\":null}]";
+
+        check("credentials.accounts() GETs the encoded accounts path and returns the array", () -> {
+            Roundtrip r = roundtrip(accountsJson, http -> new CredentialsAPI(http).accounts("my svc"));
+            assertEquals("GET", r.req.method, "method");
+            assertEquals("/api/v1/private/credentials/my%20svc/accounts", r.req.rawPath, "raw path");
+            assertTrue(r.resp.isArray(), "response is an array");
+            assertTrue(r.resp.get(0).get("isDefault").asBoolean(), "[0].isDefault");
+            assertTrue(r.resp.get(0).get("createdAt").isNull(), "[0].createdAt is null");
+        });
+
+        check("credentials.addAccount() POSTs {label, fields, currentLabel, makeDefault}", () -> {
+            Roundtrip r = roundtrip(accountsJson, http -> new CredentialsAPI(http)
+                    .addAccount("my svc", "Shop B", Map.of("apiKey", "k_2"), "Shop A", true));
+            assertEquals("POST", r.req.method, "method");
+            assertEquals("/api/v1/private/credentials/my%20svc/accounts", r.req.rawPath, "raw path");
+            JsonNode b = r.body();
+            assertEquals("Shop B", b.get("label").asText(), "body.label");
+            assertEquals("k_2", b.at("/fields/apiKey").asText(), "body.fields.apiKey");
+            assertEquals("Shop A", b.get("currentLabel").asText(), "body.currentLabel");
+            assertTrue(b.get("makeDefault").asBoolean(), "body.makeDefault");
+        });
+
+        check("credentials.addAccount() leaves null options out of the body", () -> {
+            Roundtrip r = roundtrip(accountsJson, http -> new CredentialsAPI(http)
+                    .addAccount("shopify", null, Map.of("apiKey", "k_2"), null, null));
+            assertEquals("{\"fields\":{\"apiKey\":\"k_2\"}}", new String(r.req.body, StandardCharsets.UTF_8), "body");
+        });
+
+        check("credentials.setDefaultAccount() PUTs {accountId} to /accounts/default", () -> {
+            Roundtrip r = roundtrip(accountsJson, http -> new CredentialsAPI(http).setDefaultAccount("my svc", "acc 1"));
+            assertEquals("PUT", r.req.method, "method");
+            assertEquals("/api/v1/private/credentials/my%20svc/accounts/default", r.req.rawPath, "raw path");
+            assertEquals("{\"accountId\":\"acc 1\"}", new String(r.req.body, StandardCharsets.UTF_8), "body");
+        });
+
+        check("credentials.identifyAccount() POSTs {} to /accounts/{id}/identify", () -> {
+            Roundtrip r = roundtrip(accountsJson, http -> new CredentialsAPI(http).identifyAccount("my svc", "acc 1"));
+            assertEquals("POST", r.req.method, "method");
+            assertEquals("/api/v1/private/credentials/my%20svc/accounts/acc%201/identify", r.req.rawPath, "raw path");
+            assertEquals("{}", new String(r.req.body, StandardCharsets.UTF_8), "body");
+        });
+
+        check("credentials.renameAccount() PUTs {label} to /accounts/{id}", () -> {
+            Roundtrip r = roundtrip(accountsJson, http -> new CredentialsAPI(http).renameAccount("my svc", "acc 1", "Main"));
+            assertEquals("PUT", r.req.method, "method");
+            assertEquals("/api/v1/private/credentials/my%20svc/accounts/acc%201", r.req.rawPath, "raw path");
+            assertEquals("{\"label\":\"Main\"}", new String(r.req.body, StandardCharsets.UTF_8), "body");
+        });
+
+        check("credentials.removeAccount() DELETEs /accounts/{id} with no body", () -> {
+            Roundtrip r = roundtrip("[]", http -> new CredentialsAPI(http).removeAccount("my svc", "acc 1"));
+            assertEquals("DELETE", r.req.method, "method");
+            assertEquals("/api/v1/private/credentials/my%20svc/accounts/acc%201", r.req.rawPath, "raw path");
+            assertEquals(0, r.req.body.length, "no body");
+            assertTrue(r.resp.isArray() && r.resp.size() == 0, "remaining list is empty");
+        });
+
+        check("connectors.accounts() GETs the encoded project accounts path", () -> {
+            Roundtrip r = roundtrip(accountsJson, http -> new ConnectorsAPI(http).accounts("my project", "my svc"));
+            assertEquals("GET", r.req.method, "method");
+            assertEquals("/api/v1/private/projects/my%20project/connectors/my%20svc/accounts", r.req.rawPath, "raw path");
+            assertEquals("a1", r.resp.get(0).get("id").asText(), "[0].id");
+        });
+
+        check("connectors.addAccount() POSTs {label, fields, currentLabel, makeDefault}", () -> {
+            Roundtrip r = roundtrip(accountsJson, http -> new ConnectorsAPI(http)
+                    .addAccount("my project", "my svc", "Shop B", Map.of("apiKey", "k_2"), null, false));
+            assertEquals("POST", r.req.method, "method");
+            assertEquals("/api/v1/private/projects/my%20project/connectors/my%20svc/accounts", r.req.rawPath, "raw path");
+            JsonNode b = r.body();
+            assertEquals("Shop B", b.get("label").asText(), "body.label");
+            assertEquals("k_2", b.at("/fields/apiKey").asText(), "body.fields.apiKey");
+            assertTrue(!b.has("currentLabel"), "null currentLabel omitted");
+            assertTrue(b.has("makeDefault") && !b.get("makeDefault").asBoolean(), "body.makeDefault false is sent");
+        });
+
+        check("connectors.setDefaultAccount() PUTs {accountId} to /accounts/default", () -> {
+            Roundtrip r = roundtrip(accountsJson, http -> new ConnectorsAPI(http)
+                    .setDefaultAccount("my project", "my svc", "acc 1"));
+            assertEquals("PUT", r.req.method, "method");
+            assertEquals("/api/v1/private/projects/my%20project/connectors/my%20svc/accounts/default", r.req.rawPath, "raw path");
+            assertEquals("{\"accountId\":\"acc 1\"}", new String(r.req.body, StandardCharsets.UTF_8), "body");
+        });
+
+        check("connectors.renameAccount() PUTs {label} to /accounts/{id}", () -> {
+            Roundtrip r = roundtrip(accountsJson, http -> new ConnectorsAPI(http)
+                    .renameAccount("my project", "my svc", "acc 1", "Main"));
+            assertEquals("PUT", r.req.method, "method");
+            assertEquals("/api/v1/private/projects/my%20project/connectors/my%20svc/accounts/acc%201", r.req.rawPath, "raw path");
+            assertEquals("{\"label\":\"Main\"}", new String(r.req.body, StandardCharsets.UTF_8), "body");
+        });
+
+        check("connectors.removeAccount() DELETEs /accounts/{id} with no body", () -> {
+            Roundtrip r = roundtrip("[]", http -> new ConnectorsAPI(http).removeAccount("my project", "my svc", "acc 1"));
+            assertEquals("DELETE", r.req.method, "method");
+            assertEquals("/api/v1/private/projects/my%20project/connectors/my%20svc/accounts/acc%201", r.req.rawPath, "raw path");
+            assertEquals(0, r.req.body.length, "no body");
+        });
+
+        check("account.rotateApiKey() POSTs {} to /api-key and returns {apiKey}", () -> {
+            Roundtrip r = roundtrip("{\"apiKey\":\"mk_new\"}", http -> new AccountAPI(http).rotateApiKey());
+            assertEquals("POST", r.req.method, "method");
+            assertEquals("/api/v1/private/api-key", r.req.rawPath, "raw path");
+            assertEquals("{}", new String(r.req.body, StandardCharsets.UTF_8), "body");
+            assertEquals("mk_new", r.resp.get("apiKey").asText(), "response.apiKey");
+        });
+
+        check("account.revokeApiKey() DELETEs /api-key and returns {ok}", () -> {
+            Roundtrip r = roundtrip("{\"ok\":true}", http -> new AccountAPI(http).revokeApiKey());
+            assertEquals("DELETE", r.req.method, "method");
+            assertEquals("/api/v1/private/api-key", r.req.rawPath, "raw path");
+            assertEquals(0, r.req.body.length, "no body");
+            assertTrue(r.resp.get("ok").asBoolean(), "response.ok");
+        });
+
+        check("account.apiKeyUsage() GETs /api-key/usage", () -> {
+            Roundtrip r = roundtrip("{\"total\":42}", http -> new AccountAPI(http).apiKeyUsage());
+            assertEquals("GET", r.req.method, "method");
+            assertEquals("/api/v1/private/api-key/usage", r.req.rawPath, "raw path");
+            assertEquals(null, r.req.rawQuery, "no query");
+            assertEquals(42, r.resp.get("total").asInt(), "response.total");
+        });
+
+        check("pipelines.docsPreview() GETs /docs/preview with model_name + model_provider", () -> {
+            Roundtrip r = roundtrip("{\"files\":[]}", http -> new PipelinesAPI(http)
+                    .docsPreview("my pipe", "qwen 3.7", "openrouter"));
+            assertEquals("GET", r.req.method, "method");
+            assertEquals("/api/v1/private/pipelines/my%20pipe/docs/preview", r.req.rawPath, "raw path");
+            Map<String, String> q = parseQuery(r.req.rawQuery);
+            assertEquals("qwen 3.7", q.get("model_name"), "query.model_name");
+            assertEquals("openrouter", q.get("model_provider"), "query.model_provider");
+        });
+
+        check("pipelines.docsPreview() omits null model params", () -> {
+            Roundtrip r = roundtrip("{\"files\":[]}", http -> new PipelinesAPI(http).docsPreview("my pipe", null, null));
+            assertEquals(null, r.req.rawQuery, "no query string");
+        });
+
+        check("pipelines.retrievalPreview() GETs /docs/retrieval/preview", () -> {
+            Roundtrip r = roundtrip("{\"documents\":3}", http -> new PipelinesAPI(http).retrievalPreview("my pipe"));
+            assertEquals("GET", r.req.method, "method");
+            assertEquals("/api/v1/private/pipelines/my%20pipe/docs/retrieval/preview", r.req.rawPath, "raw path");
+            assertEquals(3, r.resp.get("documents").asInt(), "response.documents");
+        });
+
+        check("pipelines.testRetrieve() POSTs {query, limit} to /docs/retrieval/test_retrieve", () -> {
+            Roundtrip r = roundtrip("{\"passages\":[]}", http -> new PipelinesAPI(http)
+                    .testRetrieve("my pipe", "refund policy", 3));
+            assertEquals("POST", r.req.method, "method");
+            assertEquals("/api/v1/private/pipelines/my%20pipe/docs/retrieval/test_retrieve", r.req.rawPath, "raw path");
+            assertEquals("{\"query\":\"refund policy\",\"limit\":3}", new String(r.req.body, StandardCharsets.UTF_8), "body");
+        });
+
+        check("pipelines.testRetrieve() omits a null limit", () -> {
+            Roundtrip r = roundtrip("{\"passages\":[]}", http -> new PipelinesAPI(http)
+                    .testRetrieve("my pipe", "refund policy", null));
+            assertEquals("{\"query\":\"refund policy\"}", new String(r.req.body, StandardCharsets.UTF_8), "body");
+        });
+
+        check("pipelines.setInputs() PUTs {inputs, project} to /inputs", () -> {
+            Map<String, Object> decl = new LinkedHashMap<>();
+            decl.put("key", "topic");
+            decl.put("label", "Topic");
+            decl.put("type", "text");
+            Roundtrip r = roundtrip("{\"name\":\"my pipe\",\"inputs\":[{\"key\":\"topic\"}]}", http -> new PipelinesAPI(http)
+                    .setInputs("my pipe", "my project", List.of(decl)));
+            assertEquals("PUT", r.req.method, "method");
+            assertEquals("/api/v1/private/pipelines/my%20pipe/inputs", r.req.rawPath, "raw path");
+            JsonNode b = r.body();
+            assertEquals("my project", b.get("project").asText(), "body.project");
+            assertEquals("topic", b.at("/inputs/0/key").asText(), "body.inputs[0].key");
+            assertEquals("text", b.at("/inputs/0/type").asText(), "body.inputs[0].type");
+            assertEquals("topic", r.resp.at("/inputs/0/key").asText(), "response.inputs[0].key");
+        });
+
+        check("pipelines.setInputs() with null inputs sends an empty list", () -> {
+            Roundtrip r = roundtrip("{\"inputs\":[]}", http -> new PipelinesAPI(http).setInputs("p", "acme", null));
+            assertEquals("{\"inputs\":[],\"project\":\"acme\"}", new String(r.req.body, StandardCharsets.UTF_8), "body");
+        });
+
+        check("hitl.runMessages() GETs /runs/{runId}/messages (not /hitl/runs) with limit + cursor", () -> {
+            Roundtrip r = roundtrip("{\"messages\":[]}", http -> new HitlAPI(http).runMessages("run 1", 50, "c 2"));
+            assertEquals("GET", r.req.method, "method");
+            assertEquals("/api/v1/private/runs/run%201/messages", r.req.rawPath, "raw path");
+            Map<String, String> q = parseQuery(r.req.rawQuery);
+            assertEquals("50", q.get("limit"), "query.limit");
+            assertEquals("c 2", q.get("cursor"), "query.cursor");
         });
 
         System.out.println();

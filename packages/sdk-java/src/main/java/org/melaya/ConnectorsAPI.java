@@ -117,6 +117,78 @@ public class ConnectorsAPI {
         return http.get("/api/v1/private/projects/" + encode(project) + "/connectors/shared-by", null);
     }
 
+    // ── Several accounts per project connector (owner only for writes) ────────
+    // Agents use the DEFAULT account unless a tool call names another one. Only
+    // labels and ids ever come back, never credential values.
+
+    /**
+     * Accounts connected to one project connector (labels and ids only).
+     *
+     * <p>Maps to {@code GET /api/v1/private/projects/{project}/connectors/{service}/accounts}.
+     *
+     * @return an array of {@code {id, label, isDefault, createdAt}} ({@code createdAt} may be null)
+     */
+    public JsonNode accounts(String project, String service) {
+        return http.get(accountsPath(project, service), null);
+    }
+
+    /**
+     * Add another account to a project connector (owner; the connection is tested first).
+     *
+     * <p>Maps to {@code POST /api/v1/private/projects/{project}/connectors/{service}/accounts}.
+     *
+     * @param project      the project name
+     * @param service      the connector service id
+     * @param label        the new account's label; may be {@code null}
+     * @param fields       the connector's credential fields (same keys as {@link #set})
+     * @param currentLabel names the existing single connection when it is adopted as the
+     *                     first account; may be {@code null}
+     * @param makeDefault  make the new account the default; may be {@code null}
+     * @return the updated account list
+     */
+    public JsonNode addAccount(String project, String service, String label, Map<String, String> fields,
+                               String currentLabel, Boolean makeDefault) {
+        return http.post(accountsPath(project, service),
+                CredentialsAPI.accountBody(label, fields, currentLabel, makeDefault));
+    }
+
+    /**
+     * Choose which account the project connector uses (owner).
+     *
+     * <p>Maps to {@code PUT /api/v1/private/projects/{project}/connectors/{service}/accounts/default}.
+     *
+     * @return the updated account list
+     */
+    public JsonNode setDefaultAccount(String project, String service, String accountId) {
+        return http.put(accountsPath(project, service) + "/default", Map.of("accountId", accountId));
+    }
+
+    /**
+     * Rename one account of a project connector (owner, max 80 chars).
+     *
+     * <p>Maps to {@code PUT /api/v1/private/projects/{project}/connectors/{service}/accounts/{accountId}}.
+     *
+     * @return the updated account list
+     */
+    public JsonNode renameAccount(String project, String service, String accountId, String label) {
+        return http.put(accountsPath(project, service) + "/" + encode(accountId), Map.of("label", label));
+    }
+
+    /**
+     * Remove one account from a project connector (owner).
+     *
+     * <p>Maps to {@code DELETE /api/v1/private/projects/{project}/connectors/{service}/accounts/{accountId}}.
+     *
+     * @return the remaining account list
+     */
+    public JsonNode removeAccount(String project, String service, String accountId) {
+        return http.delete(accountsPath(project, service) + "/" + encode(accountId), null);
+    }
+
+    private static String accountsPath(String project, String service) {
+        return "/api/v1/private/projects/" + encode(project) + "/connectors/" + encode(service) + "/accounts";
+    }
+
     /**
      * List the Google OAuth capabilities actually granted to a project.
      *
@@ -198,7 +270,7 @@ public class ConnectorsAPI {
 
     private static String encode(String s) {
         try {
-            return java.net.URLEncoder.encode(s, java.nio.charset.StandardCharsets.UTF_8);
+            return java.net.URLEncoder.encode(s, java.nio.charset.StandardCharsets.UTF_8).replace("+", "%20"); // path segment: space is %20, never +
         } catch (Exception e) {
             return s;
         }

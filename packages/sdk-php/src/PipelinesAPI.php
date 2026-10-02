@@ -272,6 +272,33 @@ class PipelinesAPI
     }
 
     /**
+     * Replace ONLY the pipeline's declared run inputs (config.inputs), without
+     * touching the rest of the config. Max 30; an empty array removes them all.
+     * Editor or owner only; a bad declaration fails with HTTP 422
+     * "run_inputs_invalid: <reason>". Keep keys stable: {{inputs.<key>}}
+     * placeholders in agent instructions use them.
+     *
+     * Each declaration: key (lower snake case, max 40, "brief" reserved), label,
+     * type (text, long_text, number, boolean, choice, url, email, file, files),
+     * required, default (not for files), options (choice), accept (files: pdf,
+     * office, spreadsheet, image, text), description.
+     *
+     * Maps to PUT /api/v1/private/pipelines/{name}/inputs.
+     *
+     * @param string                          $name    Pipeline name (will be rawurlencoded).
+     * @param string                          $project Project the pipeline belongs to.
+     * @param array<int, array<string,mixed>> $inputs  The full list of declarations.
+     * @return array{name?: string, inputs?: array<int, array<string, mixed>>}
+     */
+    public function setInputs(string $name, string $project, array $inputs): array
+    {
+        return $this->http->put(
+            '/api/v1/private/pipelines/' . rawurlencode($name) . '/inputs',
+            ['inputs' => array_values($inputs), 'project' => $project]
+        );
+    }
+
+    /**
      * Download one binary file that was supplied as a run input.
      *
      * @param string $name  Pipeline name (will be rawurlencoded).
@@ -465,6 +492,58 @@ class PipelinesAPI
     {
         return $this->http->delete(
             '/api/v1/private/pipelines/' . rawurlencode($name) . '/docs/retrieval/' . rawurlencode($filename)
+        );
+    }
+
+    /**
+     * Per-document extraction stats of the static-context documents (characters
+     * kept per file), with caps for the model the agents use. Pass the model to
+     * see what fits its context window.
+     *
+     * Maps to GET /api/v1/private/pipelines/{name}/docs/preview.
+     *
+     * @param string      $name          Pipeline name (will be rawurlencoded).
+     * @param string|null $modelName     Sent as `model_name` (omitted when null).
+     * @param string|null $modelProvider Sent as `model_provider` (omitted when null).
+     */
+    public function docsPreview(string $name, ?string $modelName = null, ?string $modelProvider = null): array
+    {
+        return $this->http->get(
+            '/api/v1/private/pipelines/' . rawurlencode($name) . '/docs/preview',
+            ['model_name' => $modelName, 'model_provider' => $modelProvider]
+        );
+    }
+
+    /**
+     * Stats of the pipeline's retrieval store (documents, chunks, embedder).
+     *
+     * Maps to GET /api/v1/private/pipelines/{name}/docs/retrieval/preview.
+     */
+    public function retrievalPreview(string $name): array
+    {
+        return $this->http->get('/api/v1/private/pipelines/' . rawurlencode($name) . '/docs/retrieval/preview');
+    }
+
+    /**
+     * Run a sample query against the pipeline's retrieval store and see the
+     * passages agents would get. Needs an embedder configured; a store built
+     * with another embedder answers 409 (re-ingest).
+     *
+     * Maps to POST /api/v1/private/pipelines/{name}/docs/retrieval/test_retrieve.
+     *
+     * @param string   $name  Pipeline name (will be rawurlencoded).
+     * @param string   $query The sample query.
+     * @param int|null $limit 1-20 (server default 5); omitted when null.
+     */
+    public function testRetrieve(string $name, string $query, ?int $limit = null): array
+    {
+        $body = ['query' => $query];
+        if ($limit !== null) {
+            $body['limit'] = $limit;
+        }
+        return $this->http->post(
+            '/api/v1/private/pipelines/' . rawurlencode($name) . '/docs/retrieval/test_retrieve',
+            $body
         );
     }
 

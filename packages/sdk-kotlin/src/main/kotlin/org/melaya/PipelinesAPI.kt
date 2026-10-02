@@ -119,6 +119,11 @@ class PipelinesAPI internal constructor(private val http: HttpClient) {
         return http.get("/api/v1/private/overview/pipeline-count").asObject()
     }
 
+    /** Dashboard usage summary (pipeline count, RAG usage, plan limits). */
+    fun usageSummary(): JSONObject {
+        return http.get("/api/v1/private/overview/usage").asObject()
+    }
+
     /**
      * Paginated list of pipeline runs.
      *
@@ -483,6 +488,31 @@ class PipelinesAPI internal constructor(private val http: HttpClient) {
     }
 
     /**
+     * Replace ONLY the pipeline's declared run inputs (`config.inputs`), without
+     * touching the rest of the config. Max 30; an empty list removes them all.
+     * Editor or owner only; a bad declaration fails with HTTP 422
+     * `run_inputs_invalid: <reason>`. Keep keys stable: `{{inputs.<key>}}`
+     * placeholders in agent instructions use them.
+     *
+     * Each declaration: `key` (lower snake case, max 40, "brief" reserved), `label`,
+     * `type` (text, long_text, number, boolean, choice, url, email, file, files),
+     * `required`, `default` (not for files), `options` (choice), `accept`
+     * (files: pdf, office, spreadsheet, image, text), `description`.
+     *
+     * Maps to `PUT /api/v1/private/pipelines/{name}/inputs`.
+     *
+     * @return `{name, inputs}`: the normalized declaration the server stored.
+     */
+    fun setInputs(
+        name: String,
+        project: String,
+        inputs: List<Map<String, Any?>>,
+    ): JSONObject {
+        val body = mapOf<String, Any?>("inputs" to inputs, "project" to project)
+        return http.put("/api/v1/private/pipelines/${enc(name)}/inputs", body).asObject()
+    }
+
+    /**
      * Get the inputs a run was started with (brief, values, files).
      *
      * @param name  The pipeline name (URL-encoded automatically).
@@ -588,6 +618,48 @@ class PipelinesAPI internal constructor(private val http: HttpClient) {
     }
 
     /**
+     * Per-document extraction stats of the static-context documents (characters kept
+     * per file), with caps for the model the agents use. Pass the model to see what
+     * fits its context window.
+     *
+     * Maps to `GET /api/v1/private/pipelines/{name}/docs/preview`.
+     */
+    fun docsPreview(name: String, modelName: String? = null, modelProvider: String? = null): JSONObject {
+        val query = buildMap<String, Any?> {
+            if (modelName != null) put("model_name", modelName)
+            if (modelProvider != null) put("model_provider", modelProvider)
+        }
+        return http.get("/api/v1/private/pipelines/${enc(name)}/docs/preview", query).asObject()
+    }
+
+    /**
+     * Stats of the pipeline's retrieval store (documents, chunks, embedder).
+     *
+     * Maps to `GET /api/v1/private/pipelines/{name}/docs/retrieval/preview`.
+     */
+    fun retrievalPreview(name: String): JSONObject {
+        return http.get("/api/v1/private/pipelines/${enc(name)}/docs/retrieval/preview").asObject()
+    }
+
+    /**
+     * Run a sample [query] against the pipeline's retrieval store and see the passages
+     * agents would get. [limit] 1-20 (server default 5). Needs an embedder configured;
+     * a store built with another embedder answers 409 (re-ingest).
+     *
+     * Maps to `POST /api/v1/private/pipelines/{name}/docs/retrieval/test_retrieve`.
+     */
+    fun testRetrieve(name: String, query: String, limit: Int? = null): JSONObject {
+        val body = buildMap<String, Any?> {
+            put("query", query)
+            if (limit != null) put("limit", limit)
+        }
+        return http.post(
+            "/api/v1/private/pipelines/${enc(name)}/docs/retrieval/test_retrieve",
+            body
+        ).asObject()
+    }
+
+    /**
      * List all output artifacts produced by a pipeline.
      *
      * @param name The pipeline name (URL-encoded automatically).
@@ -688,5 +760,5 @@ class PipelinesAPI internal constructor(private val http: HttpClient) {
         return http.post("/api/v1/private/ai/build-pipeline/sync", brief).asObject()
     }
 
-    private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8")
+    private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8").replace("+", "%20") // path segment: space is %20, never +
 }

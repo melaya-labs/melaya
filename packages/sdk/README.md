@@ -88,9 +88,9 @@ Namespaced access is the primary API (`melaya.agents.*`, `melaya.platform.*`); f
 | MFA | `platform.mfa.status`, `setup`, `confirm` |
 | Accounts | `platform.accounts.exportMyData`, `updateProfile`, `removeKey`, `credits`, `aiCredits`, `portfolioIdeasCredits`, `riskMonitoringCredits`, `resendEmailVerification`, `verifyEmail` |
 | Projects | `platform.projects.list`, `create`, `rename`, `runnerProjects` |
-| Connectors | `platform.connectors.connectedServices`, `set`, `delete`, `envHandle`, `googleOAuthStart`, `applyPersonal`, `sharedBy`, `googleStatus`, `googleSetDefault`, `googleDisconnect`, `dbTestStart`, `dbTestStatus` |
-| Credentials | `platform.credentials.list`, `connectedServices`, `get`, `set`, `delete`, `test`, `getOperatorProfile`, `setOperatorProfile`, `listModels`, RAG + connect flows (`ragIngestStart`, `ragRetrieveStart`, `linkedinConnectStart`, `telegramAuthStart`, ...), `googleStatus`, `googleSetDefault`, `googleDisconnect`, `dbTestStart`, `dbTestStatus`, `telegramQrStart`, `telegramQrPoll`, `whatsappSignupConfig`, `whatsappSignupExchange`, `tiktokCreatorInfo`, `substackEmailLinkSend`, `substackEmailLinkRedeem` |
-| Pipelines | `agents.pipelines.listPipelines`, `create`, `get`, `update`, `remove`, `run`, `runIds`, `runStatus`, `cancelRun`, `outputs`, `output`, `previewCode`, `tools`, `subagents`, `catalogCounts`, `instantiateTemplate`, `buildWithAI`, `overview`, `count`, `list`, `recent`, `traces`, `trace`, `traceStats`, `deleteTraces`, `listSchedules`, `getSchedule`, `upsertSchedule`, `pauseSchedule`, `resumeSchedule`, `uploadRunFile`, `runInputs`, `runInputFile`, `runActive`, `listDocs`, `uploadDoc`, `deleteDoc`, `uploadRetrievalDoc`, `ingestRetrieval`, `deleteRetrievalDoc`, `projectToolCalls`, `projectToolCallFacets`, `toolCallDetail` |
+| Connectors | `platform.connectors.connectedServices`, `set`, `delete`, `envHandle`, `googleOAuthStart`, `applyPersonal`, `sharedBy`, `googleStatus`, `googleSetDefault`, `googleDisconnect`, `accounts`, `addAccount`, `setDefaultAccount`, `renameAccount`, `removeAccount`, `dbTestStart`, `dbTestStatus` |
+| Credentials | `platform.credentials.list`, `connectedServices`, `get`, `set`, `delete`, `test`, `getOperatorProfile`, `setOperatorProfile`, `listModels`, RAG + connect flows (`ragIngestStart`, `ragRetrieveStart`, `linkedinConnectStart`, `telegramAuthStart`, ...), `accounts`, `addAccount`, `setDefaultAccount`, `identifyAccount`, `renameAccount`, `removeAccount`, `googleStatus`, `googleSetDefault`, `googleDisconnect`, `dbTestStart`, `dbTestStatus`, `telegramQrStart`, `telegramQrPoll`, `whatsappSignupConfig`, `whatsappSignupExchange`, `tiktokCreatorInfo`, `substackEmailLinkSend`, `substackEmailLinkRedeem` |
+| Pipelines | `agents.pipelines.listPipelines`, `create`, `get`, `update`, `remove`, `run`, `runIds`, `runStatus`, `cancelRun`, `outputs`, `output`, `previewCode`, `tools`, `subagents`, `catalogCounts`, `instantiateTemplate`, `buildWithAI`, `overview`, `count`, `list`, `recent`, `traces`, `trace`, `traceStats`, `deleteTraces`, `listSchedules`, `getSchedule`, `upsertSchedule`, `pauseSchedule`, `resumeSchedule`, `setInputs`, `uploadRunFile`, `runInputs`, `runInputFile`, `runActive`, `listDocs`, `uploadDoc`, `deleteDoc`, `docsPreview`, `uploadRetrievalDoc`, `ingestRetrieval`, `retrievalPreview`, `testRetrieve`, `deleteRetrievalDoc`, `usageSummary`, `projectToolCalls`, `projectToolCallFacets`, `toolCallDetail` |
 | Templates | `platform.templates.list`, `listGlobal`, `listValidated`, `save`, `update`, `duplicate`, `delete`, `share`, `shareTargets`, `listAssignments`, `assign(templateId, { userId \| projectId })`, `unassign(templateId, { userId \| projectId })` |
 | Phone (Device Control) | `agents.phone.pair`, `listDevices`, `revokeDevice`, `screenTree`, `listApps`, `setAllowedApps`, `registerActiveRun`, `grantApp`, `requestCast` |
 | HITL | `agents.hitl.pending`, `history`, `approve`, `reject`, `bulkDecide`, `runToolStats`, `runToolStatsByAgent`, `runMessages`, `runToolCalls` |
@@ -115,6 +115,34 @@ Create an API key in the dashboard (**melaya.org → Settings → API Keys**). K
 - **Private WebSocket streams** — the SDK first mints a short-lived ticket over REST, and only `?wsTicket=` appears in the URL; the API key itself is never in a private stream URL.
 
 Alternatively, pass a `sessionToken` from `platform.auth.login()` instead of an API key.
+
+`account.rotateApiKey()` returns a new key once and replaces the current one at once: a client still using the old key fails until you rebuild it with the new one. `account.revokeApiKey()` stops the key immediately.
+
+Approving a connector-tool write (an approval card raised by `agents.connectorTools.call`) needs a human session: API keys are refused, so an agent holding your key can never approve its own write. Approve it in the Melaya app.
+
+## Connector accounts and run input fields
+
+A connector can hold several accounts (two mailboxes, two shops). Agents use the default one unless a tool call names another. Only labels and ids come back, never credential values.
+
+```ts
+const accounts = await melaya.platform.credentials.accounts("zoho_mail");
+await melaya.platform.credentials.addAccount("zoho_mail", {
+  label: "Support inbox",
+  fields: { client_id: "...", client_secret: "...", refresh_token: "...", dc: "eu" },
+});
+await melaya.platform.credentials.setDefaultAccount("zoho_mail", accounts[0].id);
+// Project connectors (owner): melaya.platform.connectors.accounts("acme", "zoho_mail"), ...
+```
+
+Declare the named inputs a pipeline asks for on every run, without touching the rest of its config. Keep keys stable: `{{inputs.<key>}}` placeholders in agent instructions use them.
+
+```ts
+await melaya.agents.pipelines.setInputs("due-diligence", "acme", [
+  { key: "company", label: "Company", type: "text", required: true },
+  { key: "deck", label: "Pitch deck", type: "file", accept: ["pdf"] },
+]);
+const hits = await melaya.agents.pipelines.testRetrieve("knowledge-base", "refund policy", 3);
+```
 
 ## Connector tools
 
@@ -247,7 +275,7 @@ for await (const ev of events) console.log(ev.type, ev.strategyId);
 | Market data | `market.ticker`, `orderbook`, `ohlcv`, `ohlcvMulti`, `trades`, `markets`, `currencies`, `marketConstraints`, `status`, `time` |
 | Batch / derivatives | `market.tickers`, `fundingRates`, `fundingRateHistory`, `fundingRateHistoryMulti`, `openInterest`, `openInterestHistory`, `openInterestHistoryMulti`, `instruments`, `liquidationEvents` |
 | Prediction markets | `market.predictionMarkets` (polymarket, kalshi, drift_pm, sxbet, azuro, overtime) |
-| Account | `account.keys`, `usage`, `apiKeyStatus` |
+| Account | `account.keys`, `usage`, `apiKeyStatus`, `rotateApiKey`, `revokeApiKey`, `apiKeyUsage` |
 | Strategies | `strategies.create`, `list`, `get`, `pause`, `resume`, `stop`, `delete`, `updateParams`, `status`, `performance`, `executions`, `trades`, `logs` |
 | AI optimizer | `strategies.aiOptStart`, `aiOptStatus`, `aiOptApprove`, `aiOptStop`, `aiOptRuns` |
 | Paper trading | `sim.balance`, `positions`, `openOrders`, `myTrades`, `createOrder`, `cancelOrder`, `listAccounts` |

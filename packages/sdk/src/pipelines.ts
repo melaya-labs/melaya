@@ -168,6 +168,29 @@ export interface RunFileUploadResult {
   [key: string]: unknown;
 }
 
+/** One declared run input (`config.inputs[]`), as `setInputs()` takes it. */
+export interface PipelineInputDeclaration {
+  /** lower snake case, starts with a letter, max 40 chars, unique; `brief` is reserved */
+  key: string;
+  label?: string;
+  type?: "text" | "long_text" | "number" | "boolean" | "choice" | "url" | "email" | "file" | "files";
+  required?: boolean;
+  /** not for file types; validated like a run value */
+  default?: string | number | boolean;
+  /** required for `choice` (max 50) */
+  options?: string[];
+  /** file types only: `pdf`, `office`, `spreadsheet`, `image`, `text` (empty = all) */
+  accept?: Array<"pdf" | "office" | "spreadsheet" | "image" | "text">;
+  description?: string;
+}
+
+/** Result of `setInputs()` — the normalized declaration the server stored. */
+export interface PipelineInputsUpdateResult {
+  name: string;
+  inputs: PipelineInputDeclaration[];
+  [key: string]: unknown;
+}
+
 /** Result of `runInputs()` — the brief/values/files recorded for one run. */
 export interface PipelineRunInputsRecord {
   brief?: string;
@@ -382,6 +405,30 @@ export class PipelinesAPI {
     );
   }
 
+  /**
+   * Replace ONLY the pipeline's declared run inputs (`config.inputs`), without
+   * touching the rest of the config. Max 30; an empty list removes them all.
+   * Editor or owner only. Throws 422 `run_inputs_invalid: <reason>` on a bad
+   * declaration. Keep keys stable: `{{inputs.<key>}}` placeholders use them.
+   *
+   * ```ts
+   * await melaya.agents.pipelines.setInputs("due-diligence", "acme", [
+   *   { key: "company", label: "Company", type: "text", required: true },
+   *   { key: "deck", label: "Pitch deck", type: "file", accept: ["pdf"] },
+   * ]);
+   * ```
+   */
+  async setInputs(
+    name: string,
+    project: string,
+    inputs: PipelineInputDeclaration[],
+  ): Promise<PipelineInputsUpdateResult> {
+    return this.http.put<PipelineInputsUpdateResult>(
+      `/api/v1/private/pipelines/${enc(name)}/inputs`,
+      { inputs, project },
+    );
+  }
+
   /** Read back the brief/values/files recorded for one run's `run_inputs`. */
   async runInputs(name: string, runId: string): Promise<PipelineRunInputsRecord> {
     return this.http.get<PipelineRunInputsRecord>(
@@ -510,6 +557,35 @@ export class PipelinesAPI {
     filename: string,
   ): Promise<{ ok?: boolean } & Record<string, unknown>> {
     return this.http.delete(`/api/v1/private/pipelines/${enc(name)}/docs/retrieval/${enc(filename)}`);
+  }
+
+  /**
+   * Per-document extraction stats of the static-context documents (characters
+   * kept per file), with caps for the model the agents use. Pass the model to
+   * see what fits its context window.
+   */
+  async docsPreview(name: string, opts?: { modelName?: string; modelProvider?: string }): Promise<unknown> {
+    return this.http.get(`/api/v1/private/pipelines/${enc(name)}/docs/preview`, {
+      model_name: opts?.modelName,
+      model_provider: opts?.modelProvider,
+    });
+  }
+
+  /** Stats of the pipeline's retrieval store (documents, chunks, embedder). */
+  async retrievalPreview(name: string): Promise<unknown> {
+    return this.http.get(`/api/v1/private/pipelines/${enc(name)}/docs/retrieval/preview`);
+  }
+
+  /**
+   * Run a sample query against the pipeline's retrieval store and see the
+   * passages agents would get. `limit` 1-20 (default 5). Needs an embedder
+   * configured; a store built with another embedder answers 409 (re-ingest).
+   */
+  async testRetrieve(name: string, query: string, limit?: number): Promise<unknown> {
+    return this.http.post(`/api/v1/private/pipelines/${enc(name)}/docs/retrieval/test_retrieve`, {
+      query,
+      ...(limit !== undefined ? { limit } : {}),
+    });
   }
 
   /** Read-only codegen preview for a config (no persistence, no tier gate). */

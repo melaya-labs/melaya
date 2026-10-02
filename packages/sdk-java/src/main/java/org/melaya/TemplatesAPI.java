@@ -167,7 +167,7 @@ public class TemplatesAPI {
 
     private static String encode(String s) {
         try {
-            return java.net.URLEncoder.encode(s, java.nio.charset.StandardCharsets.UTF_8);
+            return java.net.URLEncoder.encode(s, java.nio.charset.StandardCharsets.UTF_8).replace("+", "%20"); // path segment: space is %20, never +
         } catch (Exception e) {
             return s;
         }

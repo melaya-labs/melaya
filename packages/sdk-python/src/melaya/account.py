@@ -29,3 +29,23 @@ class AccountAPI:
     def api_key_status(self) -> Dict[str, Any]:
         """Status of your platform API key (tier, max concurrent connections)."""
         return self._request("GET", "/api/v1/private/api-key")
+
+    def rotate_api_key(self) -> Dict[str, Any]:
+        """Generate a new platform API key, replacing the current one at once.
+
+        Returns ``{"apiKey": ...}``; the new key is shown ONCE. Careful: if this
+        client uses the key being replaced, every later call of this client
+        fails until you build a new ``Melaya`` client with the returned key.
+        """
+        return self._request("POST", "/api/v1/private/api-key", json={})
+
+    def revoke_api_key(self) -> Dict[str, Any]:
+        """Revoke the platform API key. Returns ``{"ok": ...}``.
+
+        If this client uses that key, it stops working immediately.
+        """
+        return self._request("DELETE", "/api/v1/private/api-key")
+
+    def api_key_usage(self) -> Dict[str, Any]:
+        """Request counts of your platform API key (current key, merged with your account totals)."""
+        return self._request("GET", "/api/v1/private/api-key/usage")

@@ -14,6 +14,7 @@ Example
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 from .platform_types import JsonDict
 
@@ -165,6 +166,78 @@ class CredentialsAPI:
         if capability is not None:
             params["capability"] = capability
         return self._request("GET", "/api/v1/private/credentials/models", params=params if params else None)
+
+    # ── Several accounts per connector (personal scope) ─────────────────────────
+    # Field-based connectors can hold several accounts (two mailboxes, two shops).
+    # Agents use the DEFAULT account unless a tool call names another one. Only
+    # labels and ids ever come back, never credential values.
+
+    def accounts(self, service: str) -> List[JsonDict]:
+        """List the accounts connected to one connector.
+
+        Each item is ``{"id", "label", "isDefault", "createdAt"}`` (``createdAt``
+        may be ``None``). ``id == "current"`` is a single connection made before
+        accounts existed.
+        """
+        return self._request("GET", f"/api/v1/private/credentials/{quote(service, safe='')}/accounts")
+
+    def add_account(
+        self,
+        service: str,
+        *,
+        fields: Dict[str, str],
+        label: Optional[str] = None,
+        current_label: Optional[str] = None,
+        make_default: Optional[bool] = None,
+    ) -> List[JsonDict]:
+        """Add another account to a field-based connector.
+
+        ``fields`` are the connector's credential fields (same keys as ``set``);
+        the connection is tested first. ``current_label`` names the existing
+        single connection when it is adopted as the first account. Returns the
+        updated account list.
+        """
+        body: Dict[str, Any] = {"fields": fields}
+        if label is not None:
+            body["label"] = label
+        if current_label is not None:
+            body["currentLabel"] = current_label
+        if make_default is not None:
+            body["makeDefault"] = make_default
+        return self._request(
+            "POST", f"/api/v1/private/credentials/{quote(service, safe='')}/accounts", json=body
+        )
+
+    def set_default_account(self, service: str, account_id: str) -> List[JsonDict]:
+        """Choose which account the connector (and so every agent) uses. Returns the updated list."""
+        return self._request(
+            "PUT",
+            f"/api/v1/private/credentials/{quote(service, safe='')}/accounts/default",
+            json={"accountId": account_id},
+        )
+
+    def identify_account(self, service: str, account_id: str) -> List[JsonDict]:
+        """Name an account after the identity its connector reports (runs the connection test on it)."""
+        return self._request(
+            "POST",
+            f"/api/v1/private/credentials/{quote(service, safe='')}/accounts/{quote(account_id, safe='')}/identify",
+            json={},
+        )
+
+    def rename_account(self, service: str, account_id: str, label: str) -> List[JsonDict]:
+        """Rename one account (max 80 chars). Returns the updated list."""
+        return self._request(
+            "PUT",
+            f"/api/v1/private/credentials/{quote(service, safe='')}/accounts/{quote(account_id, safe='')}",
+            json={"label": label},
+        )
+
+    def remove_account(self, service: str, account_id: str) -> List[JsonDict]:
+        """Remove one account from a connector. Returns the remaining list."""
+        return self._request(
+            "DELETE",
+            f"/api/v1/private/credentials/{quote(service, safe='')}/accounts/{quote(account_id, safe='')}",
+        )
 
     def google_status(self) -> JsonDict:
         """Get Google account connection status (personal, user-scoped)."""

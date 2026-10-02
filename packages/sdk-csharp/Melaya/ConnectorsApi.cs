@@ -119,6 +119,87 @@ public sealed class ConnectorsApi
             $"/api/v1/private/projects/{Uri.EscapeDataString(project)}/connectors/google/access", body, ct).ConfigureAwait(false);
     }
 
+    // ── Several accounts per project connector (owner only for writes) ───────
+
+    /// <summary>Accounts connected to one project connector (labels and ids only, never credential values).</summary>
+    /// <param name="project">Project name.</param>
+    /// <param name="service">Connector service id.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<List<ConnectorAccount>> AccountsAsync(string project, string service, CancellationToken ct = default)
+    {
+        return await _http.GetAsync<List<ConnectorAccount>>(
+            $"/api/v1/private/projects/{Uri.EscapeDataString(project)}/connectors/{Uri.EscapeDataString(service)}/accounts",
+            ct: ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Add another account to a project connector (owner only; the connection is tested first).
+    /// Returns the updated list.
+    /// </summary>
+    /// <param name="project">Project name.</param>
+    /// <param name="service">Connector service id.</param>
+    /// <param name="fields">The connector's credential fields.</param>
+    /// <param name="label">Optional label for the new account.</param>
+    /// <param name="currentLabel">Names the existing single connection when it is adopted as the first account.</param>
+    /// <param name="makeDefault">Make the new account the default one.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<List<ConnectorAccount>> AddAccountAsync(
+        string project,
+        string service,
+        IDictionary<string, string> fields,
+        string? label = null,
+        string? currentLabel = null,
+        bool? makeDefault = null,
+        CancellationToken ct = default)
+    {
+        var body = new { label, fields, currentLabel, makeDefault };
+        return await _http.PostAsync<List<ConnectorAccount>>(
+            $"/api/v1/private/projects/{Uri.EscapeDataString(project)}/connectors/{Uri.EscapeDataString(service)}/accounts",
+            body, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Choose which account the project connector uses (owner only). Returns the updated list.</summary>
+    /// <param name="project">Project name.</param>
+    /// <param name="service">Connector service id.</param>
+    /// <param name="accountId">Account id, as returned by <see cref="AccountsAsync"/>.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<List<ConnectorAccount>> SetDefaultAccountAsync(
+        string project, string service, string accountId, CancellationToken ct = default)
+    {
+        var body = new { accountId };
+        return await _http.PutAsync<List<ConnectorAccount>>(
+            $"/api/v1/private/projects/{Uri.EscapeDataString(project)}/connectors/{Uri.EscapeDataString(service)}/accounts/default",
+            body, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Rename one account of a project connector (owner only, max 80 chars). Returns the updated list.</summary>
+    /// <param name="project">Project name.</param>
+    /// <param name="service">Connector service id.</param>
+    /// <param name="accountId">Account id.</param>
+    /// <param name="label">New label.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<List<ConnectorAccount>> RenameAccountAsync(
+        string project, string service, string accountId, string label, CancellationToken ct = default)
+    {
+        var body = new { label };
+        return await _http.PutAsync<List<ConnectorAccount>>(
+            $"/api/v1/private/projects/{Uri.EscapeDataString(project)}/connectors/{Uri.EscapeDataString(service)}/accounts/{Uri.EscapeDataString(accountId)}",
+            body, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Remove one account from a project connector (owner only). Returns the remaining list.</summary>
+    /// <param name="project">Project name.</param>
+    /// <param name="service">Connector service id.</param>
+    /// <param name="accountId">Account id.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<List<ConnectorAccount>> RemoveAccountAsync(
+        string project, string service, string accountId, CancellationToken ct = default)
+    {
+        return await _http.DeleteAsync<List<ConnectorAccount>>(
+            $"/api/v1/private/projects/{Uri.EscapeDataString(project)}/connectors/{Uri.EscapeDataString(service)}/accounts/{Uri.EscapeDataString(accountId)}",
+            ct: ct).ConfigureAwait(false);
+    }
+
     /// <summary>
     /// Start a database connectivity probe from the user's own runner, at project scope.
     /// </summary>

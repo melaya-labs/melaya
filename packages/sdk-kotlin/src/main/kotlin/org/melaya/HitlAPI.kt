@@ -12,7 +12,7 @@ import org.json.JSONObject
  *   - `POST /api/v1/private/hitl/approvals/:id/reject`           — reject a request
  *   - `POST /api/v1/private/hitl/approvals/bulk`                 — bulk approve/reject
  *   - `GET  /api/v1/private/hitl/runs/:runId/tool-stats`         — tool stats for a run
- *   - `GET  /api/v1/private/hitl/runs/:runId/messages`           — paginated run messages
+ *   - `GET  /api/v1/private/runs/:runId/messages`           — paginated run messages
  *   - `GET  /api/v1/private/hitl/runs/:runId/tool-stats/by-agent`— stats by agent
  *   - `GET  /api/v1/private/hitl/runs/:runId/tool-calls`         — all tool calls for a run
  *   - `GET  /api/v1/private/projects/:project/tool-calls`        — project tool-call audit ledger
@@ -123,7 +123,7 @@ class HitlAPI internal constructor(private val http: HttpClient) {
             if (limit != null)  put("limit",  limit)
             if (cursor != null) put("cursor", cursor)
         }
-        val r = http.get("/api/v1/private/hitl/runs/${enc(runId)}/messages", query)
+        val r = http.get("/api/v1/private/runs/${enc(runId)}/messages", query)
         return when (r) {
             is org.json.JSONArray -> r.toJsonObjects()
             is JSONObject -> r.optJSONArray("messages")?.toJsonObjects() ?: emptyList()
@@ -210,5 +210,5 @@ class HitlAPI internal constructor(private val http: HttpClient) {
         return http.get("/api/v1/private/runs/${enc(runId)}/tool-calls/${enc(spanId)}").asObject()
     }
 
-    private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8")
+    private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8").replace("+", "%20") // path segment: space is %20, never +
 }

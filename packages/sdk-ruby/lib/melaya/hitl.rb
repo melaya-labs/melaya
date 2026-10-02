@@ -86,12 +86,12 @@ module Melaya
       @http.get("/api/v1/private/hitl/runs/#{enc(run_id)}/tool-stats/by-agent")
     end
 
-    # GET /api/v1/private/hitl/runs/:runId/messages
+    # GET /api/v1/private/runs/:runId/messages
     # Get paginated messages for a pipeline run.
     # @param limit [Integer, nil]
     # @param cursor [String, nil]
     def run_messages(run_id, limit: nil, cursor: nil)
-      @http.get("/api/v1/private/hitl/runs/#{enc(run_id)}/messages",
+      @http.get("/api/v1/private/runs/#{enc(run_id)}/messages",
         compact("limit" => limit, "cursor" => cursor))
     end
 
@@ -104,7 +104,7 @@ module Melaya
     private
 
     def enc(s)
-      URI.encode_www_form_component(s.to_s)
+      URI.encode_www_form_component(s.to_s).gsub("+", "%20") # path segment: space is %20, never +
     end
 
     def compact(hash)

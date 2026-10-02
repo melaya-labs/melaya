@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 use crate::client::HttpClient;
 use crate::error::Result;
+use crate::pipelines::encode_segment;
 
 /// HITL (Human-in-the-Loop) API — list, approve, and reject pending tool-call approvals.
 #[derive(Clone)]
@@ -105,8 +106,9 @@ impl HitlAPI {
         let mut q: HashMap<&str, Option<String>> = HashMap::new();
         q.insert("limit", limit.map(|v| v.to_string()));
         q.insert("cursor", cursor.map(str::to_owned));
+        let enc_run = encode_segment(run_id);
         self.http
-            .get(&format!("/api/v1/private/hitl/runs/{run_id}/messages"), &q)
+            .get(&format!("/api/v1/private/runs/{enc_run}/messages"), &q)
             .await
     }
 

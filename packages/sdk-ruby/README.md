@@ -167,6 +167,49 @@ dry = melaya.agents.triggers.poll_test(id)             # what it found and would
 puts dry["ok"] ? "#{dry["found"]} found, #{dry["wouldPublish"]} new" : dry["error"]
 ```
 
+### Quick start: several accounts per connector
+
+Field-based connectors can hold several accounts (two mailboxes, two shops).
+Agents use the default account unless a tool call names another one. Only
+labels and ids come back, never credential values.
+
+```ruby
+# Personal connector
+melaya.credentials.accounts("shopify")   # [{ "id", "label", "isDefault", "createdAt" }, ...]
+melaya.credentials.add_account("shopify",
+  label: "Shop EU", fields: { "SHOPIFY_STORE" => "eu-shop", "SHOPIFY_TOKEN" => "..." },
+  make_default: false)                    # the connection is tested first
+melaya.credentials.set_default_account("shopify", "a1b2c3")
+
+# Project connector (owner only for writes)
+melaya.connectors.accounts("support", "shopify")
+melaya.connectors.add_account("support", "shopify", label: "Shop US", fields: { "SHOPIFY_STORE" => "us-shop", "SHOPIFY_TOKEN" => "..." })
+melaya.connectors.set_default_account("support", "shopify", "a1b2c3")
+```
+
+### Quick start: rotate the platform API key
+
+`rotate_api_key` replaces the current key at once and returns the new one a
+single time. If you call it with the key this client uses, every later call of
+this client fails until you build a new client with the returned key.
+
+```ruby
+new_key = melaya.account.rotate_api_key["apiKey"]   # store it now: shown once
+melaya = Melaya::Client.new(api_key: new_key)
+melaya.account.api_key_usage
+```
+
+### Quick start: declare run inputs and test retrieval
+
+```ruby
+melaya.pipelines.set_inputs("mobile-review", project: "Operations", inputs: [
+  { "key" => "topic", "label" => "Topic", "type" => "text", "required" => true }
+])
+
+# Sample query against the pipeline's retrieval store: the passages agents would get
+hits = melaya.pipelines.test_retrieve("mobile-review", query: "refund policy", limit: 5)
+```
+
 ## Trading quick start (preview)
 
 ```ruby
@@ -286,12 +329,12 @@ Public market-data and account/strategy reads work with the `mk_` key alone. **L
 | Auth | `auth.login`, `verify_mfa`, `register`, `verify_signup`, `resend_verification`, `me`, `check`, `change_password`, `forgot_password`, `reset_password`, `mobile_handoff`, `permissions`, `refresh` |
 | MFA | `auth.mfa_status`, `mfa_setup`, `mfa_confirm` (also via `melaya.platform.mfa`) |
 | Projects | `projects.list`, `create`, `rename`, `runner_projects` |
-| Connectors | `connectors.connected_services`, `set`, `delete`, `env_handle`, `google_oauth_start`, `apply_personal`, `shared_by`, `google_status`, `google_set_default`, `google_disconnect`, `db_test_start`, `db_test_status` |
+| Connectors | `connectors.connected_services`, `set`, `delete`, `env_handle`, `google_oauth_start`, `apply_personal`, `shared_by`, `google_status`, `google_set_default`, `google_disconnect`, `db_test_start`, `db_test_status`, `accounts`, `add_account`, `set_default_account`, `rename_account`, `remove_account` |
 | Connector Tools | `connector_tools.services`, `search`, `describe`, `test`, `connect`, `call`, `call_status`, `call_and_wait` |
 | Triggers | `triggers.list`, `get`, `deliveries`, `stats`, `pending_approvals`, `test`, `events`, `poll_status`, `poll_test`, `poll_now`, `poll_sync`, `presets`, `limits`, `sources` |
-| Credentials | `credentials.list`, `connected_services`, `get`, `set`, `delete`, `test`, `list_models`, `google_status`, `google_set_default`, `google_disconnect`, `db_test_start`, `db_test_status`, `telegram_qr_start`, `telegram_qr_poll`, `whatsapp_signup_config`, `whatsapp_signup_exchange`, `tiktok_creator_info`, `substack_email_link_send`, `substack_email_link_redeem`, plus operator-profile, OAuth, and RAG helpers |
-| Pipelines | `pipelines.create`, `get`, `update`, `delete_pipeline`, `list_pipelines`, `run`, `upload_run_file`, `run_inputs`, `run_input_file`, `run_active`, `run_ids`, `run_status`, `cancel_run`, `outputs`, `output`, `preview_code`, `tools`, `subagents`, `instantiate_template`, `build_with_ai` |
-| Pipeline docs & RAG | `pipelines.list_docs`, `upload_doc`, `delete_doc`, `upload_retrieval_doc`, `ingest_retrieval`, `delete_retrieval_doc` |
+| Credentials | `credentials.list`, `connected_services`, `get`, `set`, `delete`, `test`, `list_models`, `google_status`, `google_set_default`, `google_disconnect`, `accounts`, `add_account`, `set_default_account`, `identify_account`, `rename_account`, `remove_account`, `db_test_start`, `db_test_status`, `telegram_qr_start`, `telegram_qr_poll`, `whatsapp_signup_config`, `whatsapp_signup_exchange`, `tiktok_creator_info`, `substack_email_link_send`, `substack_email_link_redeem`, plus operator-profile, OAuth, and RAG helpers |
+| Pipelines | `pipelines.create`, `get`, `update`, `delete_pipeline`, `list_pipelines`, `run`, `set_inputs`, `upload_run_file`, `run_inputs`, `run_input_file`, `run_active`, `run_ids`, `run_status`, `cancel_run`, `outputs`, `output`, `preview_code`, `tools`, `subagents`, `instantiate_template`, `build_with_ai` |
+| Pipeline docs & RAG | `pipelines.list_docs`, `upload_doc`, `delete_doc`, `upload_retrieval_doc`, `ingest_retrieval`, `delete_retrieval_doc`, `docs_preview`, `retrieval_preview`, `test_retrieve` |
 | Runs & traces | `pipelines.list`, `recent`, `count`, `traces`, `trace`, `trace_stats`, `delete_traces` |
 | Tool-call audit | `pipelines.project_tool_calls`, `project_tool_call_facets`, `tool_call_detail` |
 | Schedules | `pipelines.list_schedules`, `get_schedule`, `upsert_schedule`, `pause_schedule`, `resume_schedule` |
@@ -318,7 +361,7 @@ Every area is also reachable through the domain namespaces: `melaya.agents.*` (p
 | Market data | `market.ticker`, `orderbook`, `ohlcv`, `ohlcv_multi`, `trades`, `markets`, `currencies`, `market_constraints`, `status`, `time` |
 | Batch / derivatives | `market.tickers`, `funding_rates`, `funding_rate_history`, `funding_rate_history_multi`, `open_interest`, `open_interest_history`, `open_interest_history_multi`, `instruments`, `liquidation_events` |
 | Prediction markets | `market.prediction_markets` (polymarket, kalshi, drift_pm, sxbet, azuro, overtime) |
-| Account | `account.keys`, `usage`, `api_key_status` |
+| Account | `account.keys`, `usage`, `api_key_status`, `rotate_api_key`, `revoke_api_key`, `api_key_usage` |
 | Strategies | `strategies.create`, `list`, `get`, `pause`, `resume`, `stop`, `delete`, `update_params`, `status`, `performance`, `executions`, `trades`, `logs` |
 | AI optimizer | `strategies.ai_opt_start`, `ai_opt_status`, `ai_opt_approve`, `ai_opt_stop`, `ai_opt_runs` |
 | Paper trading | `sim.balance`, `positions`, `open_orders`, `my_trades`, `create_order`, `cancel_order`, `list_accounts` |

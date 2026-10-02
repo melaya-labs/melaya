@@ -118,14 +118,14 @@ module Melaya
     # Get the status/progress of an optimization sweep run.
     # @param opt_run_id [String]
     def optimize_status(opt_run_id)
-      @http.get("/api/v1/private/backtest/optimize/#{URI.encode_www_form_component(opt_run_id.to_s)}/status")
+      @http.get("/api/v1/private/backtest/optimize/#{URI.encode_www_form_component(opt_run_id.to_s).gsub("+", "%20")}/status")
     end
 
     # POST /api/v1/private/backtest/optimize/:optRunId/cancel
     # Cancel an in-progress optimization sweep.
     # @param opt_run_id [String]
     def optimize_cancel(opt_run_id)
-      @http.post("/api/v1/private/backtest/optimize/#{URI.encode_www_form_component(opt_run_id.to_s)}/cancel")
+      @http.post("/api/v1/private/backtest/optimize/#{URI.encode_www_form_component(opt_run_id.to_s).gsub("+", "%20")}/cancel")
     end
 
     # POST /api/v1/private/backtest/optimize/:optRunId/apply
@@ -133,7 +133,7 @@ module Melaya
     # @param opt_run_id [String]
     # @param body [Hash]
     def optimize_apply(opt_run_id, body = {})
-      @http.post("/api/v1/private/backtest/optimize/#{URI.encode_www_form_component(opt_run_id.to_s)}/apply", body)
+      @http.post("/api/v1/private/backtest/optimize/#{URI.encode_www_form_component(opt_run_id.to_s).gsub("+", "%20")}/apply", body)
     end
   end
 end

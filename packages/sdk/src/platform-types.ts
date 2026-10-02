@@ -163,6 +163,19 @@ export interface Credential {
   [k: string]: unknown;
 }
 
+/**
+ * One account of a connector (several accounts per connector). Only the label
+ * and id are ever returned, never credential values. `id: "current"` is a
+ * single connection made before accounts existed (adopted on the first write).
+ */
+export interface ConnectorAccount {
+  id: string;
+  label: string;
+  /** The account agents use unless a tool call names another one. */
+  isDefault: boolean;
+  createdAt: string | null;
+}
+
 export interface ConnectedService {
   service: string;
   connected: boolean;

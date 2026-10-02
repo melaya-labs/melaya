@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 use crate::client::HttpClient;
 use crate::error::Result;
+use crate::pipelines::encode_segment;
 
 /// Credentials API — store, retrieve, test, and delete secrets and third-party
 /// service connections at user scope.
@@ -325,6 +326,116 @@ impl CredentialsAPI {
             .await
     }
 
+    // ── Several accounts per connector (personal scope) ──────────────────────
+    //
+    // Field-based connectors can hold several accounts (two mailboxes, two
+    // shops). Agents use the DEFAULT account unless a tool call names another
+    // one. Only labels and ids ever come back, never credential values.
+    //
+    // Every method returns the connector's account list: an array of
+    // `{ id, label, isDefault, createdAt }` (`createdAt` may be `null`).
+    // `id: "current"` is a single connection made before accounts existed
+    // (adopted as the first account on the first write).
+
+    /// Accounts connected to one connector.
+    ///
+    /// Returns an array of `{ id, label, isDefault, createdAt | null }`.
+    /// `isDefault` marks the account agents use unless a tool call names
+    /// another one. `id: "current"` is a single connection made before
+    /// accounts existed.
+    pub async fn accounts(&self, service: &str) -> Result<Value> {
+        let q = HashMap::new();
+        let enc_service = encode_segment(service);
+        self.http
+            .get(
+                &format!("/api/v1/private/credentials/{enc_service}/accounts"),
+                &q,
+            )
+            .await
+    }
+
+    /// Add another account to a field-based connector.
+    ///
+    /// `fields` is a JSON object of strings: the connector's credential fields
+    /// (same keys as [`set`](Self::set)); the connection is tested first.
+    /// `current_label` names the existing single connection when it is adopted
+    /// as the first account. `make_default` makes the new account the one
+    /// agents use. `None` values are omitted. Returns the updated list.
+    pub async fn add_account(
+        &self,
+        service: &str,
+        fields: &Value,
+        label: Option<&str>,
+        current_label: Option<&str>,
+        make_default: Option<bool>,
+    ) -> Result<Value> {
+        let body = account_body(fields, label, current_label, make_default);
+        let enc_service = encode_segment(service);
+        self.http
+            .post(
+                &format!("/api/v1/private/credentials/{enc_service}/accounts"),
+                &body,
+            )
+            .await
+    }
+
+    /// Choose which account the connector (and so every agent) uses.
+    /// Returns the updated list.
+    pub async fn set_default_account(&self, service: &str, account_id: &str) -> Result<Value> {
+        let enc_service = encode_segment(service);
+        self.http
+            .put(
+                &format!("/api/v1/private/credentials/{enc_service}/accounts/default"),
+                &json!({ "accountId": account_id }),
+            )
+            .await
+    }
+
+    /// Name an account after the identity its connector reports (runs the
+    /// connection test on it). Returns the updated list.
+    pub async fn identify_account(&self, service: &str, account_id: &str) -> Result<Value> {
+        let enc_service = encode_segment(service);
+        let enc_account = encode_segment(account_id);
+        self.http
+            .post(
+                &format!(
+                    "/api/v1/private/credentials/{enc_service}/accounts/{enc_account}/identify"
+                ),
+                &json!({}),
+            )
+            .await
+    }
+
+    /// Rename one account (max 80 chars). Returns the updated list.
+    pub async fn rename_account(
+        &self,
+        service: &str,
+        account_id: &str,
+        label: &str,
+    ) -> Result<Value> {
+        let enc_service = encode_segment(service);
+        let enc_account = encode_segment(account_id);
+        self.http
+            .put(
+                &format!("/api/v1/private/credentials/{enc_service}/accounts/{enc_account}"),
+                &json!({ "label": label }),
+            )
+            .await
+    }
+
+    /// Remove one account from a connector. Returns the remaining list.
+    pub async fn remove_account(&self, service: &str, account_id: &str) -> Result<Value> {
+        let q = HashMap::new();
+        let enc_service = encode_segment(service);
+        let enc_account = encode_segment(account_id);
+        self.http
+            .delete(
+                &format!("/api/v1/private/credentials/{enc_service}/accounts/{enc_account}"),
+                &q,
+            )
+            .await
+    }
+
     // ── Database connector test ───────────────────────────────────────────────
 
     /// Test a database connector from the user's own runner (reaches
@@ -450,4 +561,25 @@ impl CredentialsAPI {
             )
             .await
     }
+}
+
+/// JSON body for adding a connector account (personal or project scope):
+/// `{ label?, fields, currentLabel?, makeDefault? }`, `None` values omitted.
+pub(crate) fn account_body(
+    fields: &Value,
+    label: Option<&str>,
+    current_label: Option<&str>,
+    make_default: Option<bool>,
+) -> Value {
+    let mut body = json!({ "fields": fields });
+    if let Some(l) = label {
+        body["label"] = json!(l);
+    }
+    if let Some(c) = current_label {
+        body["currentLabel"] = json!(c);
+    }
+    if let Some(d) = make_default {
+        body["makeDefault"] = json!(d);
+    }
+    body
 }

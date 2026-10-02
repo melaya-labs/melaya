@@ -388,6 +388,80 @@ func (c *CredentialsAPI) GetLumaRegistrationSchema(ctx context.Context) (map[str
 	return v, nil
 }
 
+// ── Several accounts per connector (personal scope) ──────────────────────────
+// Field-based connectors can hold several accounts (two mailboxes, two shops).
+// Agents use the DEFAULT account unless a tool call names another one. Only
+// labels and ids ever come back, never credential values.
+
+func credentialAccountsPath(service string) string {
+	return "/api/v1/private/credentials/" + url.PathEscape(service) + "/accounts"
+}
+
+func decodeConnectorAccounts(data []byte, err error) ([]ConnectorAccount, error) {
+	if err != nil {
+		return nil, err
+	}
+	var v []ConnectorAccount
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// Accounts lists the accounts connected to one connector. An account with
+// ID "current" is a single connection made before accounts existed.
+//
+// GET /api/v1/private/credentials/{service}/accounts
+func (c *CredentialsAPI) Accounts(ctx context.Context, service string) ([]ConnectorAccount, error) {
+	return decodeConnectorAccounts(c.h.get(ctx, credentialAccountsPath(service), nil))
+}
+
+// AddAccount adds another account to a field-based connector. in.Fields are
+// the connector's credential fields (same keys as Set); the connection is
+// tested first. in.CurrentLabel names the existing single connection when it
+// is adopted as the first account. Returns the updated list.
+//
+// POST /api/v1/private/credentials/{service}/accounts
+func (c *CredentialsAPI) AddAccount(ctx context.Context, service string, in AddConnectorAccountInput) ([]ConnectorAccount, error) {
+	if in.Fields == nil {
+		in.Fields = map[string]string{}
+	}
+	return decodeConnectorAccounts(c.h.post(ctx, credentialAccountsPath(service), in))
+}
+
+// SetDefaultAccount chooses which account the connector (and so every agent)
+// uses. Returns the updated list.
+//
+// PUT /api/v1/private/credentials/{service}/accounts/default
+func (c *CredentialsAPI) SetDefaultAccount(ctx context.Context, service, accountID string) ([]ConnectorAccount, error) {
+	return decodeConnectorAccounts(c.h.put(ctx, credentialAccountsPath(service)+"/default", map[string]string{"accountId": accountID}))
+}
+
+// IdentifyAccount names an account after the identity its connector reports
+// (runs the connection test on it). Returns the updated list.
+//
+// POST /api/v1/private/credentials/{service}/accounts/{accountId}/identify
+func (c *CredentialsAPI) IdentifyAccount(ctx context.Context, service, accountID string) ([]ConnectorAccount, error) {
+	path := credentialAccountsPath(service) + "/" + url.PathEscape(accountID) + "/identify"
+	return decodeConnectorAccounts(c.h.post(ctx, path, map[string]interface{}{}))
+}
+
+// RenameAccount renames one account (max 80 chars). Returns the updated list.
+//
+// PUT /api/v1/private/credentials/{service}/accounts/{accountId}
+func (c *CredentialsAPI) RenameAccount(ctx context.Context, service, accountID, label string) ([]ConnectorAccount, error) {
+	path := credentialAccountsPath(service) + "/" + url.PathEscape(accountID)
+	return decodeConnectorAccounts(c.h.put(ctx, path, map[string]string{"label": label}))
+}
+
+// RemoveAccount removes one account from a connector. Returns the remaining list.
+//
+// DELETE /api/v1/private/credentials/{service}/accounts/{accountId}
+func (c *CredentialsAPI) RemoveAccount(ctx context.Context, service, accountID string) ([]ConnectorAccount, error) {
+	path := credentialAccountsPath(service) + "/" + url.PathEscape(accountID)
+	return decodeConnectorAccounts(c.h.del(ctx, path, nil))
+}
+
 // ── Google OAuth ──────────────────────────────────────────────────────────────
 
 // GoogleOAuthStart starts a Google OAuth flow for credential storage.

@@ -121,6 +121,43 @@ m.agents.connector_tools.call("slack_post_message", {"channel": "#eng", "text": 
 
 Flat alias: `m.connector_tools` (same instance as `m.agents.connector_tools`).
 
+## Connector accounts, API key, run inputs, retrieval
+
+A field-based connector can hold several accounts (two mailboxes, two shops).
+Agents use the **default** account unless a tool call names another one. Only
+labels and ids come back, never credential values.
+
+```python
+from melaya import Melaya
+
+m = Melaya(api_key="mk_...")
+
+# Personal connector accounts
+m.platform.credentials.accounts("zoho_mail")   # [{"id", "label", "isDefault", "createdAt"}]
+accounts = m.platform.credentials.add_account(
+    "zoho_mail", label="Support", fields={"api_key": "..."}, make_default=False,
+)  # the connection is tested first; returns the updated list
+m.platform.credentials.set_default_account("zoho_mail", accounts[-1]["id"])
+
+# Project connector accounts (writes: project owner)
+m.platform.connectors.accounts("Operations", "zoho_mail")
+m.platform.connectors.add_account("Operations", "zoho_mail", label="Ops", fields={"api_key": "..."})
+
+# Rotate the platform API key. Careful: the old key stops working at once. If
+# this client uses it, every later call fails until you build a new client.
+new_key = m.account.rotate_api_key()["apiKey"]
+m = Melaya(api_key=new_key)
+
+# Replace only a pipeline's declared run inputs (the rest of the config is untouched)
+m.agents.pipelines.set_inputs("due-diligence", project="Operations", inputs=[
+    {"key": "company", "label": "Company", "type": "text", "required": True},
+    {"key": "deck", "label": "Pitch deck", "type": "file", "accept": ["pdf"]},
+])
+
+# See the passages agents would get from the pipeline's retrieval store (limit 1-20)
+m.agents.pipelines.test_retrieve("due-diligence", "revenue growth", limit=5)
+```
+
 ## Market data quick start (preview)
 
 ```python
@@ -211,10 +248,10 @@ Create an API key in the dashboard (**melaya.org → Settings → API Keys**). K
 | MFA | `mfa.status`, `setup`, `confirm` |
 | Accounts | `accounts.update_profile`, `credits`, `ai_credits`, `portfolio_ideas_credits`, `risk_monitoring_credits`, `export_my_data`, `remove_key`, `resend_email_verification`, `verify_email` |
 | Projects | `projects.list`, `create`, `rename`, `runner_projects` |
-| Connectors | `connectors.connected_services`, `set`, `delete`, `env_handle`, `google_oauth_start`, `apply_personal`, `shared_by`, `google_status`, `google_set_default`, `google_disconnect`, `db_test_start`, `db_test_status` |
+| Connectors | `connectors.connected_services`, `set`, `delete`, `env_handle`, `google_oauth_start`, `apply_personal`, `shared_by`, `accounts`, `add_account`, `set_default_account`, `rename_account`, `remove_account`, `google_status`, `google_set_default`, `google_disconnect`, `db_test_start`, `db_test_status` |
 | Connector Tools | `connector_tools.services`, `search`, `describe`, `test`, `connect`, `call`, `call_status`, `call_and_wait` |
-| Credentials | `credentials.list`, `connected_services`, `get`, `set`, `delete`, `test`, `list_models`, `rag_ingest_start`, `rag_ingest_status`, `rag_retrieve_start`, `rag_retrieve_status`, `google_status`, `google_set_default`, `google_disconnect`, `db_test_start`, `db_test_status`, `telegram_qr_start`, `telegram_qr_poll`, `whatsapp_signup_config`, `whatsapp_signup_exchange`, `tiktok_creator_info`, `substack_email_link_send`, `substack_email_link_redeem` |
-| Pipelines | `pipelines.create`, `list_pipelines`, `get`, `update`, `remove`, `run`, `run_status`, `run_ids`, `run_inputs`, `run_input_file`, `run_active`, `upload_run_file`, `cancel_run`, `outputs`, `output`, `list`, `recent`, `traces`, `trace`, `trace_stats`, `delete_traces`, `tools`, `subagents`, `preview_code`, `build_with_ai`, `instantiate_template`, `list_schedules`, `get_schedule`, `upsert_schedule`, `pause_schedule`, `resume_schedule`, `list_docs`, `upload_doc`, `delete_doc`, `upload_retrieval_doc`, `ingest_retrieval`, `delete_retrieval_doc`, `project_tool_calls`, `project_tool_call_facets`, `tool_call_detail` |
+| Credentials | `credentials.list`, `connected_services`, `get`, `set`, `delete`, `test`, `list_models`, `rag_ingest_start`, `rag_ingest_status`, `rag_retrieve_start`, `rag_retrieve_status`, `accounts`, `add_account`, `set_default_account`, `identify_account`, `rename_account`, `remove_account`, `google_status`, `google_set_default`, `google_disconnect`, `db_test_start`, `db_test_status`, `telegram_qr_start`, `telegram_qr_poll`, `whatsapp_signup_config`, `whatsapp_signup_exchange`, `tiktok_creator_info`, `substack_email_link_send`, `substack_email_link_redeem` |
+| Pipelines | `pipelines.create`, `list_pipelines`, `get`, `update`, `remove`, `run`, `run_status`, `run_ids`, `set_inputs`, `run_inputs`, `run_input_file`, `run_active`, `upload_run_file`, `cancel_run`, `outputs`, `output`, `list`, `recent`, `traces`, `trace`, `trace_stats`, `delete_traces`, `tools`, `subagents`, `preview_code`, `build_with_ai`, `instantiate_template`, `list_schedules`, `get_schedule`, `upsert_schedule`, `pause_schedule`, `resume_schedule`, `list_docs`, `upload_doc`, `delete_doc`, `upload_retrieval_doc`, `ingest_retrieval`, `delete_retrieval_doc`, `docs_preview`, `retrieval_preview`, `test_retrieve`, `project_tool_calls`, `project_tool_call_facets`, `tool_call_detail` |
 | Templates | `templates.list`, `list_global`, `list_validated`, `save`, `update`, `duplicate`, `delete`, `share`, `list_assignments`, `assign` / `unassign` (exactly one of `user_id` or `project_id`), `share_targets` |
 | Phone (Device Control) | `phone.pair`, `list_devices`, `revoke_device`, `screen_tree`, `list_apps`, `set_allowed_apps`, `register_active_run`, `grant_app`, `request_cast` |
 | HITL | `hitl.pending`, `history`, `approve`, `reject`, `bulk_decide`, `run_messages`, `run_tool_calls`, `run_tool_stats`, `run_tool_stats_by_agent` |
@@ -236,7 +273,7 @@ Create an API key in the dashboard (**melaya.org → Settings → API Keys**). K
 | Market data | `market.ticker`, `orderbook`, `ohlcv`, `ohlcv_multi`, `trades`, `markets`, `currencies`, `market_constraints`, `status`, `time` |
 | Batch / derivatives | `market.tickers`, `funding_rates`, `funding_rate_history`, `funding_rate_history_multi`, `open_interest`, `open_interest_history`, `open_interest_history_multi`, `instruments`, `liquidation_events` |
 | Prediction markets | `market.prediction_markets` (polymarket, kalshi, drift_pm, sxbet, azuro, overtime) |
-| Account | `account.keys`, `usage`, `api_key_status` |
+| Account | `account.keys`, `usage`, `usage_summary`, `api_key_status`, `rotate_api_key`, `revoke_api_key`, `api_key_usage` |
 | Strategies | `strategies.create`, `list`, `get`, `pause`, `resume`, `stop`, `delete`, `update_params`, `status`, `performance`, `executions`, `trades`, `logs` |
 | AI optimizer | `strategies.ai_opt_start`, `ai_opt_status`, `ai_opt_approve`, `ai_opt_stop`, `ai_opt_runs` |
 | Paper trading | `sim.balance`, `positions`, `open_orders`, `my_trades`, `create_order`, `cancel_order`, `list_accounts` |

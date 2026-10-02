@@ -437,6 +437,26 @@ class PipelinesAPI:
             content_type=content_type,
         )
 
+    def set_inputs(self, name: str, *, project: str, inputs: List[Dict[str, Any]]) -> JsonDict:
+        """Replace ONLY the pipeline's declared run inputs (``config.inputs``).
+
+        The rest of the config is not touched. Max 30 declarations; an empty
+        list removes them all. Editor or owner only. Raises on HTTP 422
+        ``run_inputs_invalid: <reason>`` for a bad declaration. Keep keys
+        stable: ``{{inputs.<key>}}`` placeholders in instructions use them.
+
+        Each declaration: ``key`` (lower snake case, max 40, ``brief`` is
+        reserved), ``label``, ``type`` (``text``, ``long_text``, ``number``,
+        ``boolean``, ``choice``, ``url``, ``email``, ``file``, ``files``),
+        ``required``, ``default`` (not for files), ``options`` (``choice``),
+        ``accept`` (files: ``pdf``, ``office``, ``spreadsheet``, ``image``,
+        ``text``), ``description``.
+
+        Returns ``{"name": ..., "inputs": [...]}``: the normalized declaration.
+        """
+        body: Dict[str, Any] = {"inputs": inputs, "project": project}
+        return self._request("PUT", f"/api/v1/private/pipelines/{quote(name, safe='')}/inputs", json=body)
+
     def run_inputs(self, name: str, run_id: str) -> JsonDict:
         """Get the brief/values/files a run was submitted with.
 
@@ -635,6 +655,49 @@ class PipelinesAPI:
         return self._request(
             "DELETE",
             f"/api/v1/private/pipelines/{quote(name, safe='')}/docs/retrieval/{quote(filename, safe='')}",
+        )
+
+    def docs_preview(
+        self,
+        name: str,
+        *,
+        model_name: Optional[str] = None,
+        model_provider: Optional[str] = None,
+    ) -> JsonDict:
+        """Per-document extraction stats of the static-context documents.
+
+        Shows the characters kept per file, with caps for the model the agents
+        use. Pass the model to see what fits its context window.
+        """
+        params: Dict[str, Any] = {}
+        if model_name is not None:
+            params["model_name"] = model_name
+        if model_provider is not None:
+            params["model_provider"] = model_provider
+        return self._request(
+            "GET",
+            f"/api/v1/private/pipelines/{quote(name, safe='')}/docs/preview",
+            params=params if params else None,
+        )
+
+    def retrieval_preview(self, name: str) -> JsonDict:
+        """Stats of the pipeline's retrieval store (documents, chunks, embedder)."""
+        return self._request("GET", f"/api/v1/private/pipelines/{quote(name, safe='')}/docs/retrieval/preview")
+
+    def test_retrieve(self, name: str, query: str, *, limit: Optional[int] = None) -> JsonDict:
+        """Run a sample query against the pipeline's retrieval store.
+
+        Returns the passages agents would get. ``limit`` is 1-20 (server default
+        5). Needs an embedder configured; a store built with another embedder
+        answers 409 (re-ingest it).
+        """
+        body: Dict[str, Any] = {"query": query}
+        if limit is not None:
+            body["limit"] = limit
+        return self._request(
+            "POST",
+            f"/api/v1/private/pipelines/{quote(name, safe='')}/docs/retrieval/test_retrieve",
+            json=body,
         )
 
     # ── Tool-call audit ─────────────────────────────────────────────────────────

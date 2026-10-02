@@ -149,6 +149,47 @@ melaya.agents.pipelines.deleteDoc("mobile-review", "policy.pdf")
 melaya.agents.pipelines.uploadRetrievalDoc("mobile-review", docBytes, filename = "manual.pdf")
 melaya.agents.pipelines.ingestRetrieval("mobile-review")
 melaya.agents.pipelines.deleteRetrievalDoc("mobile-review", "manual.pdf")
+
+// Check what agents would get: a sample query against the retrieval store (limit 1-20).
+val hits = melaya.agents.pipelines.testRetrieve("mobile-review", "refund policy", limit = 3)
+
+// Declare the run inputs a pipeline asks for (replaces config.inputs only; max 30).
+melaya.agents.pipelines.setInputs(
+    "mobile-review", project = "Operations",
+    inputs = listOf(mapOf("key" to "company", "label" to "Company", "type" to "text", "required" to true)),
+)
+```
+
+### Several accounts per connector
+
+A field-based connector can hold several accounts (two mailboxes, two shops). Agents use the
+default account unless a tool call names another one. Only labels and ids come back, never
+credential values. The account calls return the updated list.
+
+```kotlin
+// Personal connectors.
+val accounts = melaya.credentials.accounts("shopify")   // [{id, label, isDefault, createdAt}]
+melaya.credentials.addAccount(
+    "shopify", fields = mapOf("api_key" to "…"), label = "EU shop", makeDefault = true,
+)
+melaya.credentials.setDefaultAccount("shopify", accounts[0].getString("id"))
+
+// Project connectors (writes are owner only).
+val shared = melaya.connectors.addAccount("my-project", "shopify", fields = mapOf("api_key" to "…"), label = "US shop")
+melaya.connectors.setDefaultAccount("my-project", "shopify", shared.last().getString("id"))
+melaya.connectors.accounts("my-project", "shopify")
+```
+
+### Rotate the platform API key
+
+`rotateApiKey()` replaces the current key at once and returns the new one a single time.
+If this client was built with the key you rotate, every later call fails until you build a
+new client with the returned key. `revokeApiKey()` stops this client the same way.
+
+```kotlin
+val newKey = melaya.account.rotateApiKey().getString("apiKey")
+val fresh  = Melaya(apiKey = newKey)    // the old client no longer works
+println(fresh.account.apiKeyUsage())
 ```
 
 ### Call a connector tool directly
@@ -316,11 +357,11 @@ Public market-data and account/strategy reads work with the key alone.  **Live**
 | Auth | `auth.me`, `login`, `register`, `refresh`, `check`, `permissions`, `changePassword`, `forgotPassword`, `resetPassword`, `verifyMfa`, `verifySignup`, `resendVerification`, `createMobileHandoff` |
 | MFA | `mfa.status`, `setup`, `confirmSetup` |
 | Projects | `projects.list`, `create`, `rename`, `runnerProjects` |
-| Connectors | `connectors.set`, `delete`, `connectedServices`, `envHandle`, `googleOAuthStart`, `applyPersonal`, `sharedBy`, `googleStatus`, `googleSetDefault`, `googleDisconnect`, `dbTestStart`, `dbTestStatus` |
+| Connectors | `connectors.set`, `delete`, `connectedServices`, `envHandle`, `googleOAuthStart`, `applyPersonal`, `sharedBy`, `accounts`, `addAccount`, `setDefaultAccount`, `renameAccount`, `removeAccount`, `googleStatus`, `googleSetDefault`, `googleDisconnect`, `dbTestStart`, `dbTestStatus` |
 | Connector Tools | `connectorTools.services`, `search`, `describe`, `test`, `connect`, `call`, `callStatus`, `callAndWait` |
 | Triggers | `triggers.list`, `get`, `deliveries`, `stats`, `pendingApprovals`, `test`, `events`, `pollStatus`, `pollTest`, `pollNow`, `pollSync`, `presets`, `limits`, `sources` (read and diagnose only; create, edit and delete stay in the Agent Builder and MCP) |
-| Credentials | `credentials.list`, `set`, `get`, `delete`, `test`, `connectedServices`, `listModels`, `googleStatus`, `googleSetDefault`, `googleDisconnect`, `dbTestStart`, `dbTestStatus`, `telegramQrStart`, `telegramQrPoll`, `whatsappSignupConfig`, `whatsappSignupExchange`, `tiktokCreatorInfo`, `substackEmailLinkSend`, `substackEmailLinkRedeem`, plus OAuth / RAG / operator-profile helpers |
-| Pipelines | `pipelines.create`, `listPipelines`, `get`, `update`, `delete`, `run`, `runIds`, `runStatus`, `cancelRun`, `runActive`, `uploadRunFile`, `runInputs`, `runInputFile`, `listDocs`, `uploadDoc`, `deleteDoc`, `uploadRetrievalDoc`, `ingestRetrieval`, `deleteRetrievalDoc`, `outputs`, `output`, `previewCode`, `tools`, `subagents`, `instantiateTemplate`, `buildWithAI`, `overview`, `list`, `recent`, `count`, `chartData`, `costBreakdown`, `modelPrices`, `traces`, `trace`, `traceStats`, `deleteTraces`, `listSchedules`, `getSchedule`, `upsertSchedule`, `pauseSchedule`, `resumeSchedule`, `serverVersion` |
+| Credentials | `credentials.list`, `set`, `get`, `delete`, `test`, `connectedServices`, `listModels`, `accounts`, `addAccount`, `setDefaultAccount`, `identifyAccount`, `renameAccount`, `removeAccount`, `googleStatus`, `googleSetDefault`, `googleDisconnect`, `dbTestStart`, `dbTestStatus`, `telegramQrStart`, `telegramQrPoll`, `whatsappSignupConfig`, `whatsappSignupExchange`, `tiktokCreatorInfo`, `substackEmailLinkSend`, `substackEmailLinkRedeem`, plus OAuth / RAG / operator-profile helpers |
+| Pipelines | `pipelines.create`, `listPipelines`, `get`, `update`, `delete`, `run`, `runIds`, `runStatus`, `cancelRun`, `runActive`, `uploadRunFile`, `runInputs`, `runInputFile`, `listDocs`, `uploadDoc`, `deleteDoc`, `setInputs`, `docsPreview`, `uploadRetrievalDoc`, `ingestRetrieval`, `deleteRetrievalDoc`, `retrievalPreview`, `testRetrieve`, `outputs`, `output`, `previewCode`, `tools`, `subagents`, `instantiateTemplate`, `buildWithAI`, `overview`, `list`, `recent`, `count`, `chartData`, `costBreakdown`, `modelPrices`, `usageSummary`, `traces`, `trace`, `traceStats`, `deleteTraces`, `listSchedules`, `getSchedule`, `upsertSchedule`, `pauseSchedule`, `resumeSchedule`, `serverVersion` |
 | Templates | `templates.list`, `listGlobal`, `listValidated`, `save`, `update`, `duplicate`, `delete`, `share`, `listAssignments`, `assign(templateId, userId = … / projectId = …)`, `unassign(templateId, userId = … / projectId = …)`, `shareTargets` |
 | Phone (Device Control) | `phone.pair`, `listDevices`, `revokeDevice`, `screenTree`, `listApps`, `setAllowedApps`, `registerActiveRun`, `grantApp`, `requestCast` |
 | HITL | `hitl.pending`, `history`, `approve`, `reject`, `bulkDecide`, `runToolCalls`, `runToolStats`, `runToolStatsByAgent`, `runMessages`, `projectToolCalls`, `projectToolCallFacets`, `toolCallDetail` |
@@ -344,7 +385,7 @@ All modules are also grouped by plane: `melaya.agents.*` (pipelines, hitl, assis
 | Market data | `market.ticker`, `orderbook`, `ohlcv`, `ohlcvMulti`, `trades`, `markets`, `currencies`, `marketConstraints`, `status`, `time` |
 | Batch / derivatives | `market.tickers`, `fundingRates`, `fundingRateHistory`, `fundingRateHistoryMulti`, `openInterest`, `openInterestHistory`, `openInterestHistoryMulti`, `instruments`, `liquidationEvents` |
 | Prediction markets | `market.predictionMarkets` (polymarket, kalshi, drift_pm, sxbet, azuro, overtime) |
-| Account | `account.keys`, `usage`, `apiKeyStatus` |
+| Account | `account.keys`, `usage`, `apiKeyStatus`, `rotateApiKey`, `revokeApiKey`, `apiKeyUsage` |
 | Strategies | `strategies.create`, `list`, `get`, `pause`, `resume`, `stop`, `delete`, `updateParams`, `status`, `performance`, `executions`, `trades`, `logs` |
 | AI optimizer | `strategies.aiOptStart`, `aiOptStatus`, `aiOptApprove`, `aiOptStop`, `aiOptRuns` |
 | Paper trading | `sim.balance`, `positions`, `openOrders`, `myTrades`, `createOrder`, `cancelOrder`, `listAccounts` |

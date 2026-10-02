@@ -51,6 +51,12 @@ module Melaya
       @http.get("/api/v1/private/overview/pipeline-count")
     end
 
+    # GET /api/v1/private/overview/usage
+    # Dashboard usage summary (pipeline count, RAG usage, plan limits).
+    def usage_summary
+      @http.get("/api/v1/private/overview/usage")
+    end
+
     # GET /api/v1/private/overview/pipelines
     # Paginated list of pipeline runs.
     # @param project [String, nil]
@@ -354,6 +360,26 @@ module Melaya
       )
     end
 
+    # PUT /api/v1/private/pipelines/:name/inputs
+    # Replace ONLY the pipeline's declared run inputs (config.inputs), without
+    # touching the rest of the config. Max 30; an empty array removes them all.
+    # Editor or owner only; a bad declaration fails with HTTP 422
+    # "run_inputs_invalid: <reason>". Keep keys stable: {{inputs.<key>}}
+    # placeholders in agent instructions use them.
+    #
+    # Each declaration: key (lower snake case, max 40, "brief" reserved), label,
+    # type (text, long_text, number, boolean, choice, url, email, file, files),
+    # required, default (not for files), options (choice), accept (files: pdf,
+    # office, spreadsheet, image, text), description.
+    # @param name [String] pipeline name
+    # @param project [String] owning project
+    # @param inputs [Array<Hash>] the full list of declarations
+    # @return [Hash] {"name", "inputs"}: the normalized declaration stored
+    def set_inputs(name, project:, inputs:)
+      @http.put("/api/v1/private/pipelines/#{enc(name)}/inputs",
+                { "inputs" => Array(inputs), "project" => project })
+    end
+
     # GET /api/v1/private/pipelines/:name/runs/:runId/inputs
     # What a run was started with (brief, values, files echo).
     # @param name [String] pipeline name
@@ -539,6 +565,37 @@ module Melaya
       @http.delete("/api/v1/private/pipelines/#{enc(name)}/docs/retrieval/#{enc(filename)}")
     end
 
+    # GET /api/v1/private/pipelines/:name/docs/preview
+    # Per-document extraction stats of the static-context documents
+    # (characters kept per file), with caps for the model the agents use.
+    # Pass the model to see what fits its context window.
+    # @param name [String] pipeline name
+    # @param model_name [String, nil]
+    # @param model_provider [String, nil]
+    def docs_preview(name, model_name: nil, model_provider: nil)
+      @http.get("/api/v1/private/pipelines/#{enc(name)}/docs/preview",
+        compact("model_name" => model_name, "model_provider" => model_provider))
+    end
+
+    # GET /api/v1/private/pipelines/:name/docs/retrieval/preview
+    # Stats of the pipeline's retrieval store (documents, chunks, embedder).
+    # @param name [String] pipeline name
+    def retrieval_preview(name)
+      @http.get("/api/v1/private/pipelines/#{enc(name)}/docs/retrieval/preview")
+    end
+
+    # POST /api/v1/private/pipelines/:name/docs/retrieval/test_retrieve
+    # Run a sample query against the pipeline's retrieval store and see the
+    # passages agents would get. Needs an embedder configured; a store built
+    # with another embedder answers 409 (re-ingest).
+    # @param name [String] pipeline name
+    # @param query [String] sample query
+    # @param limit [Integer, nil] 1-20 (server default 5)
+    def test_retrieve(name, query:, limit: nil)
+      @http.post("/api/v1/private/pipelines/#{enc(name)}/docs/retrieval/test_retrieve",
+        compact("query" => query, "limit" => limit))
+    end
+
     # ── Misc ───────────────────────────────────────────────────────────────────
 
     # GET /api/v1/version (public)
@@ -550,7 +607,7 @@ module Melaya
     private
 
     def enc(s)
-      URI.encode_www_form_component(s.to_s)
+      URI.encode_www_form_component(s.to_s).gsub("+", "%20") # path segment: space is %20, never +
     end
 
     def compact(hash)

@@ -2,6 +2,25 @@
 
 All notable changes to the Melaya SDKs are documented here. This project follows [Semantic Versioning](https://semver.org).
 
+## [0.5.0] — Preview
+
+Connector accounts, declared run inputs and retrieval checks from code, a fixed run-messages call, and the platform API key lifecycle. Same surface in all 9 languages.
+
+### Added
+- **Several accounts per connector**: list, add (tested before it is saved), choose the default, rename and remove the accounts of a field-based connector (two mailboxes, two shops). Personal scope on `credentials` (`accounts`, `addAccount`, `setDefaultAccount`, `identifyAccount`, `renameAccount`, `removeAccount`) and project scope on `connectors` (same calls, owner only for writes). Agents use the default account unless a tool call names another one. Only labels and ids come back, never credential values.
+- **Declared run inputs**: `pipelines.setInputs` replaces only a pipeline's `config.inputs` (the named fields a run asks for), without touching the rest of the config. The same fields can now be edited in the app (Run with inputs, Fields).
+- **Document and retrieval checks**: `docsPreview` (per-document extraction stats for a given model), `retrievalPreview` (retrieval store stats) and `testRetrieve` (run a sample query and see the passages agents would get).
+- **Platform API key**: `rotateApiKey` (new key returned once, replaces the current one at once), `revokeApiKey` and `apiKeyUsage`, next to `apiKeyStatus`.
+- Kotlin, Ruby and Rust: `pipelines.usageSummary`, already in the other SDKs.
+
+### Fixed
+- Python, Go, Java, Kotlin, C#, PHP, Ruby and Rust: `hitl.runMessages` called `/api/v1/private/hitl/runs/{runId}/messages`, which does not exist, and always failed with 404. It now calls `/api/v1/private/runs/{runId}/messages`, like TypeScript.
+- Ruby, Java and Kotlin: a space in a path segment (a project, pipeline, connector or account name) was sent as `+`, which the server does not read as a space, so such names were not found. It is now sent as `%20`, like the other SDKs.
+- Python and Rust: `hitl.runMessages` now URL-encodes the run id.
+
+### Notes
+- Approving a connector-tool write stays a human action: the approval endpoint refuses API keys by design, so no SDK exposes it.
+
 ## [0.4.0] — Preview
 
 Event triggers become visible from code: every SDK can now read, diagnose and dry-run the triggers that start your pipelines, including the poll status and the live event log. Same surface in all 9 languages.

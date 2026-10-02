@@ -15,6 +15,7 @@ Example
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 from .platform_types import JsonDict
 
@@ -73,6 +74,63 @@ class ConnectorsAPI:
             body["googleCapabilities"] = google_capabilities
         return self._request(
             "POST", f"/api/v1/private/projects/{project}/connectors/{service}/apply-personal", json=body
+        )
+
+    # ── Several accounts per project connector (owner only for writes) ──────────
+
+    @staticmethod
+    def _accounts_path(project: str, service: str) -> str:
+        return f"/api/v1/private/projects/{quote(project, safe='')}/connectors/{quote(service, safe='')}/accounts"
+
+    def accounts(self, project: str, service: str) -> List[JsonDict]:
+        """List the accounts connected to one project connector (labels and ids only).
+
+        Each item is ``{"id", "label", "isDefault", "createdAt"}`` (``createdAt``
+        may be ``None``).
+        """
+        return self._request("GET", self._accounts_path(project, service))
+
+    def add_account(
+        self,
+        project: str,
+        service: str,
+        *,
+        fields: Dict[str, str],
+        label: Optional[str] = None,
+        current_label: Optional[str] = None,
+        make_default: Optional[bool] = None,
+    ) -> List[JsonDict]:
+        """Add another account to a project connector (owner; the connection is tested first).
+
+        Same body as ``m.credentials.add_account()``. Returns the updated list.
+        """
+        body: Dict[str, Any] = {"fields": fields}
+        if label is not None:
+            body["label"] = label
+        if current_label is not None:
+            body["currentLabel"] = current_label
+        if make_default is not None:
+            body["makeDefault"] = make_default
+        return self._request("POST", self._accounts_path(project, service), json=body)
+
+    def set_default_account(self, project: str, service: str, account_id: str) -> List[JsonDict]:
+        """Choose which account the project connector uses (owner). Returns the updated list."""
+        return self._request(
+            "PUT", f"{self._accounts_path(project, service)}/default", json={"accountId": account_id}
+        )
+
+    def rename_account(self, project: str, service: str, account_id: str, label: str) -> List[JsonDict]:
+        """Rename one account of a project connector (owner, max 80 chars)."""
+        return self._request(
+            "PUT",
+            f"{self._accounts_path(project, service)}/{quote(account_id, safe='')}",
+            json={"label": label},
+        )
+
+    def remove_account(self, project: str, service: str, account_id: str) -> List[JsonDict]:
+        """Remove one account from a project connector (owner). Returns the remaining list."""
+        return self._request(
+            "DELETE", f"{self._accounts_path(project, service)}/{quote(account_id, safe='')}"
         )
 
     def shared_by(self, project: str) -> List[JsonDict]:

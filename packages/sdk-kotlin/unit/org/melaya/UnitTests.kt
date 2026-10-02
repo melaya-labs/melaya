@@ -35,6 +35,13 @@ import java.nio.charset.StandardCharsets
  * Covers (SDK triggers addition):
  *   - path, method, query and body of every `triggers` call, and response decoding
  *   - a failed dry poll (`200 {ok:false}`) is returned as is; a 429 throttle still throws
+ *
+ * Covers (several accounts per connector, API key, pipeline previews):
+ *   - personal `credentials.accounts/addAccount/setDefaultAccount/identifyAccount/renameAccount/removeAccount`
+ *   - project `connectors.accounts/addAccount/setDefaultAccount/renameAccount/removeAccount`
+ *   - `account.rotateApiKey/revokeApiKey/apiKeyUsage`
+ *   - `pipelines.docsPreview/retrievalPreview/testRetrieve/setInputs/usageSummary`, `hitl.runMessages`
+ *   - method, exact raw path (a value with a space is URL-encoded), and JSON body / query
  */
 
 // ── Mock HTTP transport ─────────────────────────────────────────────────────
@@ -42,6 +49,8 @@ import java.nio.charset.StandardCharsets
 private data class CapturedRequest(
     val method: String,
     val path: String,
+    /** The path exactly as sent on the wire (percent/plus encoding kept). */
+    val rawPath: String,
     val query: String,
     val headers: Map<String, List<String>>,
     val body: ByteArray,
@@ -80,6 +89,7 @@ private class MockServer {
             val captured = CapturedRequest(
                 method = exchange.requestMethod,
                 path = exchange.requestURI.path,
+                rawPath = exchange.requestURI.rawPath,
                 query = exchange.requestURI.rawQuery ?: "",
                 headers = exchange.requestHeaders.toMap(),
                 body = bodyBytes,
@@ -573,6 +583,267 @@ private fun testTriggersExposed() {
     check("triggers: flat alias shares the namespace instance", client.triggers === client.agents.triggers)
 }
 
+// ── Several accounts per connector (personal) ───────────────────────────────
+
+// Values with a space: path segments are sent with the space as %20 (never +).
+private const val SVC = "my svc"
+private const val SVC_ENC = "my%20svc"
+private const val ACC = "acct 1"
+private const val ACC_ENC = "acct%201"
+private const val PRJ = "my proj"
+private const val PRJ_ENC = "my%20proj"
+private const val PIPE = "my pipe"
+private const val PIPE_ENC = "my%20pipe"
+
+private const val ACCOUNTS_JSON =
+    """[{"id":"a1","label":"Main","isDefault":true,"createdAt":"2026-10-01T00:00:00Z"},{"id":"current","label":"Old","isDefault":false,"createdAt":null}]"""
+
+private fun clientFor(server: MockServer) = Melaya(apiKey = "mk_test", baseUrl = server.baseUrl)
+
+private fun testCredentialsAccounts() = withServer { server ->
+    server.responseBody = ACCOUNTS_JSON
+    val list = clientFor(server).credentials.accounts(SVC)
+    val req = server.lastRequest!!
+    check("credentials.accounts: GET", req.method == "GET")
+    check("credentials.accounts: path", req.rawPath == "/api/v1/private/credentials/$SVC_ENC/accounts", req.rawPath)
+    check("credentials.accounts: decodes array", list.size == 2 && list[0].optBoolean("isDefault"))
+    check("credentials.accounts: createdAt null kept", list[1].isNull("createdAt"))
+}
+
+private fun testCredentialsAddAccount() = withServer { server ->
+    server.responseBody = ACCOUNTS_JSON
+    val list = clientFor(server).credentials.addAccount(
+        SVC, fields = mapOf("api_key" to "k-123"), label = "Shop B", currentLabel = "Shop A", makeDefault = true,
+    )
+    val req = server.lastRequest!!
+    check("credentials.addAccount: POST", req.method == "POST")
+    check("credentials.addAccount: path", req.rawPath == "/api/v1/private/credentials/$SVC_ENC/accounts", req.rawPath)
+    val body = JSONObject(req.bodyText())
+    check("credentials.addAccount: fields", body.getJSONObject("fields").optString("api_key") == "k-123")
+    check("credentials.addAccount: label", body.optString("label") == "Shop B")
+    check("credentials.addAccount: currentLabel", body.optString("currentLabel") == "Shop A")
+    check("credentials.addAccount: makeDefault", body.optBoolean("makeDefault"))
+    check("credentials.addAccount: decodes list", list.size == 2)
+
+    clientFor(server).credentials.addAccount(SVC, fields = mapOf("api_key" to "k"))
+    val minimal = JSONObject(server.lastRequest!!.bodyText())
+    check("credentials.addAccount: nulls omitted", minimal.keySet() == setOf("fields"), minimal.toString())
+}
+
+private fun testCredentialsSetDefaultAccount() = withServer { server ->
+    server.responseBody = ACCOUNTS_JSON
+    clientFor(server).credentials.setDefaultAccount(SVC, ACC)
+    val req = server.lastRequest!!
+    check("credentials.setDefaultAccount: PUT", req.method == "PUT")
+    check("credentials.setDefaultAccount: path", req.rawPath == "/api/v1/private/credentials/$SVC_ENC/accounts/default", req.rawPath)
+    check("credentials.setDefaultAccount: body", JSONObject(req.bodyText()).optString("accountId") == ACC)
+}
+
+private fun testCredentialsIdentifyAccount() = withServer { server ->
+    server.responseBody = ACCOUNTS_JSON
+    clientFor(server).credentials.identifyAccount(SVC, ACC)
+    val req = server.lastRequest!!
+    check("credentials.identifyAccount: POST", req.method == "POST")
+    check(
+        "credentials.identifyAccount: path",
+        req.rawPath == "/api/v1/private/credentials/$SVC_ENC/accounts/$ACC_ENC/identify", req.rawPath,
+    )
+    check("credentials.identifyAccount: empty body", JSONObject(req.bodyText()).length() == 0, req.bodyText())
+}
+
+private fun testCredentialsRenameAccount() = withServer { server ->
+    server.responseBody = ACCOUNTS_JSON
+    clientFor(server).credentials.renameAccount(SVC, ACC, "Support inbox")
+    val req = server.lastRequest!!
+    check("credentials.renameAccount: PUT", req.method == "PUT")
+    check("credentials.renameAccount: path", req.rawPath == "/api/v1/private/credentials/$SVC_ENC/accounts/$ACC_ENC", req.rawPath)
+    check("credentials.renameAccount: body", JSONObject(req.bodyText()).optString("label") == "Support inbox")
+}
+
+private fun testCredentialsRemoveAccount() = withServer { server ->
+    server.responseBody = """[{"id":"a1","label":"Main","isDefault":true,"createdAt":null}]"""
+    val list = clientFor(server).credentials.removeAccount(SVC, ACC)
+    val req = server.lastRequest!!
+    check("credentials.removeAccount: DELETE", req.method == "DELETE")
+    check("credentials.removeAccount: path", req.rawPath == "/api/v1/private/credentials/$SVC_ENC/accounts/$ACC_ENC", req.rawPath)
+    check("credentials.removeAccount: decodes remaining", list.size == 1)
+}
+
+// ── Several accounts per project connector ──────────────────────────────────
+
+private fun testConnectorsAccounts() = withServer { server ->
+    server.responseBody = ACCOUNTS_JSON
+    val list = clientFor(server).connectors.accounts(PRJ, SVC)
+    val req = server.lastRequest!!
+    check("connectors.accounts: GET", req.method == "GET")
+    check(
+        "connectors.accounts: path",
+        req.rawPath == "/api/v1/private/projects/$PRJ_ENC/connectors/$SVC_ENC/accounts", req.rawPath,
+    )
+    check("connectors.accounts: decodes array", list.size == 2 && list[1].optString("id") == "current")
+}
+
+private fun testConnectorsAddAccount() = withServer { server ->
+    server.responseBody = ACCOUNTS_JSON
+    clientFor(server).connectors.addAccount(PRJ, SVC, fields = mapOf("token" to "t-1"), label = "EU shop", makeDefault = false)
+    val req = server.lastRequest!!
+    check("connectors.addAccount: POST", req.method == "POST")
+    check(
+        "connectors.addAccount: path",
+        req.rawPath == "/api/v1/private/projects/$PRJ_ENC/connectors/$SVC_ENC/accounts", req.rawPath,
+    )
+    val body = JSONObject(req.bodyText())
+    check("connectors.addAccount: fields", body.getJSONObject("fields").optString("token") == "t-1")
+    check("connectors.addAccount: label", body.optString("label") == "EU shop")
+    check("connectors.addAccount: makeDefault false sent", body.has("makeDefault") && !body.getBoolean("makeDefault"))
+    check("connectors.addAccount: currentLabel omitted", !body.has("currentLabel"))
+}
+
+private fun testConnectorsSetDefaultAccount() = withServer { server ->
+    server.responseBody = ACCOUNTS_JSON
+    clientFor(server).connectors.setDefaultAccount(PRJ, SVC, ACC)
+    val req = server.lastRequest!!
+    check("connectors.setDefaultAccount: PUT", req.method == "PUT")
+    check(
+        "connectors.setDefaultAccount: path",
+        req.rawPath == "/api/v1/private/projects/$PRJ_ENC/connectors/$SVC_ENC/accounts/default", req.rawPath,
+    )
+    check("connectors.setDefaultAccount: body", JSONObject(req.bodyText()).optString("accountId") == ACC)
+}
+
+private fun testConnectorsRenameAccount() = withServer { server ->
+    server.responseBody = ACCOUNTS_JSON
+    clientFor(server).connectors.renameAccount(PRJ, SVC, ACC, "Billing")
+    val req = server.lastRequest!!
+    check("connectors.renameAccount: PUT", req.method == "PUT")
+    check(
+        "connectors.renameAccount: path",
+        req.rawPath == "/api/v1/private/projects/$PRJ_ENC/connectors/$SVC_ENC/accounts/$ACC_ENC", req.rawPath,
+    )
+    check("connectors.renameAccount: body", JSONObject(req.bodyText()).optString("label") == "Billing")
+}
+
+private fun testConnectorsRemoveAccount() = withServer { server ->
+    server.responseBody = "[]"
+    val list = clientFor(server).connectors.removeAccount(PRJ, SVC, ACC)
+    val req = server.lastRequest!!
+    check("connectors.removeAccount: DELETE", req.method == "DELETE")
+    check(
+        "connectors.removeAccount: path",
+        req.rawPath == "/api/v1/private/projects/$PRJ_ENC/connectors/$SVC_ENC/accounts/$ACC_ENC", req.rawPath,
+    )
+    check("connectors.removeAccount: empty list", list.isEmpty())
+}
+
+// ── Platform API key ─────────────────────────────────────────────────────────
+
+private fun testRotateApiKey() = withServer { server ->
+    server.responseBody = """{"apiKey":"mk_new_123"}"""
+    val result = clientFor(server).account.rotateApiKey()
+    val req = server.lastRequest!!
+    check("rotateApiKey: POST", req.method == "POST")
+    check("rotateApiKey: path", req.rawPath == "/api/v1/private/api-key", req.rawPath)
+    check("rotateApiKey: empty body", JSONObject(req.bodyText()).length() == 0, req.bodyText())
+    check("rotateApiKey: returns apiKey", result.optString("apiKey") == "mk_new_123")
+}
+
+private fun testRevokeApiKey() = withServer { server ->
+    server.responseBody = """{"ok":true}"""
+    val result = clientFor(server).account.revokeApiKey()
+    val req = server.lastRequest!!
+    check("revokeApiKey: DELETE", req.method == "DELETE")
+    check("revokeApiKey: path", req.rawPath == "/api/v1/private/api-key", req.rawPath)
+    check("revokeApiKey: returns ok", result.optBoolean("ok"))
+}
+
+private fun testApiKeyUsage() = withServer { server ->
+    server.responseBody = """{"requests":42}"""
+    val result = clientFor(server).account.apiKeyUsage()
+    val req = server.lastRequest!!
+    check("apiKeyUsage: GET", req.method == "GET")
+    check("apiKeyUsage: path", req.rawPath == "/api/v1/private/api-key/usage", req.rawPath)
+    check("apiKeyUsage: decodes", result.optInt("requests") == 42)
+}
+
+// ── Pipelines: previews, inputs, usage; run messages ────────────────────────
+
+private fun testDocsPreview() = withServer { server ->
+    server.responseBody = """{"files":[{"name":"a.md","chars":120}]}"""
+    val result = clientFor(server).pipelines.docsPreview(PIPE, modelName = "qwen 3.7", modelProvider = "qwen")
+    val req = server.lastRequest!!
+    check("docsPreview: GET", req.method == "GET")
+    check("docsPreview: path", req.rawPath == "/api/v1/private/pipelines/$PIPE_ENC/docs/preview", req.rawPath)
+    check("docsPreview: query model_name encoded", req.query.contains("model_name=qwen+3.7"), req.query)
+    check("docsPreview: query model_provider", req.query.contains("model_provider=qwen"), req.query)
+    check("docsPreview: decodes", result.getJSONArray("files").length() == 1)
+
+    clientFor(server).pipelines.docsPreview(PIPE)
+    check("docsPreview: no query when nulls", server.lastRequest!!.query.isEmpty(), server.lastRequest!!.query)
+}
+
+private fun testRetrievalPreview() = withServer { server ->
+    server.responseBody = """{"documents":3,"chunks":40}"""
+    val result = clientFor(server).pipelines.retrievalPreview(PIPE)
+    val req = server.lastRequest!!
+    check("retrievalPreview: GET", req.method == "GET")
+    check("retrievalPreview: path", req.rawPath == "/api/v1/private/pipelines/$PIPE_ENC/docs/retrieval/preview", req.rawPath)
+    check("retrievalPreview: decodes", result.optInt("chunks") == 40)
+}
+
+private fun testTestRetrieve() = withServer { server ->
+    server.responseBody = """{"passages":[{"text":"refund policy"}]}"""
+    val result = clientFor(server).pipelines.testRetrieve(PIPE, "refund policy", limit = 3)
+    val req = server.lastRequest!!
+    check("testRetrieve: POST", req.method == "POST")
+    check(
+        "testRetrieve: path",
+        req.rawPath == "/api/v1/private/pipelines/$PIPE_ENC/docs/retrieval/test_retrieve", req.rawPath,
+    )
+    val body = JSONObject(req.bodyText())
+    check("testRetrieve: body query", body.optString("query") == "refund policy")
+    check("testRetrieve: body limit", body.optInt("limit") == 3)
+    check("testRetrieve: decodes", result.getJSONArray("passages").length() == 1)
+
+    clientFor(server).pipelines.testRetrieve(PIPE, "q")
+    check("testRetrieve: limit omitted when null", !JSONObject(server.lastRequest!!.bodyText()).has("limit"))
+}
+
+private fun testSetInputs() = withServer { server ->
+    server.responseBody = """{"name":"my pipe","inputs":[{"key":"company","type":"text"}]}"""
+    val result = clientFor(server).pipelines.setInputs(
+        PIPE, project = "acme",
+        inputs = listOf(mapOf("key" to "company", "label" to "Company", "type" to "text", "required" to true)),
+    )
+    val req = server.lastRequest!!
+    check("setInputs: PUT", req.method == "PUT")
+    check("setInputs: path", req.rawPath == "/api/v1/private/pipelines/$PIPE_ENC/inputs", req.rawPath)
+    val body = JSONObject(req.bodyText())
+    check("setInputs: body project", body.optString("project") == "acme")
+    val decl = body.getJSONArray("inputs").getJSONObject(0)
+    check("setInputs: body inputs", decl.optString("key") == "company" && decl.optBoolean("required"))
+    check("setInputs: decodes", result.getJSONArray("inputs").length() == 1)
+}
+
+private fun testRunMessages() = withServer { server ->
+    server.responseBody = """{"messages":[{"role":"assistant","content":"hi"}]}"""
+    val list = clientFor(server).hitl.runMessages("run 1", limit = 20, cursor = "c 2")
+    val req = server.lastRequest!!
+    check("runMessages: GET", req.method == "GET")
+    check("runMessages: path (not /hitl/)", req.rawPath == "/api/v1/private/runs/run%201/messages", req.rawPath)
+    check("runMessages: query limit", req.query.contains("limit=20"), req.query)
+    check("runMessages: query cursor encoded", req.query.contains("cursor=c+2"), req.query)
+    check("runMessages: decodes", list.size == 1 && list[0].optString("content") == "hi")
+}
+
+private fun testUsageSummary() = withServer { server ->
+    server.responseBody = """{"pipelineCount":4}"""
+    val result = clientFor(server).pipelines.usageSummary()
+    val req = server.lastRequest!!
+    check("usageSummary: GET", req.method == "GET")
+    check("usageSummary: path", req.rawPath == "/api/v1/private/overview/usage", req.rawPath)
+    check("usageSummary: decodes", result.optInt("pipelineCount") == 4)
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 fun main() {
     println("── Melaya Kotlin SDK — mock-transport unit tests ──")
@@ -597,6 +868,26 @@ fun main() {
     testTriggersPoll()
     testTriggersPollTestFailures()
     testTriggersExposed()
+    testCredentialsAccounts()
+    testCredentialsAddAccount()
+    testCredentialsSetDefaultAccount()
+    testCredentialsIdentifyAccount()
+    testCredentialsRenameAccount()
+    testCredentialsRemoveAccount()
+    testConnectorsAccounts()
+    testConnectorsAddAccount()
+    testConnectorsSetDefaultAccount()
+    testConnectorsRenameAccount()
+    testConnectorsRemoveAccount()
+    testRotateApiKey()
+    testRevokeApiKey()
+    testApiKeyUsage()
+    testDocsPreview()
+    testRetrievalPreview()
+    testTestRetrieve()
+    testSetInputs()
+    testRunMessages()
+    testUsageSummary()
 
     println()
     println("PASS $passCount   FAIL $failCount   |  total ${passCount + failCount}")

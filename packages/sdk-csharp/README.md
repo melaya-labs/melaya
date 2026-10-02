@@ -175,6 +175,52 @@ subagents**, and **48 AI providers** (`m.Pipelines.ToolsAsync()`,
 `m.Pipelines.SubagentsAsync()`, `m.Agents.Models.ListModelsAsync()`; live counts via
 `m.Market.CatalogCountsAsync()`).
 
+### Several accounts per connector
+
+Field-based connectors can hold several accounts (two mailboxes, two shops). Agents use the
+**default** account unless a tool call names another one. Only labels and ids come back, never
+credential values.
+
+```csharp
+// Personal scope
+var accounts = await m.Credentials.AccountsAsync("shopify");
+
+await m.Credentials.AddAccountAsync(
+    "shopify",
+    new Dictionary<string, string> { ["SHOPIFY_TOKEN"] = "shpat_...", ["SHOPIFY_DOMAIN"] = "eu.myshopify.com" },
+    label: "Shop EU",
+    makeDefault: false);   // the connection is tested first
+
+await m.Credentials.SetDefaultAccountAsync("shopify", accounts[0].Id!);
+
+// Project scope (writes are owner only)
+var projectAccounts = await m.Connectors.AccountsAsync("Operations", "shopify");
+await m.Connectors.SetDefaultAccountAsync("Operations", "shopify", projectAccounts[0].Id!);
+```
+
+### Rotate the platform API key
+
+```csharp
+var rotated = await m.Account.RotateApiKeyAsync();
+// The new key is returned ONCE. The old key stops working at once: if `m` was built with it,
+// every later call of `m` fails. Build a new client with the returned key.
+await using var m2 = new MelayaClient(new MelayaOptions { ApiKey = rotated.ApiKey! });
+```
+
+`RevokeApiKeyAsync()` revokes the key outright; a client built with that key stops working.
+
+### Declare run inputs and test retrieval
+
+```csharp
+await m.Pipelines.SetInputsAsync("mobile-review", "Operations", new List<PipelineInputDeclaration>
+{
+    new() { Key = "company", Label = "Company", Type = "text", Required = true },
+});
+
+// Sample query against the retrieval store (needs an embedder; limit 1-20, default 5).
+var passages = await m.Pipelines.TestRetrieveAsync("mobile-review", "refund policy", limit: 3);
+```
+
 ## GA API surface
 
 All namespaces below are generally available. Flat accessors (`m.Pipelines`, …) and
@@ -225,6 +271,10 @@ domain accessors (`m.Agents.Pipelines`, `m.Platform.Projects`, …) point to the
 | `GoogleSetDefaultAsync(project, capability, accountId)` | Set default Google account for a capability |
 | `GoogleDisconnectAsync(project, accountId, capability?)` | Disconnect a Google account (or one capability) |
 | `DbTestStartAsync(project, service, credentials?)` / `DbTestStatusAsync(project, sessionId)` | Probe a database from the user's runner |
+| `AccountsAsync(project, service)` | Accounts of a project connector (labels and ids only) |
+| `AddAccountAsync(project, service, fields, label?, currentLabel?, makeDefault?)` | Add another account (owner; tested first) |
+| `SetDefaultAccountAsync(project, service, accountId)` | Choose the account the project connector uses (owner) |
+| `RenameAccountAsync(project, service, accountId, label)` / `RemoveAccountAsync(project, service, accountId)` | Rename / remove one account (owner) |
 
 ### credentials (`m.Credentials`)
 
@@ -245,6 +295,11 @@ domain accessors (`m.Agents.Pipelines`, `m.Platform.Projects`, …) point to the
 | `GoogleSetDefaultAsync(capability, accountId)` | Set default Google account for a capability |
 | `GoogleDisconnectAsync(accountId, capability?)` | Disconnect a Google account (or one capability) |
 | `DbTestStartAsync(service, credentials?)` / `DbTestStatusAsync(sessionId)` | Probe a database from the user's runner |
+| `AccountsAsync(service)` | Accounts of a connector (labels and ids only) |
+| `AddAccountAsync(service, fields, label?, currentLabel?, makeDefault?)` | Add another account (tested first) |
+| `SetDefaultAccountAsync(service, accountId)` | Choose the account agents use by default |
+| `IdentifyAccountAsync(service, accountId)` | Name an account after the identity its connector reports |
+| `RenameAccountAsync(service, accountId, label)` / `RemoveAccountAsync(service, accountId)` | Rename / remove one account |
 | `TelegramQrStartAsync(apiId, apiHash)` / `TelegramQrPollAsync(handle)` | Telegram QR-code login |
 | `WhatsappSignupConfigAsync()` / `WhatsappSignupExchangeAsync(body)` | WhatsApp embedded signup |
 | `TiktokCreatorInfoAsync()` | TikTok creator account info |
@@ -263,6 +318,7 @@ domain accessors (`m.Agents.Pipelines`, `m.Platform.Projects`, …) point to the
 | `UploadRunFileAsync(name, key, file, filename, contentType?, project?)` | Upload a file for `run_inputs.values` (24h, single-use) |
 | `RunIdsAsync(name)` | Run IDs for a pipeline |
 | `RunStatusAsync(name, runId)` | Status + cost of a run |
+| `SetInputsAsync(name, project, inputs)` | Replace only the declared run inputs (`config.inputs`) |
 | `RunInputsAsync(name, runId)` | Read back a run's brief/values/file metadata |
 | `RunInputFileAsync(name, runId, index)` | Download one run-input file's raw bytes |
 | `RunActiveAsync(name, runId)` | Whether a run is still queued/running |
@@ -280,6 +336,9 @@ domain accessors (`m.Agents.Pipelines`, `m.Platform.Projects`, …) point to the
 | `UsageSummaryAsync()`, `ModelPricesAsync()`, `ChartDataAsync()`, `CostBreakdownAsync()` | Cost dashboard |
 | `ListDocsAsync(name)` / `UploadDocAsync(name, file, filename, contentType?)` / `DeleteDocAsync(name, filename)` | Static-context documents |
 | `UploadRetrievalDocAsync(name, file, filename, contentType?)` / `IngestRetrievalAsync(name, body?, timeoutMs?)` / `DeleteRetrievalDocAsync(name, filename)` | RAG retrieval documents |
+| `DocsPreviewAsync(name, modelName?, modelProvider?)` | Per-document extraction stats vs. the model's context caps |
+| `RetrievalPreviewAsync(name)` | Retrieval store stats (documents, chunks, embedder) |
+| `TestRetrieveAsync(name, query, limit?)` | Sample query: the passages agents would get |
 
 ### templates (`m.Templates`)
 
@@ -587,6 +646,9 @@ await foreach (var frame in m.Stream.StrategiesAsync())
 | `KeysAsync()` | Connected exchange API keys (masked) |
 | `UsageAsync()` | Tier, plan limits, live usage counters |
 | `ApiKeyStatusAsync()` | Platform key status |
+| `RotateApiKeyAsync()` | New platform key, returned once; the old key stops working at once (rebuild the client) |
+| `RevokeApiKeyAsync()` | Revoke the platform key (a client using it stops working) |
+| `ApiKeyUsageAsync()` | Request counts of the platform key |
 
 ### sim (paper trading)
 

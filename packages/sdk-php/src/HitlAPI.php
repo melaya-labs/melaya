@@ -96,7 +96,7 @@ class HitlAPI
     public function runMessages(string $runId, array $params = []): array
     {
         return $this->http->get(
-            '/api/v1/private/hitl/runs/' . rawurlencode($runId) . '/messages',
+            '/api/v1/private/runs/' . rawurlencode($runId) . '/messages',
             $params
         );
     }

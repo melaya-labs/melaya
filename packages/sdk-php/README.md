@@ -437,6 +437,44 @@ $events->close();
 using ReactPHP or Swoole for async I/O, or delegate real-time subscriptions
 to a queue worker backed by the WebSocket feed.
 
+### Connector accounts, API key rotation, pipeline inputs
+
+A field-based connector can hold several accounts (two mailboxes, two shops).
+Agents use the **default** account unless a tool call names another one. Only
+labels and ids come back, never credential values.
+
+```php
+// Personal connector accounts
+$accounts = $m->platform->credentials->accounts('shopify');
+// [['id' => '...', 'label' => 'Shop EU', 'isDefault' => true, 'createdAt' => '...'], ...]
+$accounts = $m->platform->credentials->addAccount(
+    'shopify',
+    ['SHOPIFY_TOKEN' => 'shpat_...'],   // same field keys as credentials->set()
+    label: 'Shop US',
+    makeDefault: false,
+);
+$m->platform->credentials->setDefaultAccount('shopify', $accounts[1]['id']);
+
+// Project connector accounts (writes are owner only)
+$m->platform->connectors->accounts('my-project', 'shopify');
+$m->platform->connectors->addAccount('my-project', 'shopify', ['SHOPIFY_TOKEN' => 'shpat_...'], label: 'Shop US');
+$m->platform->connectors->setDefaultAccount('my-project', 'shopify', $accountId);
+
+// Rotate the platform API key. The old key stops working AT ONCE: if this
+// client was built with it, every later call fails until you build a new
+// client with the returned key (it is shown only once, store it now).
+$new = $m->trading->account->rotateApiKey();
+$m   = new \Melaya\Melaya(apiKey: $new['apiKey']);
+
+// Declare a pipeline's run inputs (replaces the full list)
+$m->agents->pipelines->setInputs('mobile-review', 'my-project', [
+    ['key' => 'report', 'label' => 'Report', 'type' => 'file', 'required' => true, 'accept' => ['pdf']],
+]);
+
+// Check what the agents would retrieve from the RAG store (limit 1-20, default 5)
+$hits = $m->agents->pipelines->testRetrieve('mobile-review', 'refund policy', 3);
+```
+
 ---
 
 ## Flat aliases (backwards-compatible)

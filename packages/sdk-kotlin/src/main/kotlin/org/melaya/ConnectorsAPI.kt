@@ -19,6 +19,11 @@ import org.json.JSONObject
  *   - `GET    /api/v1/private/projects/:project/connectors/google/status`    — granted Google capabilities
  *   - `PUT    /api/v1/private/projects/:project/connectors/google/default`   — set default Google account
  *   - `DELETE /api/v1/private/projects/:project/connectors/google/access`    — disconnect Google product/account
+ *   - `GET    /api/v1/private/projects/:project/connectors/:service/accounts`         — list a connector's accounts
+ *   - `POST   /api/v1/private/projects/:project/connectors/:service/accounts`         — add an account (owner)
+ *   - `PUT    /api/v1/private/projects/:project/connectors/:service/accounts/default` — choose the default (owner)
+ *   - `PUT    /api/v1/private/projects/:project/connectors/:service/accounts/:id`     — rename an account (owner)
+ *   - `DELETE /api/v1/private/projects/:project/connectors/:service/accounts/:id`     — remove an account (owner)
  *   - `POST   /api/v1/private/projects/:project/connectors/db-test`          — start a runner DB test
  *   - `GET    /api/v1/private/projects/:project/connectors/db-test/:sessionId` — poll a runner DB test
  *
@@ -117,6 +122,73 @@ class ConnectorsAPI internal constructor(private val http: HttpClient) {
         ).asObject()
     }
 
+    // ── Several accounts per project connector (owner only for writes) ────────
+
+    /** Accounts connected to one project connector (labels and ids only): `{id, label, isDefault, createdAt|null}` each. */
+    fun accounts(project: String, service: String): List<JSONObject> {
+        return http.get(
+            "/api/v1/private/projects/${enc(project)}/connectors/${enc(service)}/accounts"
+        ).asAccountList()
+    }
+
+    /**
+     * Add another account to a project connector (owner; the connection is tested first).
+     *
+     * @param fields       The connector's credential fields (same keys as [set]).
+     * @param label        Optional name for the new account.
+     * @param currentLabel Names the existing single connection when it is adopted as the first account.
+     * @param makeDefault  Make the new account the default one.
+     * @return The updated account list.
+     */
+    fun addAccount(
+        project: String,
+        service: String,
+        fields: Map<String, String>,
+        label: String? = null,
+        currentLabel: String? = null,
+        makeDefault: Boolean? = null,
+    ): List<JSONObject> {
+        val body = buildMap<String, Any?> {
+            if (label != null) put("label", label)
+            put("fields", fields)
+            if (currentLabel != null) put("currentLabel", currentLabel)
+            if (makeDefault != null) put("makeDefault", makeDefault)
+        }
+        return http.post(
+            "/api/v1/private/projects/${enc(project)}/connectors/${enc(service)}/accounts",
+            body
+        ).asAccountList()
+    }
+
+    /** Choose which account the project connector uses (owner). Returns the updated list. */
+    fun setDefaultAccount(project: String, service: String, accountId: String): List<JSONObject> {
+        return http.put(
+            "/api/v1/private/projects/${enc(project)}/connectors/${enc(service)}/accounts/default",
+            mapOf("accountId" to accountId)
+        ).asAccountList()
+    }
+
+    /** Rename one account of a project connector (owner, max 80 chars). Returns the updated list. */
+    fun renameAccount(project: String, service: String, accountId: String, label: String): List<JSONObject> {
+        return http.put(
+            "/api/v1/private/projects/${enc(project)}/connectors/${enc(service)}/accounts/${enc(accountId)}",
+            mapOf("label" to label)
+        ).asAccountList()
+    }
+
+    /** Remove one account from a project connector (owner). Returns the remaining list. */
+    fun removeAccount(project: String, service: String, accountId: String): List<JSONObject> {
+        return http.delete(
+            "/api/v1/private/projects/${enc(project)}/connectors/${enc(service)}/accounts/${enc(accountId)}"
+        ).asAccountList()
+    }
+
+    private fun Any?.asAccountList(): List<JSONObject> = when (this) {
+        is org.json.JSONArray -> toJsonObjects()
+        is JSONObject -> optJSONArray("accounts")?.toJsonObjects() ?: emptyList()
+        else -> emptyList()
+    }
+
     /** Which member shared each connected project connector (usernames only, never values). */
     fun sharedBy(project: String): JSONObject {
         return http.get("/api/v1/private/projects/${enc(project)}/connectors/shared-by").asObject()
@@ -175,5 +247,5 @@ class ConnectorsAPI internal constructor(private val http: HttpClient) {
         ).asObject()
     }
 
-    private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8")
+    private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8").replace("+", "%20") // path segment: space is %20, never +
 }

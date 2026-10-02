@@ -100,6 +100,93 @@ class ConnectorsAPI
         );
     }
 
+    // ── Several accounts per project connector (owner only for writes) ───────
+
+    /**
+     * Accounts connected to one project connector (labels and ids only, never
+     * credential values). Agents use the default account unless a tool call
+     * names another one.
+     *
+     * Maps to GET /api/v1/private/projects/{project}/connectors/{service}/accounts.
+     *
+     * @return list<array{id: string, label: string, isDefault: bool, createdAt: ?string}>
+     */
+    public function accounts(string $project, string $service): array
+    {
+        return $this->http->get(self::accountsPath($project, $service));
+    }
+
+    /**
+     * Add another account to a project connector (owner; the connection is
+     * tested first).
+     *
+     * Maps to POST /api/v1/private/projects/{project}/connectors/{service}/accounts.
+     *
+     * @param array<string, string> $fields       The connector's credential fields.
+     * @param string|null           $label        Display label for the new account.
+     * @param string|null           $currentLabel Names the existing single connection when it is
+     *                                            adopted as the first account.
+     * @param bool|null             $makeDefault  Make the new account the default one.
+     * @return list<array{id: string, label: string, isDefault: bool, createdAt: ?string}> The updated list.
+     */
+    public function addAccount(
+        string $project,
+        string $service,
+        array $fields,
+        ?string $label = null,
+        ?string $currentLabel = null,
+        ?bool $makeDefault = null,
+    ): array {
+        return $this->http->post(
+            self::accountsPath($project, $service),
+            CredentialsAPI::accountBody($fields, $label, $currentLabel, $makeDefault)
+        );
+    }
+
+    /**
+     * Choose which account the project connector uses (owner).
+     *
+     * Maps to PUT /api/v1/private/projects/{project}/connectors/{service}/accounts/default.
+     *
+     * @return list<array{id: string, label: string, isDefault: bool, createdAt: ?string}> The updated list.
+     */
+    public function setDefaultAccount(string $project, string $service, string $accountId): array
+    {
+        return $this->http->put(self::accountsPath($project, $service) . '/default', ['accountId' => $accountId]);
+    }
+
+    /**
+     * Rename one account of a project connector (owner, max 80 chars).
+     *
+     * Maps to PUT /api/v1/private/projects/{project}/connectors/{service}/accounts/{accountId}.
+     *
+     * @return list<array{id: string, label: string, isDefault: bool, createdAt: ?string}> The updated list.
+     */
+    public function renameAccount(string $project, string $service, string $accountId, string $label): array
+    {
+        return $this->http->put(
+            self::accountsPath($project, $service) . '/' . rawurlencode($accountId),
+            ['label' => $label]
+        );
+    }
+
+    /**
+     * Remove one account from a project connector (owner).
+     *
+     * Maps to DELETE /api/v1/private/projects/{project}/connectors/{service}/accounts/{accountId}.
+     *
+     * @return list<array{id: string, label: string, isDefault: bool, createdAt: ?string}> The remaining list.
+     */
+    public function removeAccount(string $project, string $service, string $accountId): array
+    {
+        return $this->http->delete(self::accountsPath($project, $service) . '/' . rawurlencode($accountId));
+    }
+
+    private static function accountsPath(string $project, string $service): string
+    {
+        return '/api/v1/private/projects/' . rawurlencode($project) . '/connectors/' . rawurlencode($service) . '/accounts';
+    }
+
     /** Which member shared each connected project connector (usernames only, never values). */
     public function sharedBy(string $project): array
     {

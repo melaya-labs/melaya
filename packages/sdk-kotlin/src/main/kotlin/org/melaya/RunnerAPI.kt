@@ -49,5 +49,5 @@ class RunnerAPI internal constructor(private val http: HttpClient) {
         return http.delete("/api/v1/private/runner/tokens/${enc(tokenId)}").asObject()
     }
 
-    private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8")
+    private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8").replace("+", "%20") // path segment: space is %20, never +
 }

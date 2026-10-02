@@ -280,6 +280,27 @@ public sealed class PipelinesApi
             ct: ct).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Replace ONLY the pipeline's declared run inputs (<c>config.inputs</c>), without touching
+    /// the rest of the config. Max 30; an empty list removes them all. Editor or owner only;
+    /// a bad declaration fails with HTTP 422 <c>run_inputs_invalid: &lt;reason&gt;</c>.
+    /// Keep keys stable: <c>{{inputs.&lt;key&gt;}}</c> placeholders in agent instructions use them.
+    /// Maps to <c>PUT /api/v1/private/pipelines/{name}/inputs</c>.
+    /// </summary>
+    /// <param name="name">Pipeline name.</param>
+    /// <param name="project">Project the pipeline belongs to.</param>
+    /// <param name="inputs">The full list of declarations.</param>
+    public async Task<PipelineInputsUpdateResult> SetInputsAsync(string name, string project, IReadOnlyList<PipelineInputDeclaration> inputs, CancellationToken ct = default)
+    {
+        var body = new Dictionary<string, object?>
+        {
+            ["inputs"]  = inputs ?? Array.Empty<PipelineInputDeclaration>(),
+            ["project"] = project,
+        };
+        return await _http.PutAsync<PipelineInputsUpdateResult>(
+            $"/api/v1/private/pipelines/{Uri.EscapeDataString(name)}/inputs", body, ct).ConfigureAwait(false);
+    }
+
     /// <summary>Read back the inputs (brief, values, file metadata) recorded for a run.</summary>
     /// <param name="name">Pipeline name.</param>
     /// <param name="runId">Run ID (16 hex chars).</param>
@@ -470,6 +491,48 @@ public sealed class PipelinesApi
         return await _http.DeleteAsync<BoolResult>(
             $"/api/v1/private/pipelines/{Uri.EscapeDataString(name)}/docs/retrieval/{Uri.EscapeDataString(filename)}",
             ct: ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Per-document extraction stats of the static-context documents (characters kept per file),
+    /// with caps for the model the agents use. Pass the model to see what fits its context window.
+    /// </summary>
+    /// <param name="name">Pipeline name.</param>
+    /// <param name="modelName">Optional model name (sent as <c>model_name</c>).</param>
+    /// <param name="modelProvider">Optional model provider (sent as <c>model_provider</c>).</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<System.Text.Json.JsonElement> DocsPreviewAsync(
+        string name, string? modelName = null, string? modelProvider = null, CancellationToken ct = default)
+    {
+        var q = Q(("model_name", modelName), ("model_provider", modelProvider));
+        return await _http.GetAsync<System.Text.Json.JsonElement>(
+            $"/api/v1/private/pipelines/{Uri.EscapeDataString(name)}/docs/preview", q, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Stats of the pipeline's retrieval store (documents, chunks, embedder).</summary>
+    /// <param name="name">Pipeline name.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<System.Text.Json.JsonElement> RetrievalPreviewAsync(string name, CancellationToken ct = default)
+    {
+        return await _http.GetAsync<System.Text.Json.JsonElement>(
+            $"/api/v1/private/pipelines/{Uri.EscapeDataString(name)}/docs/retrieval/preview", ct: ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Run a sample query against the pipeline's retrieval store and see the passages agents
+    /// would get. Needs an embedder configured; a store built with another embedder answers
+    /// HTTP 409 (re-ingest with <see cref="IngestRetrievalAsync"/>).
+    /// </summary>
+    /// <param name="name">Pipeline name.</param>
+    /// <param name="query">Sample query text.</param>
+    /// <param name="limit">Number of passages, 1-20 (server default 5). Omitted when null.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<System.Text.Json.JsonElement> TestRetrieveAsync(
+        string name, string query, int? limit = null, CancellationToken ct = default)
+    {
+        var body = new { query, limit };
+        return await _http.PostAsync<System.Text.Json.JsonElement>(
+            $"/api/v1/private/pipelines/{Uri.EscapeDataString(name)}/docs/retrieval/test_retrieve", body, ct).ConfigureAwait(false);
     }
 
     // ── Tool-call audit ───────────────────────────────────────────────────────────

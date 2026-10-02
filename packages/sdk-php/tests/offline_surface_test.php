@@ -460,6 +460,139 @@ foreach ([['presets', '/presets', ['tier' => 'pro', 'tierFloorSec' => 60, 'prese
         && isset($out[$key]));
 }
 
+// 14) Several accounts per connector, API key, docs/retrieval previews -------
+
+/**
+ * Run one call against a fresh queue and return [request, decodedBody].
+ *
+ * @return array{0: array{method: string, url: string, headers: list<string>, body: ?string}, 1: mixed, 2: mixed}
+ */
+function melaya_call(callable $fn, string $response = '{}'): array
+{
+    melaya_test_reset();
+    melaya_test_queue(200, $response);
+    $out = $fn();
+    $req = melaya_test_last_request();
+    return [$req, $req['body'] === null ? null : json_decode($req['body'], true), $out];
+}
+
+/** Path + query part of a captured URL (base URL stripped). */
+function melaya_path(array $req): string
+{
+    return substr($req['url'], strlen('https://api.test.invalid'));
+}
+
+$C  = '/api/v1/private/credentials';
+$PC = '/api/v1/private/projects';
+$accList = json_encode([['id' => 'a1', 'label' => 'Shop EU', 'isDefault' => true, 'createdAt' => null]]);
+
+// personal accounts
+[$req, , $out] = melaya_call(fn() => $sdk->platform->credentials->accounts('shopify'), $accList);
+check('credentials.accounts: GET /credentials/{service}/accounts',
+    $req['method'] === 'GET' && melaya_path($req) === $C . '/shopify/accounts');
+check('credentials.accounts: decodes the list', $out[0]['id'] === 'a1' && $out[0]['isDefault'] === true
+    && $out[0]['createdAt'] === null);
+
+[$req] = melaya_call(fn() => $sdk->platform->credentials->accounts('my service'), '[]');
+check('credentials.accounts: service with a space is rawurlencoded', melaya_path($req) === $C . '/my%20service/accounts');
+
+[$req, $body] = melaya_call(fn() => $sdk->platform->credentials->addAccount('shopify', ['token' => 'x'], 'Shop US', 'Shop EU', true), $accList);
+check('credentials.addAccount: POST /credentials/{service}/accounts',
+    $req['method'] === 'POST' && melaya_path($req) === $C . '/shopify/accounts');
+check('credentials.addAccount: body {label, fields, currentLabel, makeDefault}',
+    $body === ['label' => 'Shop US', 'fields' => ['token' => 'x'], 'currentLabel' => 'Shop EU', 'makeDefault' => true]);
+
+[$req, $body] = melaya_call(fn() => $sdk->platform->credentials->addAccount('shopify', ['token' => 'x']), $accList);
+check('credentials.addAccount: null options are omitted', $body === ['fields' => ['token' => 'x']]);
+
+[$req, $body] = melaya_call(fn() => $sdk->platform->credentials->setDefaultAccount('shopify', 'a 2'), $accList);
+check('credentials.setDefaultAccount: PUT /credentials/{service}/accounts/default {accountId}',
+    $req['method'] === 'PUT' && melaya_path($req) === $C . '/shopify/accounts/default' && $body === ['accountId' => 'a 2']);
+
+[$req] = melaya_call(fn() => $sdk->platform->credentials->identifyAccount('shopify', 'a 2'), $accList);
+check('credentials.identifyAccount: POST /credentials/{service}/accounts/{id}/identify (id rawurlencoded)',
+    $req['method'] === 'POST' && melaya_path($req) === $C . '/shopify/accounts/a%202/identify');
+check('credentials.identifyAccount: body is a JSON object {}', $req['body'] === '{}');
+
+[$req, $body] = melaya_call(fn() => $sdk->platform->credentials->renameAccount('shopify', 'a1', 'Main shop'), $accList);
+check('credentials.renameAccount: PUT /credentials/{service}/accounts/{id} {label}',
+    $req['method'] === 'PUT' && melaya_path($req) === $C . '/shopify/accounts/a1' && $body === ['label' => 'Main shop']);
+
+[$req] = melaya_call(fn() => $sdk->platform->credentials->removeAccount('shopify', 'a1'), '[]');
+check('credentials.removeAccount: DELETE /credentials/{service}/accounts/{id}',
+    $req['method'] === 'DELETE' && melaya_path($req) === $C . '/shopify/accounts/a1');
+
+// project accounts
+[$req, , $out] = melaya_call(fn() => $sdk->platform->connectors->accounts('my project', 'shopify'), $accList);
+check('connectors.accounts: GET /projects/{project}/connectors/{service}/accounts (project rawurlencoded)',
+    $req['method'] === 'GET' && melaya_path($req) === $PC . '/my%20project/connectors/shopify/accounts'
+    && $out[0]['label'] === 'Shop EU');
+
+[$req, $body] = melaya_call(fn() => $sdk->platform->connectors->addAccount('acme', 'shopify', ['token' => 'x'], 'Shop US', null, false), $accList);
+check('connectors.addAccount: POST /projects/{project}/connectors/{service}/accounts',
+    $req['method'] === 'POST' && melaya_path($req) === $PC . '/acme/connectors/shopify/accounts');
+check('connectors.addAccount: body carries label/fields/makeDefault, null currentLabel omitted',
+    $body === ['label' => 'Shop US', 'fields' => ['token' => 'x'], 'makeDefault' => false]);
+
+[$req, $body] = melaya_call(fn() => $sdk->platform->connectors->setDefaultAccount('acme', 'shopify', 'a1'), $accList);
+check('connectors.setDefaultAccount: PUT .../accounts/default {accountId}',
+    $req['method'] === 'PUT' && melaya_path($req) === $PC . '/acme/connectors/shopify/accounts/default'
+    && $body === ['accountId' => 'a1']);
+
+[$req, $body] = melaya_call(fn() => $sdk->platform->connectors->renameAccount('acme', 'shopify', 'a/1', 'Main'), $accList);
+check('connectors.renameAccount: PUT .../accounts/{id} {label} (id rawurlencoded)',
+    $req['method'] === 'PUT' && melaya_path($req) === $PC . '/acme/connectors/shopify/accounts/a%2F1'
+    && $body === ['label' => 'Main']);
+
+[$req] = melaya_call(fn() => $sdk->platform->connectors->removeAccount('acme', 'shopify', 'a1'), '[]');
+check('connectors.removeAccount: DELETE .../accounts/{id}',
+    $req['method'] === 'DELETE' && melaya_path($req) === $PC . '/acme/connectors/shopify/accounts/a1');
+
+// platform API key
+[$req, , $out] = melaya_call(fn() => $sdk->trading->account->rotateApiKey(), json_encode(['apiKey' => 'mk_new']));
+check('account.rotateApiKey: POST /api-key with a JSON object body {}',
+    $req['method'] === 'POST' && melaya_path($req) === '/api/v1/private/api-key' && $req['body'] === '{}');
+check('account.rotateApiKey: returns the new apiKey', $out['apiKey'] === 'mk_new');
+
+[$req, , $out] = melaya_call(fn() => $sdk->trading->account->revokeApiKey(), json_encode(['ok' => true]));
+check('account.revokeApiKey: DELETE /api-key',
+    $req['method'] === 'DELETE' && melaya_path($req) === '/api/v1/private/api-key' && $out['ok'] === true);
+
+[$req] = melaya_call(fn() => $sdk->trading->account->apiKeyUsage(), json_encode(['requests' => 3]));
+check('account.apiKeyUsage: GET /api-key/usage',
+    $req['method'] === 'GET' && melaya_path($req) === '/api/v1/private/api-key/usage');
+
+// pipelines docs / retrieval / inputs / run messages
+$PP = '/api/v1/private/pipelines';
+[$req] = melaya_call(fn() => $sdk->agents->pipelines->docsPreview('my pipe', 'qwen3.7-plus', 'qwen'));
+check('pipelines.docsPreview: GET /pipelines/{name}/docs/preview with model_name + model_provider',
+    $req['method'] === 'GET' && melaya_path($req) === $PP . '/my%20pipe/docs/preview?model_name=qwen3.7-plus&model_provider=qwen');
+
+[$req] = melaya_call(fn() => $sdk->agents->pipelines->docsPreview('pipe'));
+check('pipelines.docsPreview: null model params are omitted', melaya_path($req) === $PP . '/pipe/docs/preview');
+
+[$req] = melaya_call(fn() => $sdk->agents->pipelines->retrievalPreview('my pipe'));
+check('pipelines.retrievalPreview: GET /pipelines/{name}/docs/retrieval/preview',
+    $req['method'] === 'GET' && melaya_path($req) === $PP . '/my%20pipe/docs/retrieval/preview');
+
+[$req, $body] = melaya_call(fn() => $sdk->agents->pipelines->testRetrieve('my pipe', 'refund policy', 3));
+check('pipelines.testRetrieve: POST /pipelines/{name}/docs/retrieval/test_retrieve {query, limit}',
+    $req['method'] === 'POST' && melaya_path($req) === $PP . '/my%20pipe/docs/retrieval/test_retrieve'
+    && $body === ['query' => 'refund policy', 'limit' => 3]);
+
+[$req, $body] = melaya_call(fn() => $sdk->agents->pipelines->testRetrieve('pipe', 'q'));
+check('pipelines.testRetrieve: limit omitted when null', $body === ['query' => 'q']);
+
+$decl = [['key' => 'brief_doc', 'label' => 'Brief', 'type' => 'file', 'required' => true]];
+[$req, $body] = melaya_call(fn() => $sdk->agents->pipelines->setInputs('my pipe', 'acme', $decl));
+check('pipelines.setInputs: PUT /pipelines/{name}/inputs {inputs, project}',
+    $req['method'] === 'PUT' && melaya_path($req) === $PP . '/my%20pipe/inputs'
+    && $body === ['inputs' => $decl, 'project' => 'acme']);
+
+[$req] = melaya_call(fn() => $sdk->agents->hitl->runMessages('run 1', ['limit' => 10]), json_encode(['messages' => []]));
+check('hitl.runMessages: GET /runs/{runId}/messages (runId rawurlencoded, params in query)',
+    $req['method'] === 'GET' && melaya_path($req) === '/api/v1/private/runs/run%201/messages?limit=10');
+
 // ── Summary ──────────────────────────────────────────────────────────────────
 
 $fail = 0;

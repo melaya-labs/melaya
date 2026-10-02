@@ -28,4 +28,29 @@ class AccountAPI internal constructor(private val http: HttpClient) {
     fun apiKeyStatus(): JSONObject {
         return http.get("/api/v1/private/api-key").asObject()
     }
+
+    /**
+     * Generate a new platform API key, replacing the current one at once.
+     * The new key is returned ONCE as `{apiKey}`.
+     *
+     * **Careful:** if this client was built with the key being replaced, every later
+     * call of this client fails until you build a new [Melaya] client with the returned key.
+     */
+    fun rotateApiKey(): JSONObject {
+        return http.post("/api/v1/private/api-key", emptyMap<String, Any?>()).asObject()
+    }
+
+    /**
+     * Revoke the platform API key. Returns `{ok}`.
+     *
+     * **Careful:** if this client was built with that key, it stops working immediately.
+     */
+    fun revokeApiKey(): JSONObject {
+        return http.delete("/api/v1/private/api-key").asObject()
+    }
+
+    /** Request counts of your platform API key (current key, merged with your account totals). */
+    fun apiKeyUsage(): JSONObject {
+        return http.get("/api/v1/private/api-key/usage").asObject()
+    }
 }

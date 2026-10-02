@@ -2,7 +2,9 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 
 use crate::client::HttpClient;
+use crate::credentials::account_body;
 use crate::error::Result;
+use crate::pipelines::encode_segment;
 
 /// Project Connectors API — manage credentials at project scope.
 #[derive(Clone)]
@@ -99,6 +101,119 @@ impl ConnectorsAPI {
             .post(
                 &format!("/api/v1/private/projects/{project}/connectors/{service}/apply-personal"),
                 &body,
+            )
+            .await
+    }
+
+    // ── Several accounts per project connector (owner only for writes) ───────
+    //
+    // Same model as the personal-scope account methods on `credentials`:
+    // agents use the DEFAULT account unless a tool call names another one,
+    // and only labels and ids come back (never credential values). Each
+    // method returns the account list `[{ id, label, isDefault, createdAt }]`.
+
+    /// Accounts connected to one project connector (labels and ids only).
+    pub async fn accounts(&self, project: &str, service: &str) -> Result<Value> {
+        let q = HashMap::new();
+        let enc_project = encode_segment(project);
+        let enc_service = encode_segment(service);
+        self.http
+            .get(
+                &format!(
+                    "/api/v1/private/projects/{enc_project}/connectors/{enc_service}/accounts"
+                ),
+                &q,
+            )
+            .await
+    }
+
+    /// Add another account to a project connector (owner; the connection is
+    /// tested first). `fields` is a JSON object of strings (the connector's
+    /// credential fields); `current_label` names the existing single
+    /// connection when it is adopted as the first account. `None` values are
+    /// omitted. Returns the updated list.
+    pub async fn add_account(
+        &self,
+        project: &str,
+        service: &str,
+        fields: &Value,
+        label: Option<&str>,
+        current_label: Option<&str>,
+        make_default: Option<bool>,
+    ) -> Result<Value> {
+        let body = account_body(fields, label, current_label, make_default);
+        let enc_project = encode_segment(project);
+        let enc_service = encode_segment(service);
+        self.http
+            .post(
+                &format!(
+                    "/api/v1/private/projects/{enc_project}/connectors/{enc_service}/accounts"
+                ),
+                &body,
+            )
+            .await
+    }
+
+    /// Choose which account the project connector uses (owner). Returns the
+    /// updated list.
+    pub async fn set_default_account(
+        &self,
+        project: &str,
+        service: &str,
+        account_id: &str,
+    ) -> Result<Value> {
+        let enc_project = encode_segment(project);
+        let enc_service = encode_segment(service);
+        self.http
+            .put(
+                &format!(
+                    "/api/v1/private/projects/{enc_project}/connectors/{enc_service}/accounts/default"
+                ),
+                &json!({ "accountId": account_id }),
+            )
+            .await
+    }
+
+    /// Rename one account of a project connector (owner, max 80 chars).
+    /// Returns the updated list.
+    pub async fn rename_account(
+        &self,
+        project: &str,
+        service: &str,
+        account_id: &str,
+        label: &str,
+    ) -> Result<Value> {
+        let enc_project = encode_segment(project);
+        let enc_service = encode_segment(service);
+        let enc_account = encode_segment(account_id);
+        self.http
+            .put(
+                &format!(
+                    "/api/v1/private/projects/{enc_project}/connectors/{enc_service}/accounts/{enc_account}"
+                ),
+                &json!({ "label": label }),
+            )
+            .await
+    }
+
+    /// Remove one account from a project connector (owner). Returns the
+    /// remaining list.
+    pub async fn remove_account(
+        &self,
+        project: &str,
+        service: &str,
+        account_id: &str,
+    ) -> Result<Value> {
+        let q = HashMap::new();
+        let enc_project = encode_segment(project);
+        let enc_service = encode_segment(service);
+        let enc_account = encode_segment(account_id);
+        self.http
+            .delete(
+                &format!(
+                    "/api/v1/private/projects/{enc_project}/connectors/{enc_service}/accounts/{enc_account}"
+                ),
+                &q,
             )
             .await
     }

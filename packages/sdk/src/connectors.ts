@@ -12,7 +12,7 @@
  * ```
  */
 import type { HttpClient } from "./client.js";
-import type { ConnectedService, ProjectConnectorSetBody } from "./platform-types.js";
+import type { ConnectedService, ConnectorAccount, ProjectConnectorSetBody } from "./platform-types.js";
 
 export class ConnectorsAPI {
   constructor(private readonly http: HttpClient) {}
@@ -77,6 +77,50 @@ export class ConnectorsAPI {
     return this.http.post(
       `/api/v1/private/projects/${encodeURIComponent(projectId)}/connectors/${encodeURIComponent(service)}/apply-personal`,
       googleCapabilities ? { googleCapabilities } : {},
+    );
+  }
+
+  // ── Several accounts per project connector (owner only for writes) ────────────
+
+  /** Accounts connected to one project connector (labels and ids only). */
+  async accounts(projectId: string, service: string): Promise<ConnectorAccount[]> {
+    return this.http.get(
+      `/api/v1/private/projects/${encodeURIComponent(projectId)}/connectors/${encodeURIComponent(service)}/accounts`,
+    );
+  }
+
+  /** Add another account to a project connector (owner; the connection is tested first). */
+  async addAccount(
+    projectId: string,
+    service: string,
+    body: { label?: string; fields: Record<string, string>; currentLabel?: string; makeDefault?: boolean },
+  ): Promise<ConnectorAccount[]> {
+    return this.http.post(
+      `/api/v1/private/projects/${encodeURIComponent(projectId)}/connectors/${encodeURIComponent(service)}/accounts`,
+      body,
+    );
+  }
+
+  /** Choose which account the project connector uses (owner). */
+  async setDefaultAccount(projectId: string, service: string, accountId: string): Promise<ConnectorAccount[]> {
+    return this.http.put(
+      `/api/v1/private/projects/${encodeURIComponent(projectId)}/connectors/${encodeURIComponent(service)}/accounts/default`,
+      { accountId },
+    );
+  }
+
+  /** Rename one account of a project connector (owner, max 80 chars). */
+  async renameAccount(projectId: string, service: string, accountId: string, label: string): Promise<ConnectorAccount[]> {
+    return this.http.put(
+      `/api/v1/private/projects/${encodeURIComponent(projectId)}/connectors/${encodeURIComponent(service)}/accounts/${encodeURIComponent(accountId)}`,
+      { label },
+    );
+  }
+
+  /** Remove one account from a project connector (owner). */
+  async removeAccount(projectId: string, service: string, accountId: string): Promise<ConnectorAccount[]> {
+    return this.http.delete(
+      `/api/v1/private/projects/${encodeURIComponent(projectId)}/connectors/${encodeURIComponent(service)}/accounts/${encodeURIComponent(accountId)}`,
     );
   }
 

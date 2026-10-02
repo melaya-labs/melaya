@@ -74,7 +74,7 @@ public sealed class HitlApi
     {
         var q = Q(("limit", limit?.ToString()), ("cursor", cursor));
         return await _http.GetAsync<List<RunMessage>>(
-            $"/api/v1/private/hitl/runs/{Uri.EscapeDataString(runId)}/messages", q, ct).ConfigureAwait(false);
+            $"/api/v1/private/runs/{Uri.EscapeDataString(runId)}/messages", q, ct).ConfigureAwait(false);
     }
 
     /// <summary>Get all tool calls for a pipeline run.</summary>

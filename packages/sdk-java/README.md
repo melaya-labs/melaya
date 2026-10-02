@@ -165,6 +165,44 @@ JsonNode state = melaya.agents().triggers().pollStatus(id);
 JsonNode dry   = melaya.agents().triggers().pollTest(id); // { ok: false, error } is returned, not thrown
 ```
 
+## Quick Start: Connector Accounts, API Key & Pipeline Inputs
+
+Field-based connectors can hold several accounts (two mailboxes, two shops). Agents use the
+default account unless a tool call names another one. Only labels and ids come back, never
+credential values. Every account call returns the updated list of `{id, label, isDefault, createdAt}`.
+
+```java
+// Personal scope: melaya.platform().credentials()
+JsonNode accounts = melaya.platform().credentials().accounts("shopify");
+melaya.platform().credentials().addAccount("shopify", "Second shop",
+        Map.of("apiKey", "shpat_..."), null, false);   // the connection is tested first
+melaya.platform().credentials().setDefaultAccount("shopify", accounts.get(0).get("id").asText());
+
+// Project scope (writes are owner only): melaya.platform().connectors()
+melaya.platform().connectors().accounts("my-project", "shopify");
+melaya.platform().connectors().addAccount("my-project", "shopify", "EU shop",
+        Map.of("apiKey", "shpat_..."), null, true);
+```
+
+Rotate the platform API key. **Careful:** the old key stops working at once. If this client uses
+that key, every later call fails until you build a new client with the returned key.
+
+```java
+String newKey = melaya.account().rotateApiKey().get("apiKey").asText(); // shown only this once
+melaya = new Melaya(newKey);
+JsonNode usage = melaya.account().apiKeyUsage();
+```
+
+Declare a pipeline's run inputs without touching the rest of its config, and check what the
+retrieval store returns for a sample query:
+
+```java
+melaya.agents().pipelines().setInputs("weekly-report", "my-project", List.of(
+        Map.of("key", "topic", "label", "Topic", "type", "text", "required", true)));
+
+JsonNode passages = melaya.agents().pipelines().testRetrieve("weekly-report", "refund policy", 5);
+```
+
 ## Quick Start: Trading (preview — paper only)
 
 ```java
@@ -254,9 +292,9 @@ Reachable through `melaya.agents()`, `melaya.platform()`, or the equivalent flat
 |---|---|---|
 | `auth` | `melaya.platform().auth()` | `login`, `verifyMfa`, `register`, `verifySignup`, `resendVerification`, `forgotPassword`, `resetPassword`, `changePassword`, `me`, `check`, `myPermissions`, `refresh`, `createMobileHandoff`, `version` |
 | `projects` | `melaya.platform().projects()` | `list`, `create`, `rename`, `getRunnerProjects` |
-| `connectors` | `melaya.platform().connectors()` | `connectedServices`, `set`, `delete`, `getEnvHandle`, `googleOAuthStart`, plus project-scoped `applyPersonal`, `sharedBy`, `googleStatus`, `googleSetDefault`, `googleDisconnect`, `dbTestStart`, `dbTestStatus` |
-| `credentials` | `melaya.platform().credentials()` | `list`, `connectedServices`, `get`, `set`, `delete`, `test`, `getOperatorProfile`, `setOperatorProfile`, `listModels`, `melayaAccounts`, plus RAG (`ragIngestStart/Status`, `ragRetrieveStart/Status`, `pickFolderStart/Status`), OAuth connect helpers (Google, LinkedIn, Luma, NotebookLM, Telegram, CLI), and personal-scope `googleStatus`, `googleSetDefault`, `googleDisconnect`, `dbTestStart`, `dbTestStatus`, `telegramQrStart`, `telegramQrPoll`, `whatsappSignupConfig`, `whatsappSignupExchange`, `tiktokCreatorInfo`, `substackEmailLinkSend`, `substackEmailLinkRedeem` |
-| `pipelines` | `melaya.agents().pipelines()` | `listPipelines`, `create`, `get`, `update`, `delete`, `run`, `uploadRunFile`, `runIds`, `runInputs`, `runInputFile`, `runStatus`, `runActive`, `cancelRun`, `listDocs`, `uploadDoc`, `deleteDoc`, `uploadRetrievalDoc`, `ingestRetrieval`, `deleteRetrievalDoc`, `outputs`, `output`, `previewCode`, `tools`, `subagents`, `instantiateTemplate`, `buildWithAI`, `traces`, `trace`, `traceStats`, `deleteTraces`, `projectToolCalls`, `projectToolCallFacets`, `toolCallDetail`, `listSchedules`, `getSchedule`, `upsertSchedule`, `pauseSchedule`, `resumeSchedule` |
+| `connectors` | `melaya.platform().connectors()` | `connectedServices`, `set`, `delete`, `getEnvHandle`, `googleOAuthStart`, plus project-scoped `applyPersonal`, `sharedBy`, `accounts`, `addAccount`, `setDefaultAccount`, `renameAccount`, `removeAccount`, `googleStatus`, `googleSetDefault`, `googleDisconnect`, `dbTestStart`, `dbTestStatus` |
+| `credentials` | `melaya.platform().credentials()` | `list`, `connectedServices`, `get`, `set`, `delete`, `test`, `getOperatorProfile`, `setOperatorProfile`, `listModels`, `melayaAccounts`, plus RAG (`ragIngestStart/Status`, `ragRetrieveStart/Status`, `pickFolderStart/Status`), OAuth connect helpers (Google, LinkedIn, Luma, NotebookLM, Telegram, CLI), and personal-scope `accounts`, `addAccount`, `setDefaultAccount`, `identifyAccount`, `renameAccount`, `removeAccount`, `googleStatus`, `googleSetDefault`, `googleDisconnect`, `dbTestStart`, `dbTestStatus`, `telegramQrStart`, `telegramQrPoll`, `whatsappSignupConfig`, `whatsappSignupExchange`, `tiktokCreatorInfo`, `substackEmailLinkSend`, `substackEmailLinkRedeem` |
+| `pipelines` | `melaya.agents().pipelines()` | `listPipelines`, `create`, `get`, `update`, `delete`, `run`, `uploadRunFile`, `runIds`, `runInputs`, `runInputFile`, `runStatus`, `runActive`, `cancelRun`, `listDocs`, `uploadDoc`, `deleteDoc`, `uploadRetrievalDoc`, `ingestRetrieval`, `deleteRetrievalDoc`, `docsPreview`, `retrievalPreview`, `testRetrieve`, `setInputs`, `outputs`, `output`, `previewCode`, `tools`, `subagents`, `instantiateTemplate`, `buildWithAI`, `traces`, `trace`, `traceStats`, `deleteTraces`, `projectToolCalls`, `projectToolCallFacets`, `toolCallDetail`, `listSchedules`, `getSchedule`, `upsertSchedule`, `pauseSchedule`, `resumeSchedule` |
 | `templates` | `melaya.platform().templates()` | `list`, `save`, `update`, `duplicate`, `delete`, `share`, `listAssignments`, `assign(templateId, target)` — `target` holds exactly one of `userId` / `projectId` (JSON body), `unassign(templateId, target)` — `userId` / `projectId` sent as query params, `shareTargets`, `listGlobal`, `listValidated` |
 | `phone` | `melaya.agents().phone()` | `pair`, `listDevices`, `revokeDevice`, `screenTree`, `listApps`, `setAllowedApps`, `registerActiveRun`, `grantApp`, `requestCast` |
 | `hitl` | `melaya.agents().hitl()` | `pending`, `history`, `approve`, `reject`, `bulkDecide`, `runToolStats`, `runToolStatsByAgent`, `runToolCalls`, `runMessages` |
@@ -309,6 +347,9 @@ Reachable through `melaya.agents()`, `melaya.platform()`, or the equivalent flat
 | `keys()` | Connected exchange API keys (masked) |
 | `usage()` | Tier limits and usage counters |
 | `apiKeyStatus()` | Platform API key status |
+| `rotateApiKey()` | New platform API key, returned once; the old key stops working at once (including for this client) |
+| `revokeApiKey()` | Revoke the platform API key; this client stops working if it used that key |
+| `apiKeyUsage()` | Request counts of the platform API key |
 
 ### `sim`
 

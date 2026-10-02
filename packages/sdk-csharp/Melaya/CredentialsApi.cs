@@ -265,6 +265,95 @@ public sealed class CredentialsApi
         return await _http.DeleteWithBodyAsync<BoolResult>("/api/v1/private/credentials/google/access", body, ct).ConfigureAwait(false);
     }
 
+    // ── Several accounts per connector (personal scope) ──────────────────────
+    // Field-based connectors can hold several accounts (two mailboxes, two shops).
+    // Agents use the DEFAULT account unless a tool call names another one. Only
+    // labels and ids ever come back, never credential values.
+
+    /// <summary>
+    /// Accounts connected to one connector. An account with <c>Id == "current"</c> is a single
+    /// connection made before accounts existed.
+    /// </summary>
+    /// <param name="service">Connector service id.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<List<ConnectorAccount>> AccountsAsync(string service, CancellationToken ct = default)
+    {
+        return await _http.GetAsync<List<ConnectorAccount>>(
+            $"/api/v1/private/credentials/{Uri.EscapeDataString(service)}/accounts", ct: ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Add another account to a field-based connector. The connection is tested first.
+    /// Returns the updated list.
+    /// </summary>
+    /// <param name="service">Connector service id.</param>
+    /// <param name="fields">The connector's credential fields (same keys as <see cref="SetAsync"/>).</param>
+    /// <param name="label">Optional label for the new account.</param>
+    /// <param name="currentLabel">Names the existing single connection when it is adopted as the first account.</param>
+    /// <param name="makeDefault">Make the new account the default one.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<List<ConnectorAccount>> AddAccountAsync(
+        string service,
+        IDictionary<string, string> fields,
+        string? label = null,
+        string? currentLabel = null,
+        bool? makeDefault = null,
+        CancellationToken ct = default)
+    {
+        var body = new { label, fields, currentLabel, makeDefault };
+        return await _http.PostAsync<List<ConnectorAccount>>(
+            $"/api/v1/private/credentials/{Uri.EscapeDataString(service)}/accounts", body, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Choose which account the connector (and so every agent) uses. Returns the updated list.</summary>
+    /// <param name="service">Connector service id.</param>
+    /// <param name="accountId">Account id, as returned by <see cref="AccountsAsync"/>.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<List<ConnectorAccount>> SetDefaultAccountAsync(string service, string accountId, CancellationToken ct = default)
+    {
+        var body = new { accountId };
+        return await _http.PutAsync<List<ConnectorAccount>>(
+            $"/api/v1/private/credentials/{Uri.EscapeDataString(service)}/accounts/default", body, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Name an account after the identity its connector reports (runs the connection test on it).
+    /// Returns the updated list.
+    /// </summary>
+    /// <param name="service">Connector service id.</param>
+    /// <param name="accountId">Account id.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<List<ConnectorAccount>> IdentifyAccountAsync(string service, string accountId, CancellationToken ct = default)
+    {
+        return await _http.PostAsync<List<ConnectorAccount>>(
+            $"/api/v1/private/credentials/{Uri.EscapeDataString(service)}/accounts/{Uri.EscapeDataString(accountId)}/identify",
+            new { }, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Rename one account (max 80 chars). Returns the updated list.</summary>
+    /// <param name="service">Connector service id.</param>
+    /// <param name="accountId">Account id.</param>
+    /// <param name="label">New label.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<List<ConnectorAccount>> RenameAccountAsync(string service, string accountId, string label, CancellationToken ct = default)
+    {
+        var body = new { label };
+        return await _http.PutAsync<List<ConnectorAccount>>(
+            $"/api/v1/private/credentials/{Uri.EscapeDataString(service)}/accounts/{Uri.EscapeDataString(accountId)}",
+            body, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Remove one account from a connector. Returns the remaining list.</summary>
+    /// <param name="service">Connector service id.</param>
+    /// <param name="accountId">Account id.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public async Task<List<ConnectorAccount>> RemoveAccountAsync(string service, string accountId, CancellationToken ct = default)
+    {
+        return await _http.DeleteAsync<List<ConnectorAccount>>(
+            $"/api/v1/private/credentials/{Uri.EscapeDataString(service)}/accounts/{Uri.EscapeDataString(accountId)}",
+            ct: ct).ConfigureAwait(false);
+    }
+
     // ── Database connectivity probe (personal scope) ─────────────────────────
 
     /// <summary>Start a database connectivity probe from the user's own runner.</summary>

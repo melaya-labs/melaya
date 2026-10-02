@@ -135,6 +135,62 @@ func (c *ConnectorsAPI) SharedBy(ctx context.Context, project string) (map[strin
 	return v, nil
 }
 
+// ── Several accounts per project connector ──────────────────────────────────
+// Same as the personal-scope account methods on CredentialsAPI, for a
+// project's connectors. Agents use the DEFAULT account unless a tool call
+// names another one. Only labels and ids ever come back, never credential values.
+
+func projectAccountsPath(project, service string) string {
+	return "/api/v1/private/projects/" + url.PathEscape(project) + "/connectors/" + url.PathEscape(service) + "/accounts"
+}
+
+// Accounts lists the accounts connected to one project connector. An account
+// with ID "current" is a single connection made before accounts existed.
+//
+// GET /api/v1/private/projects/{project}/connectors/{service}/accounts
+func (c *ConnectorsAPI) Accounts(ctx context.Context, project, service string) ([]ConnectorAccount, error) {
+	return decodeConnectorAccounts(c.h.get(ctx, projectAccountsPath(project, service), nil))
+}
+
+// AddAccount adds another account to a project's field-based connector.
+// in.Fields are the connector's credential fields; the connection is tested
+// first. in.CurrentLabel names the existing single connection when it is
+// adopted as the first account. Returns the updated list.
+//
+// POST /api/v1/private/projects/{project}/connectors/{service}/accounts
+func (c *ConnectorsAPI) AddAccount(ctx context.Context, project, service string, in AddConnectorAccountInput) ([]ConnectorAccount, error) {
+	if in.Fields == nil {
+		in.Fields = map[string]string{}
+	}
+	return decodeConnectorAccounts(c.h.post(ctx, projectAccountsPath(project, service), in))
+}
+
+// SetDefaultAccount chooses which account the project connector (and so every
+// agent of the project) uses. Returns the updated list.
+//
+// PUT /api/v1/private/projects/{project}/connectors/{service}/accounts/default
+func (c *ConnectorsAPI) SetDefaultAccount(ctx context.Context, project, service, accountID string) ([]ConnectorAccount, error) {
+	return decodeConnectorAccounts(c.h.put(ctx, projectAccountsPath(project, service)+"/default", map[string]string{"accountId": accountID}))
+}
+
+// RenameAccount renames one account of a project connector (max 80 chars).
+// Returns the updated list.
+//
+// PUT /api/v1/private/projects/{project}/connectors/{service}/accounts/{accountId}
+func (c *ConnectorsAPI) RenameAccount(ctx context.Context, project, service, accountID, label string) ([]ConnectorAccount, error) {
+	path := projectAccountsPath(project, service) + "/" + url.PathEscape(accountID)
+	return decodeConnectorAccounts(c.h.put(ctx, path, map[string]string{"label": label}))
+}
+
+// RemoveAccount removes one account from a project connector. Returns the
+// remaining list.
+//
+// DELETE /api/v1/private/projects/{project}/connectors/{service}/accounts/{accountId}
+func (c *ConnectorsAPI) RemoveAccount(ctx context.Context, project, service, accountID string) ([]ConnectorAccount, error) {
+	path := projectAccountsPath(project, service) + "/" + url.PathEscape(accountID)
+	return decodeConnectorAccounts(c.h.del(ctx, path, nil))
+}
+
 // GoogleStatus lists the Google OAuth capabilities actually granted to a project.
 //
 // GET /api/v1/private/projects/:project/connectors/google/status

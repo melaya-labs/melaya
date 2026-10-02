@@ -208,6 +208,131 @@ class CredentialsAPI
 
     // ── Google OAuth ─────────────────────────────────────────────────────────
 
+    // ── Several accounts per connector (personal scope) ──────────────────────
+    // Field-based connectors can hold several accounts (two mailboxes, two
+    // shops). Agents use the DEFAULT account unless a tool call names another
+    // one. Only labels and ids ever come back, never credential values.
+
+    /**
+     * Accounts connected to one connector. An `id` of `"current"` is a single
+     * connection made before accounts existed.
+     *
+     * Maps to GET /api/v1/private/credentials/{service}/accounts.
+     *
+     * @param string $service Connector service id (will be rawurlencoded).
+     * @return list<array{id: string, label: string, isDefault: bool, createdAt: ?string}>
+     */
+    public function accounts(string $service): array
+    {
+        return $this->http->get(self::accountsPath($service));
+    }
+
+    /**
+     * Add another account to a field-based connector. The connection is tested
+     * first.
+     *
+     * Maps to POST /api/v1/private/credentials/{service}/accounts.
+     *
+     * @param string                $service      Connector service id (will be rawurlencoded).
+     * @param array<string, string> $fields       The connector's credential fields (same keys as `set()`).
+     * @param string|null           $label        Display label for the new account.
+     * @param string|null           $currentLabel Names the existing single connection when it is
+     *                                            adopted as the first account.
+     * @param bool|null             $makeDefault  Make the new account the default one.
+     * @return list<array{id: string, label: string, isDefault: bool, createdAt: ?string}> The updated list.
+     */
+    public function addAccount(
+        string $service,
+        array $fields,
+        ?string $label = null,
+        ?string $currentLabel = null,
+        ?bool $makeDefault = null,
+    ): array {
+        return $this->http->post(
+            self::accountsPath($service),
+            self::accountBody($fields, $label, $currentLabel, $makeDefault)
+        );
+    }
+
+    /**
+     * Choose which account the connector (and so every agent) uses.
+     *
+     * Maps to PUT /api/v1/private/credentials/{service}/accounts/default.
+     *
+     * @return list<array{id: string, label: string, isDefault: bool, createdAt: ?string}> The updated list.
+     */
+    public function setDefaultAccount(string $service, string $accountId): array
+    {
+        return $this->http->put(self::accountsPath($service) . '/default', ['accountId' => $accountId]);
+    }
+
+    /**
+     * Name an account after the identity its connector reports (runs the
+     * connection test on it).
+     *
+     * Maps to POST /api/v1/private/credentials/{service}/accounts/{accountId}/identify.
+     *
+     * @return list<array{id: string, label: string, isDefault: bool, createdAt: ?string}> The updated list.
+     */
+    public function identifyAccount(string $service, string $accountId): array
+    {
+        return $this->http->post(
+            self::accountsPath($service) . '/' . rawurlencode($accountId) . '/identify',
+            new \stdClass()
+        );
+    }
+
+    /**
+     * Rename one account (max 80 chars).
+     *
+     * Maps to PUT /api/v1/private/credentials/{service}/accounts/{accountId}.
+     *
+     * @return list<array{id: string, label: string, isDefault: bool, createdAt: ?string}> The updated list.
+     */
+    public function renameAccount(string $service, string $accountId, string $label): array
+    {
+        return $this->http->put(
+            self::accountsPath($service) . '/' . rawurlencode($accountId),
+            ['label' => $label]
+        );
+    }
+
+    /**
+     * Remove one account from a connector.
+     *
+     * Maps to DELETE /api/v1/private/credentials/{service}/accounts/{accountId}.
+     *
+     * @return list<array{id: string, label: string, isDefault: bool, createdAt: ?string}> The remaining list.
+     */
+    public function removeAccount(string $service, string $accountId): array
+    {
+        return $this->http->delete(self::accountsPath($service) . '/' . rawurlencode($accountId));
+    }
+
+    private static function accountsPath(string $service): string
+    {
+        return '/api/v1/private/credentials/' . rawurlencode($service) . '/accounts';
+    }
+
+    /**
+     * Body shared by the personal and project add-account calls; null fields
+     * are omitted.
+     *
+     * @internal
+     * @param array<string, string> $fields
+     * @return array<string, mixed>
+     */
+    public static function accountBody(array $fields, ?string $label, ?string $currentLabel, ?bool $makeDefault): array
+    {
+        $body = [
+            'label'        => $label,
+            'fields'       => (object) $fields,
+            'currentLabel' => $currentLabel,
+            'makeDefault'  => $makeDefault,
+        ];
+        return array_filter($body, static fn($v) => $v !== null);
+    }
+
     /** Start Google OAuth flow for credential storage. */
     public function googleOAuthStart(array $body = []): array
     {

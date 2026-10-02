@@ -80,6 +80,69 @@ module Melaya
       @http.get("/api/v1/private/projects/#{enc(project)}/connectors/shared-by")
     end
 
+    # ── Several accounts per project connector (owner only for writes) ────────
+    # Each account is a Hash: { "id", "label", "isDefault", "createdAt" }.
+    # Only labels and ids ever come back, never credential values.
+
+    # GET /api/v1/private/projects/:project/connectors/:service/accounts
+    # Accounts connected to one project connector (labels and ids only).
+    # @param project [String]
+    # @param service [String] connector service id
+    # @return [Array<Hash>] [{ "id", "label", "isDefault", "createdAt" }]
+    def accounts(project, service)
+      @http.get("/api/v1/private/projects/#{enc(project)}/connectors/#{enc(service)}/accounts")
+    end
+
+    # POST /api/v1/private/projects/:project/connectors/:service/accounts
+    # Add another account to a project connector (owner; the connection is
+    # tested first).
+    # @param project [String]
+    # @param service [String]
+    # @param fields [Hash] the connector's credential fields
+    # @param label [String, nil] name of the new account
+    # @param current_label [String, nil] names the existing single connection
+    #   when it is adopted as the first account
+    # @param make_default [Boolean, nil] make the new account the default
+    # @return [Array<Hash>] the updated account list
+    def add_account(project, service, fields:, label: nil, current_label: nil, make_default: nil)
+      body = compact("label" => label, "fields" => fields,
+                     "currentLabel" => current_label, "makeDefault" => make_default)
+      @http.post("/api/v1/private/projects/#{enc(project)}/connectors/#{enc(service)}/accounts", body)
+    end
+
+    # PUT /api/v1/private/projects/:project/connectors/:service/accounts/default
+    # Choose which account the project connector uses (owner).
+    # @param project [String]
+    # @param service [String]
+    # @param account_id [String]
+    # @return [Array<Hash>] the updated account list
+    def set_default_account(project, service, account_id)
+      @http.put("/api/v1/private/projects/#{enc(project)}/connectors/#{enc(service)}/accounts/default",
+        "accountId" => account_id)
+    end
+
+    # PUT /api/v1/private/projects/:project/connectors/:service/accounts/:accountId
+    # Rename one account of a project connector (owner, max 80 chars).
+    # @param project [String]
+    # @param service [String]
+    # @param account_id [String]
+    # @param label [String]
+    # @return [Array<Hash>] the updated account list
+    def rename_account(project, service, account_id, label:)
+      @http.put("/api/v1/private/projects/#{enc(project)}/connectors/#{enc(service)}/accounts/#{enc(account_id)}",
+        "label" => label)
+    end
+
+    # DELETE /api/v1/private/projects/:project/connectors/:service/accounts/:accountId
+    # Remove one account from a project connector (owner).
+    # @param project [String]
+    # @param service [String]
+    # @param account_id [String]
+    # @return [Array<Hash>] the remaining account list
+    def remove_account(project, service, account_id)
+      @http.delete("/api/v1/private/projects/#{enc(project)}/connectors/#{enc(service)}/accounts/#{enc(account_id)}")
+    end
+
     # ── Google OAuth (status / defaults / disconnect) ─────────────────────────
 
     # GET /api/v1/private/projects/:project/connectors/google/status
@@ -134,7 +197,7 @@ module Melaya
     private
 
     def enc(s)
-      URI.encode_www_form_component(s.to_s)
+      URI.encode_www_form_component(s.to_s).gsub("+", "%20") # path segment: space is %20, never +
     end
 
     def compact(hash)

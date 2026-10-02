@@ -7,7 +7,7 @@ const val DEFAULT_BASE_URL = "https://api.melaya.org"
 const val DEFAULT_WS_URL   = "wss://wss.melaya.org"
 
 /**
- * The Melaya SDK entry point — v0.4.0.
+ * The Melaya SDK entry point — v0.5.0.
  *
  * Covers the full REST surface across trading, agents, and platform planes,
  * plus real-time events via Socket.IO at `/api/v1/events`.

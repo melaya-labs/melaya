@@ -80,5 +80,5 @@ class BugsAPI internal constructor(private val http: HttpClient) {
         return http.post("/api/v1/private/bugs/notifications/read", body).asObject()
     }
 
-    private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8")
+    private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8").replace("+", "%20") // path segment: space is %20, never +
 }

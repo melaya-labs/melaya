@@ -28,7 +28,7 @@ public sealed class MelayaOptions
 }
 
 /// <summary>
-/// The Melaya .NET SDK entry point — v0.4.0.
+/// The Melaya .NET SDK entry point — v0.5.0.
 /// <para>
 /// Exposes three domain namespaces as the primary API surface:
 /// <list type="bullet">

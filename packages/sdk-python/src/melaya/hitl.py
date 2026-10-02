@@ -14,6 +14,7 @@ Example
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 from .platform_types import HitlDecision, JsonDict
 
@@ -83,7 +84,7 @@ class HitlAPI:
             params["limit"] = limit
         if cursor is not None:
             params["cursor"] = cursor
-        return self._request("GET", f"/api/v1/private/hitl/runs/{run_id}/messages", params=params)
+        return self._request("GET", f"/api/v1/private/runs/{quote(run_id, safe='')}/messages", params=params)
 
     def run_tool_stats_by_agent(self, run_id: str) -> JsonDict:
         """Get tool-call stats broken down by agent for a run."""

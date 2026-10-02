@@ -38,7 +38,7 @@ module Melaya
     # Revoke a runner token by ID.
     # @param token_id [String]
     def revoke_token(token_id)
-      @http.delete("/api/v1/private/runner/tokens/#{URI.encode_www_form_component(token_id.to_s)}")
+      @http.delete("/api/v1/private/runner/tokens/#{URI.encode_www_form_component(token_id.to_s).gsub("+", "%20")}")
     end
   end
 end

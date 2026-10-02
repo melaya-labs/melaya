@@ -15,6 +15,7 @@ import type { HttpClient } from "./client.js";
 import type {
   AIModel,
   ConnectedService,
+  ConnectorAccount,
   Credential,
   CredentialSetBody,
   CredentialTestResult,
@@ -188,6 +189,57 @@ export class CredentialsAPI {
     return this.http.get<AIModel[]>("/api/v1/private/credentials/models", {
       ...(params as Record<string, string | undefined | null>),
     });
+  }
+
+  // ── Several accounts per connector (personal scope) ────────────────────────────
+  // Field-based connectors can hold several accounts (two mailboxes, two shops).
+  // Agents use the DEFAULT account unless a tool call names another one. Only
+  // labels and ids ever come back, never credential values.
+
+  /** Accounts connected to one connector. `id: "current"` = a single connection made before accounts existed. */
+  async accounts(service: string): Promise<ConnectorAccount[]> {
+    return this.http.get(`/api/v1/private/credentials/${encodeURIComponent(service)}/accounts`);
+  }
+
+  /**
+   * Add another account to a field-based connector. `fields` are the connector's
+   * credential fields (same keys as `set`); the connection is tested first.
+   * `currentLabel` names the existing single connection when it is adopted as
+   * the first account. Returns the updated list.
+   */
+  async addAccount(
+    service: string,
+    body: { label?: string; fields: Record<string, string>; currentLabel?: string; makeDefault?: boolean },
+  ): Promise<ConnectorAccount[]> {
+    return this.http.post(`/api/v1/private/credentials/${encodeURIComponent(service)}/accounts`, body);
+  }
+
+  /** Choose which account the connector (and so every agent) uses. Returns the updated list. */
+  async setDefaultAccount(service: string, accountId: string): Promise<ConnectorAccount[]> {
+    return this.http.put(`/api/v1/private/credentials/${encodeURIComponent(service)}/accounts/default`, { accountId });
+  }
+
+  /** Name an account after the identity its connector reports (runs the connection test on it). */
+  async identifyAccount(service: string, accountId: string): Promise<ConnectorAccount[]> {
+    return this.http.post(
+      `/api/v1/private/credentials/${encodeURIComponent(service)}/accounts/${encodeURIComponent(accountId)}/identify`,
+      {},
+    );
+  }
+
+  /** Rename one account (max 80 chars). */
+  async renameAccount(service: string, accountId: string, label: string): Promise<ConnectorAccount[]> {
+    return this.http.put(
+      `/api/v1/private/credentials/${encodeURIComponent(service)}/accounts/${encodeURIComponent(accountId)}`,
+      { label },
+    );
+  }
+
+  /** Remove one account from a connector. Returns the remaining list. */
+  async removeAccount(service: string, accountId: string): Promise<ConnectorAccount[]> {
+    return this.http.delete(
+      `/api/v1/private/credentials/${encodeURIComponent(service)}/accounts/${encodeURIComponent(accountId)}`,
+    );
   }
 
   // ── Google account management (personal scope) ─────────────────────────────────

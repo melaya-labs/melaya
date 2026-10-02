@@ -138,7 +138,7 @@ module Melaya
     end
 
     def enc(s)
-      URI.encode_www_form_component(s.to_s)
+      URI.encode_www_form_component(s.to_s).gsub("+", "%20") # path segment: space is %20, never +
     end
 
     def compact(hash)

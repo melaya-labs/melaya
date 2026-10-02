@@ -83,5 +83,5 @@ class EvalsAPI internal constructor(private val http: HttpClient) {
         return http.get("/api/v1/private/evals/benchmarks").asObject()
     }
 
-    private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8")
+    private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8").replace("+", "%20") // path segment: space is %20, never +
 }

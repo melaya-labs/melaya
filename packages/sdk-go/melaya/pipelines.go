@@ -226,6 +226,29 @@ func (p *PipelinesAPI) UploadRunFile(ctx context.Context, name, key string, file
 	return &v, nil
 }
 
+// SetInputs replaces ONLY the pipeline's declared run inputs (config.inputs),
+// without touching the rest of the config. Max 30; an empty slice removes them
+// all. Editor or owner only; a bad declaration returns HTTP 422
+// "run_inputs_invalid: <reason>". Keep keys stable: {{inputs.<key>}}
+// placeholders in agent instructions use them.
+//
+// PUT /api/v1/private/pipelines/{name}/inputs
+func (p *PipelinesAPI) SetInputs(ctx context.Context, name, project string, inputs []PipelineInputDeclaration) (*PipelineInputsUpdateResult, error) {
+	if inputs == nil {
+		inputs = []PipelineInputDeclaration{}
+	}
+	path := "/api/v1/private/pipelines/" + url.PathEscape(name) + "/inputs"
+	data, err := p.h.put(ctx, path, map[string]interface{}{"inputs": inputs, "project": project})
+	if err != nil {
+		return nil, err
+	}
+	var v PipelineInputsUpdateResult
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
 // RunInputs returns the persisted run-inputs record for a run: the brief,
 // values, and file references originally passed to Run. runID is 16 hex
 // characters.
@@ -387,6 +410,70 @@ func (p *PipelinesAPI) IngestRetrieval(ctx context.Context, name string, body ma
 func (p *PipelinesAPI) DeleteRetrievalDoc(ctx context.Context, name, filename string) (interface{}, error) {
 	path := "/api/v1/private/pipelines/" + url.PathEscape(name) + "/docs/retrieval/" + url.PathEscape(filename)
 	data, err := p.h.del(ctx, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	var v interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// DocsPreview returns per-document extraction stats of the static-context
+// documents (characters kept per file), with caps for the model the agents
+// use. Set opts.ModelName / opts.ModelProvider to see what fits that model's
+// context window; opts may be nil.
+//
+// GET /api/v1/private/pipelines/{name}/docs/preview[?model_name=&model_provider=]
+func (p *PipelinesAPI) DocsPreview(ctx context.Context, name string, opts *DocsPreviewOptions) (interface{}, error) {
+	q := map[string]string{}
+	if opts != nil {
+		q["model_name"] = opts.ModelName
+		q["model_provider"] = opts.ModelProvider
+	}
+	path := "/api/v1/private/pipelines/" + url.PathEscape(name) + "/docs/preview"
+	data, err := p.h.get(ctx, path, q)
+	if err != nil {
+		return nil, err
+	}
+	var v interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// RetrievalPreview returns stats of the pipeline's retrieval store
+// (documents, chunks, embedder).
+//
+// GET /api/v1/private/pipelines/{name}/docs/retrieval/preview
+func (p *PipelinesAPI) RetrievalPreview(ctx context.Context, name string) (interface{}, error) {
+	path := "/api/v1/private/pipelines/" + url.PathEscape(name) + "/docs/retrieval/preview"
+	data, err := p.h.get(ctx, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	var v interface{}
+	if err := unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// TestRetrieve runs a sample query against the pipeline's retrieval store and
+// returns the passages agents would get. limit is 1-20; pass 0 to use the
+// server default (5). Needs an embedder configured; a store built with another
+// embedder answers HTTP 409 (re-ingest).
+//
+// POST /api/v1/private/pipelines/{name}/docs/retrieval/test_retrieve
+func (p *PipelinesAPI) TestRetrieve(ctx context.Context, name, query string, limit int) (interface{}, error) {
+	body := map[string]interface{}{"query": query}
+	if limit > 0 {
+		body["limit"] = limit
+	}
+	path := "/api/v1/private/pipelines/" + url.PathEscape(name) + "/docs/retrieval/test_retrieve"
+	data, err := p.h.post(ctx, path, body)
 	if err != nil {
 		return nil, err
 	}

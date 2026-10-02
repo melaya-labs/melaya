@@ -245,6 +245,33 @@ public class PipelinesAPI {
     }
 
     /**
+     * Replace ONLY the pipeline's declared run inputs ({@code config.inputs}),
+     * without touching the rest of the config. Max 30; an empty list removes them
+     * all. Editor or owner only; a bad declaration fails with HTTP 422
+     * {@code run_inputs_invalid: <reason>}. Keep keys stable: {@code {{inputs.<key>}}}
+     * placeholders in agent instructions use them.
+     *
+     * <p>Each declaration map: {@code key} (lower snake case, max 40, "brief" reserved),
+     * {@code label}, {@code type} (text, long_text, number, boolean, choice, url, email,
+     * file, files), {@code required}, {@code default} (not for files), {@code options}
+     * (choice), {@code accept} (files: pdf, office, spreadsheet, image, text),
+     * {@code description}.
+     *
+     * <p>Maps to {@code PUT /api/v1/private/pipelines/{name}/inputs}.
+     *
+     * @param name    the pipeline name (URL-encoded automatically)
+     * @param project the project the pipeline belongs to
+     * @param inputs  the full list of declarations
+     * @return {@code {name, inputs}}: the normalized declaration the server stored
+     */
+    public JsonNode setInputs(String name, String project, java.util.List<Map<String, Object>> inputs) {
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("inputs", inputs == null ? java.util.Collections.emptyList() : inputs);
+        body.put("project", project);
+        return http.put("/api/v1/private/pipelines/" + encode(name) + "/inputs", body);
+    }
+
+    /**
      * Get what a run was started with (brief, values, files).
      *
      * <p>Maps to {@code GET /api/v1/private/pipelines/{name}/runs/{runId}/inputs}.
@@ -377,6 +404,50 @@ public class PipelinesAPI {
         return http.delete(
                 "/api/v1/private/pipelines/" + encode(name) + "/docs/retrieval/" + encode(filename),
                 null);
+    }
+
+    /**
+     * Per-document extraction stats of the static-context documents (characters kept
+     * per file), with caps for the model the agents use. Pass the model to see what
+     * fits its context window.
+     *
+     * <p>Maps to {@code GET /api/v1/private/pipelines/{name}/docs/preview}.
+     *
+     * @param name          the pipeline name (URL-encoded automatically)
+     * @param modelName     sent as {@code model_name}; may be {@code null}
+     * @param modelProvider sent as {@code model_provider}; may be {@code null}
+     */
+    public JsonNode docsPreview(String name, String modelName, String modelProvider) {
+        Map<String, Object> q = params("model_name", modelName, "model_provider", modelProvider);
+        return http.get("/api/v1/private/pipelines/" + encode(name) + "/docs/preview",
+                q.isEmpty() ? null : q);
+    }
+
+    /**
+     * Stats of the pipeline's retrieval store (documents, chunks, embedder).
+     *
+     * <p>Maps to {@code GET /api/v1/private/pipelines/{name}/docs/retrieval/preview}.
+     */
+    public JsonNode retrievalPreview(String name) {
+        return http.get("/api/v1/private/pipelines/" + encode(name) + "/docs/retrieval/preview", null);
+    }
+
+    /**
+     * Run a sample query against the pipeline's retrieval store and see the passages
+     * agents would get. Needs an embedder configured; a store built with another
+     * embedder answers HTTP 409 (re-ingest).
+     *
+     * <p>Maps to {@code POST /api/v1/private/pipelines/{name}/docs/retrieval/test_retrieve}.
+     *
+     * @param name  the pipeline name (URL-encoded automatically)
+     * @param query the sample query
+     * @param limit number of passages, 1-20 (server default 5); may be {@code null}
+     */
+    public JsonNode testRetrieve(String name, String query, Integer limit) {
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("query", query);
+        if (limit != null) body.put("limit", limit);
+        return http.post("/api/v1/private/pipelines/" + encode(name) + "/docs/retrieval/test_retrieve", body);
     }
 
     // ── Outputs ───────────────────────────────────────────────────────────────
@@ -644,7 +715,7 @@ public class PipelinesAPI {
 
     private static String encode(String s) {
         try {
-            return java.net.URLEncoder.encode(s, java.nio.charset.StandardCharsets.UTF_8);
+            return java.net.URLEncoder.encode(s, java.nio.charset.StandardCharsets.UTF_8).replace("+", "%20"); // path segment: space is %20, never +
         } catch (Exception e) {
             return s;
         }

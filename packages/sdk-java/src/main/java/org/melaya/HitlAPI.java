@@ -99,7 +99,7 @@ public class HitlAPI {
      */
     public JsonNode runMessages(String runId, Integer limit, String cursor) {
         Map<String, Object> q = params("limit", limit, "cursor", cursor);
-        return http.get("/api/v1/private/hitl/runs/" + encode(runId) + "/messages",
+        return http.get("/api/v1/private/runs/" + encode(runId) + "/messages",
                 q.isEmpty() ? null : q);
     }
 
@@ -127,7 +127,7 @@ public class HitlAPI {
 
     private static String encode(String s) {
         try {
-            return java.net.URLEncoder.encode(s, java.nio.charset.StandardCharsets.UTF_8);
+            return java.net.URLEncoder.encode(s, java.nio.charset.StandardCharsets.UTF_8).replace("+", "%20"); // path segment: space is %20, never +
         } catch (Exception e) {
             return s;
         }

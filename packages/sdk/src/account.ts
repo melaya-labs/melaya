@@ -38,4 +38,27 @@ export class AccountAPI {
   async apiKeyStatus(): Promise<Record<string, unknown>> {
     return await this.http.get<Record<string, unknown>>("/api/v1/private/api-key");
   }
+
+  /**
+   * Generate a new platform API key, replacing the current one at once. The
+   * new key is returned ONCE. Careful: called with the key this client uses,
+   * every later call of this client fails until you build a new client with
+   * the returned key.
+   */
+  async rotateApiKey(): Promise<{ apiKey: string }> {
+    return await this.http.post<{ apiKey: string }>("/api/v1/private/api-key", {});
+  }
+
+  /**
+   * Revoke the platform API key. Called with the key this client uses, this
+   * client stops working immediately.
+   */
+  async revokeApiKey(): Promise<{ ok: boolean }> {
+    return await this.http.delete<{ ok: boolean }>("/api/v1/private/api-key");
+  }
+
+  /** Request counts of your platform API key (current key, merged with your account totals). */
+  async apiKeyUsage(): Promise<Record<string, unknown>> {
+    return await this.http.get<Record<string, unknown>>("/api/v1/private/api-key/usage");
+  }
 }

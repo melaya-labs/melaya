@@ -339,6 +339,103 @@ public class CredentialsAPI {
         return http.post("/api/v1/private/credentials/substack/email-link/redeem", body);
     }
 
+    // ── Several accounts per connector (personal scope) ──────────────────────
+    // Field-based connectors can hold several accounts (two mailboxes, two shops).
+    // Agents use the DEFAULT account unless a tool call names another one. Only
+    // labels and ids ever come back, never credential values.
+
+    /**
+     * Accounts connected to one connector. An account with {@code id: "current"} is a
+     * single connection made before accounts existed.
+     *
+     * <p>Maps to {@code GET /api/v1/private/credentials/{service}/accounts}.
+     *
+     * @param service the connector service id (URL-encoded automatically)
+     * @return an array of {@code {id, label, isDefault, createdAt}} ({@code createdAt} may be null)
+     */
+    public JsonNode accounts(String service) {
+        return http.get("/api/v1/private/credentials/" + encode(service) + "/accounts", null);
+    }
+
+    /**
+     * Add another account to a field-based connector. The connection is tested first.
+     *
+     * <p>Maps to {@code POST /api/v1/private/credentials/{service}/accounts}.
+     *
+     * @param service      the connector service id
+     * @param label        the new account's label; may be {@code null}
+     * @param fields       the connector's credential fields (same keys as {@link #set})
+     * @param currentLabel names the existing single connection when it is adopted as the
+     *                     first account; may be {@code null}
+     * @param makeDefault  make the new account the default; may be {@code null}
+     * @return the updated account list
+     */
+    public JsonNode addAccount(String service, String label, Map<String, String> fields,
+                               String currentLabel, Boolean makeDefault) {
+        return http.post("/api/v1/private/credentials/" + encode(service) + "/accounts",
+                accountBody(label, fields, currentLabel, makeDefault));
+    }
+
+    /**
+     * Choose which account the connector (and so every agent) uses.
+     *
+     * <p>Maps to {@code PUT /api/v1/private/credentials/{service}/accounts/default}.
+     *
+     * @return the updated account list
+     */
+    public JsonNode setDefaultAccount(String service, String accountId) {
+        return http.put("/api/v1/private/credentials/" + encode(service) + "/accounts/default",
+                Map.of("accountId", accountId));
+    }
+
+    /**
+     * Name an account after the identity its connector reports (runs the connection
+     * test on it).
+     *
+     * <p>Maps to {@code POST /api/v1/private/credentials/{service}/accounts/{accountId}/identify}.
+     *
+     * @return the updated account list
+     */
+    public JsonNode identifyAccount(String service, String accountId) {
+        return http.post("/api/v1/private/credentials/" + encode(service) + "/accounts/"
+                + encode(accountId) + "/identify", Map.of());
+    }
+
+    /**
+     * Rename one account (max 80 chars).
+     *
+     * <p>Maps to {@code PUT /api/v1/private/credentials/{service}/accounts/{accountId}}.
+     *
+     * @return the updated account list
+     */
+    public JsonNode renameAccount(String service, String accountId, String label) {
+        return http.put("/api/v1/private/credentials/" + encode(service) + "/accounts/" + encode(accountId),
+                Map.of("label", label));
+    }
+
+    /**
+     * Remove one account from a connector.
+     *
+     * <p>Maps to {@code DELETE /api/v1/private/credentials/{service}/accounts/{accountId}}.
+     *
+     * @return the remaining account list
+     */
+    public JsonNode removeAccount(String service, String accountId) {
+        return http.delete("/api/v1/private/credentials/" + encode(service) + "/accounts/" + encode(accountId),
+                null);
+    }
+
+    /** Body of an add-account call; null values are left out. Shared with {@link ConnectorsAPI}. */
+    static Map<String, Object> accountBody(String label, Map<String, String> fields,
+                                           String currentLabel, Boolean makeDefault) {
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        if (label != null) body.put("label", label);
+        body.put("fields", fields == null ? Map.of() : fields);
+        if (currentLabel != null) body.put("currentLabel", currentLabel);
+        if (makeDefault != null) body.put("makeDefault", makeDefault);
+        return body;
+    }
+
     // ── Google OAuth (personal) ──────────────────────────────────────────────
 
     /** List the Google OAuth capabilities actually granted to the caller. */
@@ -393,5 +490,15 @@ public class CredentialsAPI {
     /** Poll a database connector runner-test result. */
     public JsonNode dbTestStatus(String sessionId) {
         return http.get("/api/v1/private/credentials/db-test/" + sessionId, null);
+    }
+
+    // ── helper ────────────────────────────────────────────────────────────────
+
+    private static String encode(String s) {
+        try {
+            return java.net.URLEncoder.encode(s, java.nio.charset.StandardCharsets.UTF_8).replace("+", "%20"); // path segment: space is %20, never +
+        } catch (Exception e) {
+            return s;
+        }
     }
 }

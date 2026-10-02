@@ -41,6 +41,12 @@ import org.json.JSONObject
  *   - `GET    /api/v1/private/credentials/google/status`            — granted Google capabilities
  *   - `PUT    /api/v1/private/credentials/google/default`           — set default Google account
  *   - `DELETE /api/v1/private/credentials/google/access`            — disconnect Google product/account
+ *   - `GET    /api/v1/private/credentials/:service/accounts`        — list a connector's accounts
+ *   - `POST   /api/v1/private/credentials/:service/accounts`        — add an account
+ *   - `PUT    /api/v1/private/credentials/:service/accounts/default` — choose the default account
+ *   - `POST   /api/v1/private/credentials/:service/accounts/:id/identify` — name an account after its identity
+ *   - `PUT    /api/v1/private/credentials/:service/accounts/:id`    — rename an account
+ *   - `DELETE /api/v1/private/credentials/:service/accounts/:id`    — remove an account
  *   - `POST   /api/v1/private/credentials/cli-auth`                 — start CLI auth
  *   - `POST   /api/v1/private/credentials/notebooklm/login`         — store NotebookLM creds
  *   - `GET    /api/v1/private/credentials/notebooklm/status`        — NotebookLM status
@@ -341,6 +347,81 @@ class CredentialsAPI internal constructor(private val http: HttpClient) {
         return http.delete("/api/v1/private/credentials/google/access", body = body).asObject()
     }
 
+    // ── Several accounts per connector (personal scope) ──────────────────────
+    // Field-based connectors can hold several accounts (two mailboxes, two shops).
+    // Agents use the DEFAULT account unless a tool call names another one. Only
+    // labels and ids ever come back, never credential values.
+
+    /**
+     * Accounts connected to one connector: `{id, label, isDefault, createdAt|null}` each.
+     * `id: "current"` = a single connection made before accounts existed.
+     */
+    fun accounts(service: String): List<JSONObject> {
+        return http.get("/api/v1/private/credentials/${enc(service)}/accounts").asAccountList()
+    }
+
+    /**
+     * Add another account to a field-based connector. The connection is tested first.
+     *
+     * @param fields       The connector's credential fields (same keys as [set]).
+     * @param label        Optional name for the new account.
+     * @param currentLabel Names the existing single connection when it is adopted as the first account.
+     * @param makeDefault  Make the new account the default one.
+     * @return The updated account list.
+     */
+    fun addAccount(
+        service: String,
+        fields: Map<String, String>,
+        label: String? = null,
+        currentLabel: String? = null,
+        makeDefault: Boolean? = null,
+    ): List<JSONObject> {
+        val body = buildMap<String, Any?> {
+            if (label != null) put("label", label)
+            put("fields", fields)
+            if (currentLabel != null) put("currentLabel", currentLabel)
+            if (makeDefault != null) put("makeDefault", makeDefault)
+        }
+        return http.post("/api/v1/private/credentials/${enc(service)}/accounts", body).asAccountList()
+    }
+
+    /** Choose which account the connector (and so every agent) uses. Returns the updated list. */
+    fun setDefaultAccount(service: String, accountId: String): List<JSONObject> {
+        return http.put(
+            "/api/v1/private/credentials/${enc(service)}/accounts/default",
+            mapOf("accountId" to accountId)
+        ).asAccountList()
+    }
+
+    /** Name an account after the identity its connector reports (runs the connection test on it). Returns the updated list. */
+    fun identifyAccount(service: String, accountId: String): List<JSONObject> {
+        return http.post(
+            "/api/v1/private/credentials/${enc(service)}/accounts/${enc(accountId)}/identify",
+            emptyMap<String, Any?>()
+        ).asAccountList()
+    }
+
+    /** Rename one account (max 80 chars). Returns the updated list. */
+    fun renameAccount(service: String, accountId: String, label: String): List<JSONObject> {
+        return http.put(
+            "/api/v1/private/credentials/${enc(service)}/accounts/${enc(accountId)}",
+            mapOf("label" to label)
+        ).asAccountList()
+    }
+
+    /** Remove one account from a connector. Returns the remaining list. */
+    fun removeAccount(service: String, accountId: String): List<JSONObject> {
+        return http.delete(
+            "/api/v1/private/credentials/${enc(service)}/accounts/${enc(accountId)}"
+        ).asAccountList()
+    }
+
+    private fun Any?.asAccountList(): List<JSONObject> = when (this) {
+        is org.json.JSONArray -> toJsonObjects()
+        is JSONObject -> optJSONArray("accounts")?.toJsonObjects() ?: emptyList()
+        else -> emptyList()
+    }
+
     // ── Database connector test ──────────────────────────────────────────────
 
     /** Probe a database connector from the user's own runner. Returns `{ sessionId, ... }` to poll. */
@@ -406,5 +487,5 @@ class CredentialsAPI internal constructor(private val http: HttpClient) {
         return http.post("/api/v1/private/credentials/substack/email-link/redeem", body).asObject()
     }
 
-    private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8")
+    private fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8").replace("+", "%20") // path segment: space is %20, never +
 }

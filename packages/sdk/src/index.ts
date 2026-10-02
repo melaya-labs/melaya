@@ -62,6 +62,8 @@ export type {
   PipelineRunFileValue,
   PipelineRunInputs,
   PipelineRunInputsRecord,
+  PipelineInputDeclaration,
+  PipelineInputsUpdateResult,
   RunFileUploadResult,
   ToolCall,
   ToolCallCursor,

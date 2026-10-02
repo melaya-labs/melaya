@@ -331,6 +331,21 @@ public sealed class ConnectedService
     [JsonExtensionData]             public Dictionary<string, JsonElement>? Extra { get; set; }
 }
 
+/// <summary>
+/// One account of a connector that holds several (two mailboxes, two shops). Only the label
+/// and id are ever returned, never credential values. <c>Id == "current"</c> is a single
+/// connection made before accounts existed (adopted on the first write).
+/// </summary>
+public sealed class ConnectorAccount
+{
+    [JsonPropertyName("id")]        public string? Id        { get; set; }
+    [JsonPropertyName("label")]     public string? Label     { get; set; }
+    /// <summary>The account agents use unless a tool call names another one.</summary>
+    [JsonPropertyName("isDefault")] public bool?   IsDefault { get; set; }
+    [JsonPropertyName("createdAt")] public string? CreatedAt { get; set; }
+    [JsonExtensionData]             public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
 /// <summary>Operator profile for agent context injection.</summary>
 public sealed class OperatorProfile
 {
@@ -672,6 +687,13 @@ public sealed class BoolResult
     [JsonExtensionData]           public Dictionary<string, JsonElement>? Extra { get; set; }
 }
 
+/// <summary>Result of <c>AccountApi.RotateApiKeyAsync</c>. The new key is returned only once.</summary>
+public sealed class ApiKeyRotateResult
+{
+    [JsonPropertyName("apiKey")] public string? ApiKey { get; set; }
+    [JsonExtensionData]          public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
 /// <summary>Simple URL redirect result (checkout / portal).</summary>
 public sealed class UrlResult
 {
@@ -814,6 +836,34 @@ public sealed class PipelineRunInputsResult
     [JsonPropertyName("brief")]  public string? Brief  { get; set; }
     [JsonPropertyName("values")] public Dictionary<string, JsonElement>? Values { get; set; }
     [JsonPropertyName("files")]  public List<JsonElement>? Files { get; set; }
+    [JsonExtensionData]          public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+/// <summary>
+/// One declared run input (<c>config.inputs[]</c>), as <c>PipelinesApi.SetInputsAsync</c> takes it.
+/// Key: lower snake case, starts with a letter, max 40, unique ("brief" is reserved).
+/// Type: text, long_text, number, boolean, choice, url, email, file, files.
+/// </summary>
+public sealed class PipelineInputDeclaration
+{
+    [JsonPropertyName("key")]         public string Key { get; set; } = "";
+    [JsonPropertyName("label")]       public string? Label { get; set; }
+    [JsonPropertyName("type")]        public string? Type { get; set; }
+    [JsonPropertyName("required")]    public bool? Required { get; set; }
+    /// <summary>Not for file types; validated like a run value.</summary>
+    [JsonPropertyName("default")]     public object? Default { get; set; }
+    /// <summary>Required for <c>choice</c> (max 50).</summary>
+    [JsonPropertyName("options")]     public List<string>? Options { get; set; }
+    /// <summary>File types only: pdf, office, spreadsheet, image, text (empty = all).</summary>
+    [JsonPropertyName("accept")]      public List<string>? Accept { get; set; }
+    [JsonPropertyName("description")] public string? Description { get; set; }
+}
+
+/// <summary>Response of <c>PipelinesApi.SetInputsAsync</c>: the normalized declaration the server stored.</summary>
+public sealed class PipelineInputsUpdateResult
+{
+    [JsonPropertyName("name")]   public string? Name { get; set; }
+    [JsonPropertyName("inputs")] public List<JsonElement>? Inputs { get; set; }
     [JsonExtensionData]          public Dictionary<string, JsonElement>? Extra { get; set; }
 }
 

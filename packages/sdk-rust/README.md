@@ -234,6 +234,50 @@ async fn main() {
 }
 ```
 
+### Connector accounts, API key rotation, run inputs, and retrieval checks
+
+A field-based connector can hold several accounts (two mailboxes, two shops). Agents use the **default** account unless a tool call names another one. Only labels and ids come back, never credential values.
+
+```rust
+use melaya::Melaya;
+use serde_json::json;
+
+#[tokio::main]
+async fn main() {
+    let m = Melaya::new(&std::env::var("MELAYA_API_KEY").unwrap()).unwrap();
+
+    // Personal connector accounts: list, add (the connection is tested first), set default.
+    let accounts = m.credentials.accounts("zoho_mail").await.unwrap(); // [{ id, label, isDefault, createdAt }]
+    println!("{accounts:#}");
+    let updated = m.credentials
+        .add_account("zoho_mail", &json!({ "email": "ops@acme.com", "password": "..." }), Some("Ops"), None, Some(false))
+        .await.unwrap();
+    m.credentials.set_default_account("zoho_mail", updated[1]["id"].as_str().unwrap()).await.unwrap();
+
+    // Project connector accounts (owner only for writes).
+    m.connectors.accounts("Operations", "shopify").await.unwrap();
+    m.connectors
+        .add_account("Operations", "shopify", &json!({ "shop": "acme-eu", "token": "..." }), Some("EU shop"), None, None)
+        .await.unwrap();
+
+    // Platform API key rotation. WARNING: the current key stops working at once.
+    // If `m` uses that key, every later call of `m` fails: build a new client
+    // with the returned key (it is shown only once, so store it).
+    let rotated = m.account.rotate_api_key().await.unwrap();
+    let m = Melaya::new(rotated["apiKey"].as_str().unwrap()).unwrap();
+
+    // Replace only the pipeline's declared run inputs (max 30; [] removes them all).
+    m.pipelines.set_inputs("mobile-review", "Operations", &json!([
+        { "key": "topic", "label": "Topic", "type": "text", "required": true },
+        { "key": "report", "label": "Report", "type": "file", "accept": ["pdf"] }
+    ])).await.unwrap();
+
+    // See the passages agents would get from the retrieval store (limit 1-20, default 5).
+    let hits = m.pipelines.test_retrieve("mobile-review", "refund policy", Some(3)).await.unwrap();
+    println!("{hits:#}");
+}
+```
+
 ---
 
 ## Quick start
@@ -427,6 +471,9 @@ the public Web PKI root set.
 | `keys()` | Connected exchange keys (masked) |
 | `usage()` | Tier + usage counters |
 | `api_key_status()` | API key status |
+| `rotate_api_key()` | New platform API key (returned once); the old key stops working at once, including for this client |
+| `revoke_api_key()` | Revoke the platform API key (this client stops working if it used it) |
+| `api_key_usage()` | Request counts of your platform API key |
 
 ### `client.platform.accounts` / `client.accounts` (platform account management)
 
@@ -536,6 +583,11 @@ the public Web PKI root set.
 | `upload_retrieval_doc(name, file, filename, content_type)` | Upload one RAG (retrieval) document |
 | `ingest_retrieval(name, body)` | Embed changed retrieval documents (can take minutes) |
 | `delete_retrieval_doc(name, filename)` | Delete one retrieval document |
+| `docs_preview(name, model_name, model_provider)` | Per-document extraction stats + caps for a model |
+| `retrieval_preview(name)` | Retrieval store stats (documents, chunks, embedder) |
+| `test_retrieve(name, query, limit)` | Sample query against the retrieval store |
+| `set_inputs(name, project, inputs)` | Replace only the pipeline's declared run inputs |
+| `usage_summary()` | Dashboard usage summary (pipelines, RAG, plan limits) |
 | `outputs(name)` | List output artifacts |
 | `output(name, output_path, download)` | Get one output artifact |
 | `preview_code(config)` | Preview generated code without persisting |
@@ -599,6 +651,12 @@ the public Web PKI root set.
 | `google_status()` | Google OAuth capabilities granted to the caller |
 | `google_set_default(capability, account_id)` | Select the connected Google account for one capability |
 | `google_disconnect(account_id, capability)` | Disconnect one Google product or an entire account |
+| `accounts(service)` | Accounts of one connector (`id`, `label`, `isDefault`, `createdAt`) |
+| `add_account(service, fields, label, current_label, make_default)` | Add another account (connection tested first) |
+| `set_default_account(service, account_id)` | Choose the account agents use |
+| `identify_account(service, account_id)` | Name an account after the identity its connector reports |
+| `rename_account(service, account_id, label)` | Rename one account (max 80 chars) |
+| `remove_account(service, account_id)` | Remove one account |
 | `db_test_start(service, credentials)` | Test a database connector from the user's runner |
 | `db_test_status(session_id)` | Poll a database connector test result |
 | `telegram_qr_start(api_id, api_hash)` | Start Telegram user QR login |
@@ -623,6 +681,11 @@ the public Web PKI root set.
 | `google_status(project)` | Google OAuth capabilities granted to the project |
 | `google_set_default(project, capability, account_id)` | Select the project's connected Google account for one capability |
 | `google_disconnect(project, account_id, capability)` | Disconnect one Google product or an entire project account |
+| `accounts(project, service)` | Accounts of one project connector |
+| `add_account(project, service, fields, label, current_label, make_default)` | Add another account (owner; connection tested first) |
+| `set_default_account(project, service, account_id)` | Choose the account the project connector uses (owner) |
+| `rename_account(project, service, account_id, label)` | Rename one account (owner, max 80 chars) |
+| `remove_account(project, service, account_id)` | Remove one account (owner) |
 | `db_test_start(project, service, credentials)` | Test a project database connector from the user's runner |
 | `db_test_status(project, session_id)` | Poll a project database connector test result |
 

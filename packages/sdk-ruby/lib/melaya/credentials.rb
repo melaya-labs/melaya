@@ -261,6 +261,78 @@ module Melaya
       @http.post("/api/v1/private/credentials/telegram/auth/qr/poll", "handle" => handle)
     end
 
+    # ── Several accounts per connector (personal scope) ────────────────────────
+    # Field-based connectors can hold several accounts (two mailboxes, two
+    # shops). Agents use the DEFAULT account unless a tool call names another
+    # one. Only labels and ids ever come back, never credential values.
+    # Each account is a Hash: { "id", "label", "isDefault", "createdAt" }
+    # ("isDefault" = the account agents use unless a tool call names another).
+
+    # GET /api/v1/private/credentials/:service/accounts
+    # Accounts connected to one connector. +"id" => "current"+ is a single
+    # connection made before accounts existed.
+    # @param service [String] connector service id
+    # @return [Array<Hash>] [{ "id", "label", "isDefault", "createdAt" }]
+    def accounts(service)
+      @http.get("/api/v1/private/credentials/#{enc(service)}/accounts")
+    end
+
+    # POST /api/v1/private/credentials/:service/accounts
+    # Add another account to a field-based connector. The connection is tested
+    # first.
+    # @param service [String] connector service id
+    # @param fields [Hash] the connector's credential fields (same keys as +set+)
+    # @param label [String, nil] name of the new account
+    # @param current_label [String, nil] names the existing single connection
+    #   when it is adopted as the first account
+    # @param make_default [Boolean, nil] make the new account the default
+    # @return [Array<Hash>] the updated account list
+    def add_account(service, fields:, label: nil, current_label: nil, make_default: nil)
+      body = compact("label" => label, "fields" => fields,
+                     "currentLabel" => current_label, "makeDefault" => make_default)
+      @http.post("/api/v1/private/credentials/#{enc(service)}/accounts", body)
+    end
+
+    # PUT /api/v1/private/credentials/:service/accounts/default
+    # Choose which account the connector (and so every agent) uses.
+    # @param service [String]
+    # @param account_id [String]
+    # @return [Array<Hash>] the updated account list
+    def set_default_account(service, account_id)
+      @http.put("/api/v1/private/credentials/#{enc(service)}/accounts/default",
+        "accountId" => account_id)
+    end
+
+    # POST /api/v1/private/credentials/:service/accounts/:accountId/identify
+    # Name an account after the identity its connector reports (runs the
+    # connection test on it).
+    # @param service [String]
+    # @param account_id [String]
+    # @return [Array<Hash>] the updated account list
+    def identify_account(service, account_id)
+      @http.post("/api/v1/private/credentials/#{enc(service)}/accounts/#{enc(account_id)}/identify", {})
+    end
+
+    # PUT /api/v1/private/credentials/:service/accounts/:accountId
+    # Rename one account (max 80 chars).
+    # @param service [String]
+    # @param account_id [String]
+    # @param label [String]
+    # @return [Array<Hash>] the updated account list
+    def rename_account(service, account_id, label:)
+      @http.put("/api/v1/private/credentials/#{enc(service)}/accounts/#{enc(account_id)}",
+        "label" => label)
+    end
+
+    # DELETE /api/v1/private/credentials/:service/accounts/:accountId
+    # Remove one account from a connector.
+    # @param service [String]
+    # @param account_id [String]
+    # @return [Array<Hash>] the remaining account list
+    def remove_account(service, account_id)
+      @http.delete("/api/v1/private/credentials/#{enc(service)}/accounts/#{enc(account_id)}")
+    end
+
     # ── Google OAuth (status / defaults / disconnect) ──────────────────────────
 
     # GET /api/v1/private/credentials/google/status
@@ -363,7 +435,7 @@ module Melaya
     private
 
     def enc(s)
-      URI.encode_www_form_component(s.to_s)
+      URI.encode_www_form_component(s.to_s).gsub("+", "%20") # path segment: space is %20, never +
     end
 
     def compact(hash)

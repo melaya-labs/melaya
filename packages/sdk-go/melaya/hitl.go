@@ -139,9 +139,9 @@ func (h *HitlAPI) RunToolStatsByAgent(ctx context.Context, runID string) (map[st
 
 // RunMessages returns paginated messages for a pipeline run.
 //
-// GET /api/v1/private/hitl/runs/:runId/messages
+// GET /api/v1/private/runs/:runId/messages
 func (h *HitlAPI) RunMessages(ctx context.Context, runID string, limit *int, cursor string) ([]RunMessage, error) {
-	path := "/api/v1/private/hitl/runs/" + url.PathEscape(runID) + "/messages"
+	path := "/api/v1/private/runs/" + url.PathEscape(runID) + "/messages"
 	q := map[string]string{}
 	if limit != nil {
 		q["limit"] = fmt.Sprintf("%d", *limit)

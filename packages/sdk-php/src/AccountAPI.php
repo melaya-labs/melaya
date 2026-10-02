@@ -35,4 +35,45 @@ class AccountAPI
     {
         return $this->http->get('/api/v1/private/api-key');
     }
+
+    /**
+     * Generate a new platform API key, replacing the current one at once. The
+     * new key is returned ONCE.
+     *
+     * WARNING: if this client was built with the key being rotated, every
+     * later call of this client fails until you build a new client with the
+     * returned key.
+     *
+     * Maps to POST /api/v1/private/api-key.
+     *
+     * @return array{apiKey: string}
+     */
+    public function rotateApiKey(): array
+    {
+        return $this->http->post('/api/v1/private/api-key', new \stdClass());
+    }
+
+    /**
+     * Revoke the platform API key. If this client uses that key, it stops
+     * working immediately.
+     *
+     * Maps to DELETE /api/v1/private/api-key.
+     *
+     * @return array{ok: bool}
+     */
+    public function revokeApiKey(): array
+    {
+        return $this->http->delete('/api/v1/private/api-key');
+    }
+
+    /**
+     * Request counts of your platform API key (current key, merged with your
+     * account totals).
+     *
+     * Maps to GET /api/v1/private/api-key/usage.
+     */
+    public function apiKeyUsage(): array
+    {
+        return $this->http->get('/api/v1/private/api-key/usage');
+    }
 }

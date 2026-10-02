@@ -187,7 +187,7 @@ pub struct PipelineRunStatus {
 /// Encodes every byte that is not an RFC 3986 unreserved character
 /// (`ALPHA / DIGIT / - . _ ~`). This is safe for embedding in any path
 /// segment where `/` must remain a path delimiter.
-fn encode_segment(s: &str) -> String {
+pub(crate) fn encode_segment(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for b in s.bytes() {
         match b {
@@ -259,6 +259,12 @@ impl PipelinesAPI {
         self.http
             .get("/api/v1/private/overview/pipeline-count", &q)
             .await
+    }
+
+    /// Dashboard usage summary (pipeline count, RAG usage, plan limits).
+    pub async fn usage_summary(&self) -> Result<Value> {
+        let q = HashMap::new();
+        self.http.get("/api/v1/private/overview/usage", &q).await
     }
 
     /// Paginated list of pipeline runs.
@@ -577,6 +583,30 @@ impl PipelinesAPI {
             .await
     }
 
+    /// Replace ONLY the pipeline's declared run inputs (`config.inputs`), without
+    /// touching the rest of the config. Max 30; an empty array removes them all.
+    /// Editor or owner only; a bad declaration fails with HTTP 422
+    /// `run_inputs_invalid: <reason>`. Keep keys stable: `{{inputs.<key>}}`
+    /// placeholders in agent instructions use them.
+    ///
+    /// `inputs` is a JSON array of declarations: `key` (lower snake case, max 40,
+    /// `brief` reserved), `label`, `type` (`text`, `long_text`, `number`,
+    /// `boolean`, `choice`, `url`, `email`, `file`, `files`), `required`,
+    /// `default` (not for files), `options` (choice), `accept` (files: `pdf`,
+    /// `office`, `spreadsheet`, `image`, `text`), `description`.
+    ///
+    /// Returns `{ name, inputs }`: the normalized declaration the server stored.
+    pub async fn set_inputs(&self, name: &str, project: &str, inputs: &Value) -> Result<Value> {
+        let body = json!({ "inputs": inputs, "project": project });
+        let encoded = encode_segment(name);
+        self.http
+            .put(
+                &format!("/api/v1/private/pipelines/{encoded}/inputs"),
+                &body,
+            )
+            .await
+    }
+
     /// What a run was started with: `{ brief, values, files }`.
     ///
     /// `run_id` is the 16-hex-char run identifier.
@@ -718,6 +748,63 @@ impl PipelinesAPI {
             .delete(
                 &format!("/api/v1/private/pipelines/{enc_name}/docs/retrieval/{enc_file}"),
                 &q,
+            )
+            .await
+    }
+
+    /// Per-document extraction stats of the static-context documents
+    /// (characters kept per file), with caps for the model the agents use.
+    /// Pass the model (`model_name` / `model_provider`) to see what fits its
+    /// context window; `None` values are omitted from the query.
+    pub async fn docs_preview(
+        &self,
+        name: &str,
+        model_name: Option<&str>,
+        model_provider: Option<&str>,
+    ) -> Result<Value> {
+        let mut q: HashMap<&str, Option<String>> = HashMap::new();
+        q.insert("model_name", model_name.map(str::to_owned));
+        q.insert("model_provider", model_provider.map(str::to_owned));
+        let enc_name = encode_segment(name);
+        self.http
+            .get(
+                &format!("/api/v1/private/pipelines/{enc_name}/docs/preview"),
+                &q,
+            )
+            .await
+    }
+
+    /// Stats of the pipeline's retrieval store (documents, chunks, embedder).
+    pub async fn retrieval_preview(&self, name: &str) -> Result<Value> {
+        let q = HashMap::new();
+        let enc_name = encode_segment(name);
+        self.http
+            .get(
+                &format!("/api/v1/private/pipelines/{enc_name}/docs/retrieval/preview"),
+                &q,
+            )
+            .await
+    }
+
+    /// Run a sample query against the pipeline's retrieval store and see the
+    /// passages agents would get. `limit` is 1-20 (server default 5). Needs
+    /// an embedder configured; a store built with another embedder answers
+    /// HTTP 409 (re-ingest).
+    pub async fn test_retrieve(
+        &self,
+        name: &str,
+        query: &str,
+        limit: Option<u32>,
+    ) -> Result<Value> {
+        let mut body = json!({ "query": query });
+        if let Some(l) = limit {
+            body["limit"] = json!(l);
+        }
+        let enc_name = encode_segment(name);
+        self.http
+            .post(
+                &format!("/api/v1/private/pipelines/{enc_name}/docs/retrieval/test_retrieve"),
+                &body,
             )
             .await
     }

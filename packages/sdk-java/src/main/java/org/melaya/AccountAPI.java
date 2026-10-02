@@ -31,4 +31,43 @@ public class AccountAPI {
     public JsonNode apiKeyStatus() {
         return http.get("/api/v1/private/api-key", null);
     }
+
+    /**
+     * Generate a new platform API key, replacing the current one at once. The new
+     * key is returned ONCE.
+     *
+     * <p><strong>Careful:</strong> if this is called with the key this client uses, every
+     * later call of this client fails until you build a new client with the returned key.
+     *
+     * <p>Maps to {@code POST /api/v1/private/api-key}.
+     *
+     * @return {@code {apiKey}}: the new key, shown only this once
+     */
+    public JsonNode rotateApiKey() {
+        return http.post("/api/v1/private/api-key", java.util.Map.of());
+    }
+
+    /**
+     * Revoke the platform API key.
+     *
+     * <p><strong>Careful:</strong> if this is called with the key this client uses, this
+     * client stops working immediately.
+     *
+     * <p>Maps to {@code DELETE /api/v1/private/api-key}.
+     *
+     * @return {@code {ok}}
+     */
+    public JsonNode revokeApiKey() {
+        return http.delete("/api/v1/private/api-key", null);
+    }
+
+    /**
+     * Request counts of your platform API key (current key, merged with your account
+     * totals).
+     *
+     * <p>Maps to {@code GET /api/v1/private/api-key/usage}.
+     */
+    public JsonNode apiKeyUsage() {
+        return http.get("/api/v1/private/api-key/usage", null);
+    }
 }

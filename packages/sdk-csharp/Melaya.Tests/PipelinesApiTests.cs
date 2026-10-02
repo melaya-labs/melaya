@@ -146,4 +146,100 @@ public class PipelinesApiTests
         Assert.Empty(result.Items!);
         Assert.False(result.Capped);
     }
+
+    [Fact]
+    public async Task SetInputsAsync_PutsInputsAndProject()
+    {
+        var (api, handler) = MakeApi(_ => Task.FromResult(
+            FakeHttpMessageHandler.JsonResponse(HttpStatusCode.OK,
+                """{"name":"my pipeline","inputs":[{"key":"company","type":"text"}]}""")));
+
+        var result = await api.SetInputsAsync("my pipeline", "acme", new List<PipelineInputDeclaration>
+        {
+            new() { Key = "company", Label = "Company", Type = "text", Required = true },
+        });
+
+        var req = handler.LastRequest!;
+        Assert.Equal(HttpMethod.Put, req.Method);
+        Assert.Equal("/api/v1/private/pipelines/my%20pipeline/inputs", req.RequestUri!.AbsolutePath);
+
+        using var doc = JsonDocument.Parse(handler.LastRequestBodyText!);
+        var root = doc.RootElement;
+        Assert.Equal("acme", root.GetProperty("project").GetString());
+        var input = Assert.Single(root.GetProperty("inputs").EnumerateArray());
+        Assert.Equal("company", input.GetProperty("key").GetString());
+        Assert.Equal("text", input.GetProperty("type").GetString());
+        Assert.True(input.GetProperty("required").GetBoolean());
+
+        Assert.Equal("my pipeline", result.Name);
+        Assert.Single(result.Inputs!);
+    }
+
+    [Fact]
+    public async Task DocsPreviewAsync_SendsModelQuery()
+    {
+        var (api, handler) = MakeApi(_ => Task.FromResult(
+            FakeHttpMessageHandler.JsonResponse(HttpStatusCode.OK, """{"docs":[]}""")));
+
+        await api.DocsPreviewAsync("my pipeline", modelName: "qwen3.7-plus", modelProvider: "qwen");
+
+        var req = handler.LastRequest!;
+        Assert.Equal(HttpMethod.Get, req.Method);
+        Assert.Equal("/api/v1/private/pipelines/my%20pipeline/docs/preview", req.RequestUri!.AbsolutePath);
+        Assert.Contains("model_name=qwen3.7-plus", req.RequestUri.Query);
+        Assert.Contains("model_provider=qwen", req.RequestUri.Query);
+    }
+
+    [Fact]
+    public async Task DocsPreviewAsync_OmitsQuery_WhenNoModel()
+    {
+        var (api, handler) = MakeApi(_ => Task.FromResult(
+            FakeHttpMessageHandler.JsonResponse(HttpStatusCode.OK, """{"docs":[]}""")));
+
+        await api.DocsPreviewAsync("my-pipeline");
+
+        Assert.Equal("", handler.LastRequest!.RequestUri!.Query);
+    }
+
+    [Fact]
+    public async Task RetrievalPreviewAsync_GetsRetrievalPreviewPath()
+    {
+        var (api, handler) = MakeApi(_ => Task.FromResult(
+            FakeHttpMessageHandler.JsonResponse(HttpStatusCode.OK, """{"documents":3,"chunks":120}""")));
+
+        var res = await api.RetrievalPreviewAsync("my-pipeline");
+
+        var req = handler.LastRequest!;
+        Assert.Equal(HttpMethod.Get, req.Method);
+        Assert.Equal("/api/v1/private/pipelines/my-pipeline/docs/retrieval/preview", req.RequestUri!.AbsolutePath);
+        Assert.Equal(120, res.GetProperty("chunks").GetInt32());
+    }
+
+    [Fact]
+    public async Task TestRetrieveAsync_PostsQueryAndLimit()
+    {
+        var (api, handler) = MakeApi(_ => Task.FromResult(
+            FakeHttpMessageHandler.JsonResponse(HttpStatusCode.OK, """{"passages":[]}""")));
+
+        await api.TestRetrieveAsync("my-pipeline", "refund policy", limit: 3);
+
+        var req = handler.LastRequest!;
+        Assert.Equal(HttpMethod.Post, req.Method);
+        Assert.Equal("/api/v1/private/pipelines/my-pipeline/docs/retrieval/test_retrieve", req.RequestUri!.AbsolutePath);
+        using var doc = JsonDocument.Parse(handler.LastRequestBodyText!);
+        Assert.Equal("refund policy", doc.RootElement.GetProperty("query").GetString());
+        Assert.Equal(3, doc.RootElement.GetProperty("limit").GetInt32());
+    }
+
+    [Fact]
+    public async Task TestRetrieveAsync_OmitsLimit_WhenNull()
+    {
+        var (api, handler) = MakeApi(_ => Task.FromResult(
+            FakeHttpMessageHandler.JsonResponse(HttpStatusCode.OK, """{"passages":[]}""")));
+
+        await api.TestRetrieveAsync("my-pipeline", "refund policy");
+
+        using var doc = JsonDocument.Parse(handler.LastRequestBodyText!);
+        Assert.False(doc.RootElement.TryGetProperty("limit", out _));
+    }
 }

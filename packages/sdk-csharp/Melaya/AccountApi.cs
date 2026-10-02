@@ -33,4 +33,34 @@ public sealed class AccountApi
     {
         return await _http.GetAsync<JsonElement>("/api/v1/private/api-key", ct: ct).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Generate a new platform API key, replacing the current one at once. The new key is
+    /// returned ONCE.
+    /// <para>
+    /// <b>Careful:</b> if this client was built with the key being rotated, every later call
+    /// of this client fails until you build a new <see cref="MelayaClient"/> with the returned key.
+    /// </para>
+    /// </summary>
+    public async Task<ApiKeyRotateResult> RotateApiKeyAsync(CancellationToken ct = default)
+    {
+        return await _http.PostAsync<ApiKeyRotateResult>("/api/v1/private/api-key", new { }, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Revoke the platform API key.
+    /// <para>
+    /// <b>Careful:</b> if this client was built with that key, it stops working immediately.
+    /// </para>
+    /// </summary>
+    public async Task<BoolResult> RevokeApiKeyAsync(CancellationToken ct = default)
+    {
+        return await _http.DeleteAsync<BoolResult>("/api/v1/private/api-key", ct: ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Request counts of your platform API key (current key, merged with your account totals).</summary>
+    public async Task<JsonElement> ApiKeyUsageAsync(CancellationToken ct = default)
+    {
+        return await _http.GetAsync<JsonElement>("/api/v1/private/api-key/usage", ct: ct).ConfigureAwait(false);
+    }
 }
