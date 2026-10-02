@@ -13,7 +13,7 @@ dependencies {
     // 'api' (not 'implementation'): both appear in public signatures —
     // JSONObject/JSONArray return types and OkHttpClient in the MelayaStream constructor.
     api 'com.squareup.okhttp3:okhttp:4.12.0'
-    api 'org.json:json:20240303'
+    api 'org.json:json:20260814'
 }
 application { mainClass = 'org.melaya.E2EKt' }
 kotlin { jvmToolchain(21) }
