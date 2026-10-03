@@ -20,7 +20,7 @@ event arrives -> signature and duplicate checks -> rate limits -> prefilter (fre
 
 - One event runs exactly one action: `notify` (default), `tool_call`, `wake_crew` or `pipeline_run`.
 - Nothing is silent: every processed event leaves a receipt, and the owner gets a live notification in the app.
-- Nothing writes on its own unless the user granted autonomy in the app (section 7).
+- Nothing writes on its own unless the user granted autonomy, in the app or over MCP (section 7).
 
 ## 2. Beta gate
 
@@ -210,7 +210,16 @@ Only the answers are stored on the receipt, never the judged text.
 
 - Read-only tools run immediately; the receipt keeps a short redacted excerpt of the result (`dispatched`, `result_excerpt`).
 - Any other tool is a write: a human approval card is raised (`decided / approval_pending`). It runs at most once, with exactly the stored arguments: edits on the card are ignored for trigger writes. Max 20 pending per trigger and 50 per user (`approval_backlog`).
-- Autonomy (writes without approval) exists only in the app: the user picks up to 16 tools, pins every templated argument with a constraint (`equals`, `in`, `min`/`max`, `no_urls`, `allowed_domains`; `prefix` and `max_len` alone are not enough for free text) and a daily write cap (default 10). Writes that break a constraint or exceed the cap fall back to an approval card. MCP refuses to set or change it. Never suggest a workaround.
+- Autonomy (writes without approval): up to 16 tools, every templated argument pinned with a constraint (`equals`, `in`, `min`/`max`, `no_urls`, `allowed_domains`; `prefix` and `max_len` alone are not enough for free text) and a daily write cap (default 10). Writes that break a constraint or exceed the cap fall back to an approval card. The user grants it in the app, or you send it over MCP when the connection holds `melaya:connectors.write`, with `confirm: true` after showing the user the tools, rules and cap and getting their yes:
+
+      config.autonomy = {
+        tools: ["instagram_reply_to_comment"],
+        arg_constraints: { instagram_reply_to_comment: {
+          message: { equals: "Thanks for your comment!" },
+          comment_id: { max_len: 40, no_urls: true } } },
+        max_writes_per_day: 10 }
+
+  A fixed text argument takes `equals`; an id filled from the event takes `max_len` plus `no_urls` (ids are not free text). Read it back with `get` and check each rule sits on the right argument.
 
 ## 8. wake_crew (wake an already-running crew)
 
