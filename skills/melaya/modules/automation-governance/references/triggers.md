@@ -57,7 +57,7 @@ melaya_pipeline_trigger {
 
 | Parameter | Rule |
 |---|---|
-| `kind` | `webhook`, `wss`, `engine`, `poll`. `push` is refused (`[push_ui_only]`), see trigger-sources.md |
+| `kind` | `webhook`, `wss`, `engine`, `poll`, `push`. `push` needs the `melaya:connectors.write` grant and `config.push.consent: true`, see trigger-sources.md section 2 |
 | `name`, `project`, `pipeline` | all required on create |
 | `signing_scheme` | webhook only: `melaya` (default), `stripe`, `github`, `slack` |
 | `secret` | webhook only: a provider-issued signing secret; generated when omitted; never echoed back |
@@ -100,7 +100,7 @@ Receipts are kept 7 days (30 days for GitHub-scheme webhooks). Live notification
 
 - Always `get` first and send back the COMPLETE config with your change. Treat `config` as a full replacement.
 - If the trigger has UI-granted autonomy, keep `config.autonomy` exactly as `get` returned it. Changing it is refused; OMITTING it removes the autonomy. Tell the user if your edit would remove it.
-- Push triggers: keep `config.push` exactly as returned; re-pointing is refused.
+- Push triggers: keep `config.push` exactly as returned unless you mean to re-point it; re-pointing (or re-enabling) needs the `melaya:connectors.write` grant, and a re-point needs `config.push.consent: true` after the user agreed.
 - Changing `signing_scheme` rotates the secret and revokes the old one at once: the sender stops verifying until the user presses "Rotate secret" in the app and pastes the new secret into the sender (a secret rotated over MCP is never shown).
 - A poll trigger re-baselines after a config change (the next poll records what exists and fires nothing).
 

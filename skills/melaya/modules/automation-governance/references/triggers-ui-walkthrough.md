@@ -75,7 +75,7 @@ Every trigger starts with the action "Just tell me" (it only records the event).
 
 ### 2.1 Instant triggers (connected apps that push events)
 
-Instant triggers are created ONLY by the user in the app: Melaya creates a webhook or a watch on the user's own account and needs the user's consent tick. An agent cannot create them over MCP.
+Instant triggers create a webhook or a watch on the user's own account and need the user's consent. The user creates them here; an agent can also create them over MCP when the connection holds the `melaya:connectors.write` grant and the user agreed (`trigger-sources.md` section 2).
 
 Steps (same for every app):
 
@@ -531,7 +531,7 @@ If the form tool is Webflow, use "Webflow site events" (instant, event "Form sub
 | Create, edit, test stream sources and stream triggers | Yes (the user should type feed keys in the app) | Yes |
 | Create, edit, test app checks (presets and custom) | Yes | Presets only |
 | Create, edit, test exchange event triggers | Yes | Yes |
-| Create an instant (push) trigger | No (refused: it creates a webhook or watch on the user's own account and needs the consent tick) | Yes (2.1) |
+| Create an instant (push) trigger | Yes, with the `melaya:connectors.write` grant and `config.push.consent: true` after the user agreed | Yes (2.1) |
 | Change what an instant trigger watches or its events | No | Yes, with the consent box again |
 | Re-enable an instant trigger | No | Yes (switch on, or "Resync") |
 | Pause, test, read deliveries, delete an instant trigger | Yes | Yes |

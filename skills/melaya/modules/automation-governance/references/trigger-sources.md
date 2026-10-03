@@ -4,7 +4,7 @@ Pick the source in this order. The first one that fits wins. For what the user s
 
 | # | Situation | Source | Who sets it up |
 |---|---|---|---|
-| 1 | the app is a connected Melaya connector with an instant (push) option | **push** (instant) | the user, in the app (MCP cannot) |
+| 1 | the app is a connected Melaya connector with an instant (push) option | **push** (instant) | MCP `create` with the `melaya:connectors.write` grant and the user's consent, or the user in the app |
 | 2 | the provider only streams over a socket (Discord, Slack Socket Mode, market or SSE feeds) | **push** gateway (Discord, Slack) or **stream source** (`wss`) | push: the user in the app; stream: MCP `source_create` + `create` |
 | 3 | Melaya's own exchange events (fills, orders, liquidations) | **engine** | MCP `create` |
 | 4 | any product that can POST signed JSON | **webhook** | MCP `create`; the user pastes URL + secret into the product |
@@ -43,9 +43,25 @@ Limits: 256 KB raw body; 32 KB carried payload (else `413` unless `accept_trunca
 
 When a connected app has a ready push option (GitHub, Stripe, Slack, ...), prefer push: Melaya then creates, verifies, renews and repairs the provider side itself.
 
-## 2. Push, instant (kind `push`, app only)
+## 2. Push, instant (kind `push`)
 
-Melaya creates the subscription on the user's connected account (a webhook, watch channel or Pub/Sub watch) after the user ticks a consent box, renews it, repairs it daily and catches missed notifications with safety polls. Because it writes to the user's account, MCP can never create, re-point or re-enable a push trigger (`[push_ui_only]`). MCP may list it, read it, pause it, test it, read its deliveries and delete it.
+Melaya creates the subscription on the user's connected account (a webhook, watch channel or Pub/Sub watch) after the user ticks a consent box, renews it, repairs it daily and catches missed notifications with safety polls. Because it writes to the user's account, creating, re-pointing or re-enabling a push trigger over MCP needs two things: the `melaya:connectors.write` grant on the MCP connection (refused with `[push_needs_connectors_write]` otherwise) and `config.push.consent: true`, which you set only after the user agreed that Melaya may create the webhook on their account (refused with `[push_consent_required]` otherwise). MCP may also list, read, pause, test, read the deliveries of and delete a push trigger.
+
+Create over MCP:
+
+    melaya_pipeline_trigger {
+      action: "create", kind: "push", name: "Instagram comment auto-reply",
+      project: "<project>", pipeline: "<canonical pipeline name>",
+      config: {
+        push: { service: "instagram", adapter: "meta", resource: { object: "instagram" },
+                events: ["instagram.comment"], consent: true },
+        action: { type: "tool_call", service: "instagram", tool: "instagram_reply_to_comment",
+                  args: { comment_id: "{{payload.id}}", message: "Thanks for your comment!" } },
+        prefilter: "payload.from.username != \"<own_username>\""
+      }
+    }
+
+`service` is the connector id, `adapter` the push adapter (all Meta apps use `meta`; Gmail `gmail`, GitHub `github`, and so on), `events` the event ids of that preset (table below and `triggers-ui-walkthrough.md` 2.1.1). The answer reports `push: {ok, status}`: `active` means the webhook is live on the user's account. A write `tool_call` still waits for an approval card per event: autonomy (writes with no human) is granted only by the user in the app (walkthrough section 3.7: pin `message` with "Exactly", give an id argument "Max length" plus "No links allowed"). For a reply bot, add a prefilter that skips the account's own comments, or it answers its own replies. Verify with `test` (a dry run shows "would tool_call ...", and an own-account comment shows `filtered`), then `deliveries` after a real event (`dispatched`, detail `autonomous`).
 
 What to tell the user (step by step; exact labels in `triggers-ui-walkthrough.md` section 2.1):
 1. Make sure the app is connected in Melaya with the account to watch. There is no account picker in the trigger: it always uses the account connected on the Connectors page. If it is not connected, the preset card and the trigger panel show "Connect <App> first", which opens the connect dialog right there (the user stays on the trigger); `melaya_connector_connect` also gives the link.
