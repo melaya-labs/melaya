@@ -1,7 +1,7 @@
 ---
 name: melaya
 description: Use for anything done on the Melaya platform through its MCP server (tools named melaya_*). Covers running, building, fixing and handing over Melaya pipelines and complete multi-pipeline agentic systems; connecting services (Google, Slack, CRMs, API keys); the local runner, Claude Code, Codex, Copilot, Ollama and LM Studio models; projects and templates; run inputs (brief and files); schedules, event triggers and approvals; data stores in Google Sheets and bulk scoring; validation, debugging and reading results; client documentation; phone and browser agents. Works for non-technical users (plain-language journeys) and for integrators (full end-to-end method). Load this first, then open only the module the task needs.
-version: 1.1.1
+version: 1.1.3
 ---
 
 # Melaya
@@ -60,6 +60,7 @@ New capability areas (for example dedicated mobile-agent or browser-agent playbo
 
 ## Changelog
 
+- 1.1.3: triggered runs are no longer forced safe: they follow the pipeline's own approval settings (`hitl_mode` + `human_approval_tools`) exactly like a manual run, so gate every write tool by listing it; browser actions always follow the user's autonomy setting in the Melaya extension (manual, scheduled and triggered runs); the canvas Autonomy chip is shown on phone pipelines only.
 - 1.1.2: instant (push) triggers can be created, re-pointed and re-enabled over MCP with the `melaya:connectors.write` grant and `config.push.consent: true` after the user agreed (worked Instagram comment auto-reply example in trigger-sources.md, validated live); trigger autonomy (writes with no approval) can be set over MCP with the same grant plus `confirm: true` after the user agreed, validated server-side like the app.
 - 1.1.1: run inputs can be declared in the app (Run with inputs -> Fields, inputs-only save, keys frozen once saved) and through the REST inputs endpoint, besides a full MCP save; Meta push split into five per-app presets (Facebook, WhatsApp, Meta Ads, Threads, Instagram), each with only its own events and source; Instagram and Threads now have instant triggers; "Connect <App> first" opens the connect dialog in place.
 - 1.1.0: MCP 1.2.0: connector writes with the `melaya:connectors.write` permission (money-moving refused at every level), project tools with `melaya:projects` (a client pilot runs end to end over MCP); click-by-click triggers walkthrough and trigger fixes (secret shown once, no account or action picker on instant triggers, concurrency skips, case-sensitive prefilter); pilot lessons: Drive folders, write-back by column name, composite scores by tool, provenance enforced in code, data health check pattern, designed-document blocks (KPI tiles, charts, status columns, PDF export), deck intake, research quality, UAE regulator checks, model location.

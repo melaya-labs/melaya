@@ -1,5 +1,5 @@
 <!-- Module of the melaya skill. Entry point: ../../SKILL.md -->
-> Use when a Melaya pipeline or agentic system must run on its own or be made safe to run on its own - arming, pausing or checking a cron schedule (melaya_pipeline_schedule) and its plan limits; starting runs from outside events with melaya_pipeline_trigger (webhooks, instant push subscriptions on connected apps, Discord/Slack live connections, WebSocket/SSE stream sources, exchange engine events, polls); System One questions that judge each event; creating, testing, pausing, deleting and monitoring triggers and their deliveries; waking an already-running crew versus starting a run; choosing hitl_mode and human_approval_tools; forced-safe approvals on triggered runs; reading pending approvals; crew memory policy (persistent_memory); cost, rate and latency caps; security and data boundaries before handover. Load it after the pipelines validate and before telling anyone a system "runs automatically".
+> Use when a Melaya pipeline or agentic system must run on its own or be made safe to run on its own - arming, pausing or checking a cron schedule (melaya_pipeline_schedule) and its plan limits; starting runs from outside events with melaya_pipeline_trigger (webhooks, instant push subscriptions on connected apps, Discord/Slack live connections, WebSocket/SSE stream sources, exchange engine events, polls); System One questions that judge each event; creating, testing, pausing, deleting and monitoring triggers and their deliveries; waking an already-running crew versus starting a run; choosing hitl_mode and human_approval_tools; approvals on triggered runs (same rules as manual runs); reading pending approvals; crew memory policy (persistent_memory); cost, rate and latency caps; security and data boundaries before handover. Load it after the pipelines validate and before telling anyone a system "runs automatically".
 
 # Melaya automation and governance
 
@@ -12,7 +12,7 @@ References (load on demand):
 - `references/triggers.md`: trigger lifecycle (create, test, change, pause, delete), config, System One questions, how the event reaches the pipeline, wake_crew, auto-pause, every receipt verdict.
 - `references/trigger-sources.md`: which source to pick (webhook, push, stream, engine, poll) and how each is configured over MCP; for the user's clicks, use the walkthrough above.
 - `references/plan-limits.md`: schedule floors, runs, concurrency, retention and trigger limits per plan, with worked arithmetic.
-- `references/hitl-modes.md`: real semantics of each hitl_mode, forced safe, approval lifecycle, demo exceptions.
+- `references/hitl-modes.md`: real semantics of each hitl_mode, triggered runs, approval lifecycle, demo exceptions.
 - `references/memory-policy.md`: what persistent_memory stores and replays, and when to use the data store instead.
 - `references/cost-security.md`: cost caps, latency levers, native web search billing, security boundaries.
 
@@ -119,7 +119,7 @@ Procedure C: pause, resume, delete, change
 
 Non-negotiables:
 - A new trigger defaults to `notify`; choose `pipeline_run` explicitly.
-- Triggered runs are forced safe (section 3). Design them expecting an approval on every write.
+- Triggered runs follow the pipeline's own approval settings, like a manual run (section 3). Every write that must be reviewed has to be in `human_approval_tools` with `hitl_mode: "safe"`: an unlisted write runs unattended on the event's data.
 - Triggers never fill the brief, files or declared inputs (planned). The event is the only input.
 - A triggered run executes the pipeline's current saved config: editors change what the next event does.
 - Old local runners drop the event (`failed / trigger_dropped`): the user updates the runner.
@@ -140,11 +140,13 @@ Pipeline field `hitl_mode`: `"safe"` (default), `"autonomous"`, `"payments_only"
 | `safe` | exactly the tools listed in each agent's `human_approval_tools` (`phone_*` excluded: the phone shows its own on-device approval) |
 | `autonomous` | NOTHING from the per-agent list; only form tools that need a human to fill a form (today `luma_register_event`) |
 | `payments_only` | same as autonomous at the tool layer; on-device phone actions gate purchases only |
-| forced safe: any triggered run; a woken crew from its first event; any trading crew | `safe`, and in triggered runs EVERY tool not marked read-only, listed or not; unknown tools are gated too |
+| forced safe: any trading crew | `safe` (their order rails only run on gated tools) |
+
+Triggered runs and woken crews use the pipeline's own mode, like a manual run. Browser actions (Melaya extension) follow the user's own autonomy setting in the extension, for every run.
 
 Consequences:
 - Anything that must be reviewed => `hitl_mode: "safe"` and the tool in that agent's `human_approval_tools`. Older docs saying the list works "whatever the mode" are wrong.
-- `safe` gates ONLY listed tools outside triggered runs. An unlisted `gmail_send` runs without asking in a manual or scheduled run. List every write tool the agent holds.
+- `safe` gates ONLY listed tools, in every run (manual, scheduled or triggered). An unlisted `gmail_send` runs without asking. List every write tool the agent holds.
 - Send tools and gated calls carrying free text never merge: one card per call, individually editable.
 
 Demo without gates (all must hold, and the user says so explicitly): the only write is to the owner's own inbox (`gmail_my_address`, then one `gmail_send` to it) or own Drive; no third party, public post, payment or deletion; manual or scheduled runs only; documented in the handover with the one-line restore. Remove only that tool from `human_approval_tools`, keep `hitl_mode: "safe"`. Details: `references/hitl-modes.md`.

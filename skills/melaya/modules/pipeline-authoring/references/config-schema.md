@@ -81,7 +81,7 @@ Some MCP descriptions say the per-agent list applies "whatever the mode"; observ
 - Any gated send needs `hitl_mode: "safe"`.
 - Gate every external write (send, post, invite, create in someone else's system). Do not gate local artifacts (`word_create`, `excel_write_data`): they are the deliverable.
 - Phone tools are approved on the phone itself, not by a pipeline card.
-- Runs started by an event trigger are forced to safe and gate EVERY tool that is not read-only, listed or not.
+- Runs started by an event trigger gate exactly the same tools as a manual run: list every write a person must review.
 - A demo that only emails the owner's own inbox may run ungated deliberately; say so in the generator.
 - Never approve a gate on the user's behalf.
 

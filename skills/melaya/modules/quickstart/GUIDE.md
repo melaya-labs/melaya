@@ -294,7 +294,7 @@ To pause: `action: "pause"`; to restart: `action: "resume"`; to remove: `action:
 empty `cron`. In the app: Agent Builder, the pipeline's **Schedule & Triggers** tab.
 
 **Starting on an event instead of a time** (a new email, a form submission, a webhook): that is a
-trigger. Triggered runs always ask for approval before outside actions. Load
+trigger. Triggered runs ask for approval exactly where the pipeline does when you run it by hand. Load
 `../../modules/automation-governance/GUIDE.md` for it, and guide the user's clicks with
 `../../modules/automation-governance/references/triggers-ui-walkthrough.md`.
 

@@ -123,7 +123,7 @@ camelCase twins are accepted; snake_case wins. Writing both is harmless (the gen
 - `hitl_mode: "safe"` gates exactly the tools in each agent's `human_approval_tools`. Reads and Sheet or Drive writes run freely.
 - `"autonomous"` and `"payments_only"` DROP the per-agent lists (only a few form tools stay gated), whatever some descriptions say.
 - So any gated send needs `hitl_mode: "safe"`. Gate every external write (send, post, invite, create in someone else's system). Do not gate local artifacts (`word_create`, `excel_write_data`).
-- Runs started by event triggers are forced to safe and gate EVERY non-read-only tool, listed or not.
+- Runs started by event triggers gate exactly the same tools as a manual run: list every write a person must review.
 - A demo that only emails the owner's own inbox may run ungated deliberately; say so in the generator.
 - Never approve a gate on the user's behalf. Depth: `../../modules/automation-governance/GUIDE.md`.
 

@@ -41,7 +41,7 @@ Details: run-inputs.md.
 - The entry plan is manual only. Minimum gap between runs rises with the plan (roughly 12 h, then 1 h, then 5 min on the top plans).
 - A schedule that needs the user's runner is skipped while the runner is offline; after 5 consecutive skips or failed dispatches it pauses itself.
 - Scheduled runs cannot carry run inputs yet: a scheduled pipeline must work with no brief (write the "no brief" default path).
-- Runs started by event triggers are always forced to safe approvals.
+- Runs started by event triggers use the pipeline's own approval settings, like a manual run.
 
 ## 5. Costs
 

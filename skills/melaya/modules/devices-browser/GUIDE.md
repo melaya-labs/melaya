@@ -115,10 +115,10 @@ Full detail: `references/devices-in-pipelines-and-assistant.md`.
 
 - Pipeline agents use the **pipeline** tool ids (not the MCP tool names): `phone_get_screen_tree`, `phone_click_text`, `phone_open_app`, ... and `browser_get_screen_tree`, `browser_click`, `browser_input_text`, `browser_read`, ... Confirm every id with `melaya_pipeline_registry` (search "phone" or "browser") and `melaya_pipeline_preview`; an invented id is silently dropped.
 - Give a device agent the **complete** toolkit. A phone agent missing `phone_click_text` falls back to coordinate taps and mis-taps.
-- Autonomy for devices is the pipeline's `hitl_mode`, not `human_approval_tools`. Leave `human_approval_tools` empty on device agents; the phone and the browser gate publishing, payments and risky taps themselves according to `hitl_mode`.
+- Autonomy for devices is not `human_approval_tools`: leave it empty on device agents. The phone follows the pipeline's `hitl_mode`; the browser through the Melaya extension follows the user's autonomy setting in the extension panel (for every run); the dedicated runner browser follows `hitl_mode`. Each gates publishing, payments and risky actions itself.
 - Browser pipelines run on the user's runner in a dedicated browser (`force_local_runner: true`). Build them from the Browser Control page so the browser settings are set correctly, then edit.
 - Start from a Device Control template when one fits (`melaya_pipeline_templates` with `search: "device"`). Templates carry `[START EDIT ME]` blocks; client pipelines get concrete values instead.
-- Runs started by an event trigger are forced to `safe`, whatever the pipeline says.
+- Runs started by an event trigger use the same autonomy as a manual run.
 
 ## The Melaya Assistant (summary)
 

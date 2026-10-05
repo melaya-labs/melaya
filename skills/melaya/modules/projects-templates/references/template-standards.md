@@ -90,7 +90,7 @@ GREEN:
 - Memory templates: 3-4 runs, later runs report only new or changed items.
 - Run-input templates: one run without inputs, one with a brief + real file (shows a
   `read_run_input` call and the brief reflected in the artifact).
-- Trigger-ready templates: one real triggered run, approval card on every write, and the same
+- Trigger-ready templates: one real triggered run, an approval card on every gated write, and the same
   pipeline still works by hand.
 
 RED: empty body ("0 sent", "unavailable"), zero external-write calls on an outreach template, a

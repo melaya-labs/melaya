@@ -178,7 +178,7 @@ Condition semantics (routes and `act_when`): booleans compare as booleans (`true
 - Pipelines on the user's local runner need an up-to-date runner; an old one drops the event (`failed / trigger_dropped`). Ask the user to update the runner.
 - A triggered run never stops (supersedes) an earlier run of the same pipeline, and a manual or scheduled run never stops an in-flight triggered run.
 
-Safety inside a triggered run (forced safe): see hitl-modes.md section 2. In short, every tool that is not read-only asks for approval, listed or not; approvals expire after `approval_ttl_s`; the account API key is removed from the run.
+Safety inside a triggered run: see hitl-modes.md section 2. In short, the run follows the pipeline's own approval settings like a manual run (only listed tools ask, in `safe` mode), browser actions follow the user's extension setting, approvals expire after `approval_ttl_s`, and the account API key is removed from the run.
 
 Run limits: a trigger starts at most `max_concurrent_runs` at once and `max_runs_per_day` per UTC day. All the user's triggers together may use at most half the plan's concurrent-run lanes (minimum 1), so manual runs always keep a lane. Triggered runs also count toward the plan's monthly runs.
 
@@ -224,7 +224,7 @@ Only the answers are stored on the receipt, never the judged text.
 ## 8. wake_crew (wake an already-running crew)
 
 - The target pipeline must be RUNNING and listening: `listen_trigger_wakeups: true` in its config (the Agent Builder "listen" toggle), or an in-run entry `event_triggers: [{"source": "triggers", "trigger_id": "<uuid>", "expression": "<filter on payload>"}]`.
-- Each event wakes the crew and arrives as untrusted data in its next tool result. From the first delivered event the crew runs forced safe.
+- Each event wakes the crew and arrives as untrusted data in its next tool result. The crew keeps the pipeline's own approval settings.
 - If no crew listens, the event waits 5 minutes (`dispatched / queued`), then is lost (`skipped / no_listener`).
 - Plan caps the number of listening crews (plan-limits.md); over it the crew is refused (`feed_cap_reached`).
 - Use it for long-running monitors (a crew that watches all day). For "each event = one piece of work", use `pipeline_run`.
@@ -300,7 +300,7 @@ Verdicts: `accepted` (in progress), `duplicate`, `rejected`, `rate_limited`, `fi
 
 1. `deliveries` shows the started run id on `dispatched` receipts.
 2. `melaya_run_status` on that id (read the outcome, not only the status).
-3. `melaya_approval_list` with `run_id`: in a triggered run, every write waits there. Tell the user what is waiting and that it expires after `approval_ttl_s`.
+3. `melaya_approval_list` with `run_id`: in a triggered run, every gated write (listed in `human_approval_tools`) waits there. Tell the user what is waiting and that it expires after `approval_ttl_s`.
 4. `melaya_run_inspect` / `melaya_run_diagnosis` when it failed.
 
 Where the user decides: in-run approvals appear in the app approval queue and on the phone; trigger `tool_call` approvals appear on the trigger in the Schedule & Triggers tab and inline on the delivery row (the global Monitoring approval panel does not list them yet).
@@ -309,7 +309,7 @@ Where the user decides: in-run approvals appear in the app approval queue and on
 
 1. Plan is Forge or above; the pipeline passed a real manual run and has no required inputs.
 2. First agent's instruction reads the TRIGGER EVENT block as untrusted data and copies needed fields forward.
-3. Every write tool in the pipeline is in `human_approval_tools` anyway (it will be gated in triggered runs regardless, but manual runs need it).
+3. Every write tool that a person must review is in `human_approval_tools` with `hitl_mode: "safe"`: a triggered run gates exactly what a manual run gates, nothing more.
 4. Pick the source (trigger-sources.md). Push: user does it in the app (triggers-ui-walkthrough.md section 2.1), then picks "Start this pipeline" under "Filter & actions" (an instant trigger starts as "Just tell me"). Otherwise `create` with a prefilter, optional `decide`, `action: {"type": "pipeline_run"}`, limits (raise `max_concurrent_runs` if events can overlap), `approval_ttl_s` long enough for a human to see it.
 5. Webhook: user presses "Rotate secret" on the trigger in the app, copies the secret shown once and configures the sender.
 6. `test` with a realistic payload; read `deliveries` and `stats`.

@@ -212,7 +212,7 @@ Only humans (or an explicitly HITL-gated step) set `invested` or `rejected`. Det
 - Internal spine owned by the client team: usually NOT gated (the Sheet has version history), which keeps scheduled runs unattended.
 - Spine shared outside the team, or writes that trigger other systems: gate `sheets_append_row` / `sheets_update_range`.
 
-- Runs started by an event trigger are the exception: they ask for approval on EVERY tool that is not read-only (`sheets_create`, `sheets_append_row`, `sheets_update_by_header`, `sheets_update_range`, even local file writers such as `file_write` or `excel_to_csv`), listed or not. A triggered Recorder therefore waits for a person at each write. Prefer schedules or manual runs for spine writers, or accept the approvals. The `dealdb_*`, `decide_*` and `jev_*` tools are read-only and never pause.
+- Runs started by an event trigger follow the same gates as manual runs: an ungated spine write (`sheets_append_row`, `sheets_update_by_header`, ...) runs without asking. The event is outside data, so gate the spine writes of a triggered Recorder when the sheet is shared or feeds other systems. The `dealdb_*`, `decide_*` and `jev_*` tools are read-only and never pause.
 
 State the choice in the client documentation. Never approve a gated write on the user's behalf.
 

@@ -8,7 +8,8 @@ Verified against how runs actually behave, not only against older documentation.
 |---|---|---|
 | Pipeline | `hitl_mode` (alias `hitlMode`) | `"safe"` (default), `"autonomous"`, `"payments_only"`; unknown or absent => `"safe"` |
 | Agent (embedded in `steps[]`) | `human_approval_tools` | list of exact tool names to gate |
-| Trigger | `hitl` | only `"safe"` accepted; triggered runs are forced safe |
+| Trigger | `hitl` | only `"safe"` accepted and ignored; triggered runs use the pipeline's own settings |
+| Browser (Melaya extension) | the user's autonomy in the extension panel | `safe`, `payments_only`, `autonomous`; applies to every run that drives the extension, manual, scheduled or triggered |
 | Phone agent (`melaya_run_phone_agent`) | `hitl_mode` | same three values, applied to on-device approval cards |
 
 ## 2. What each mode actually gates
@@ -19,14 +20,14 @@ Verified against how runs actually behave, not only against older documentation.
 | `autonomous` | the per-agent list is DROPPED. Only form-modal tools stay gated (today `luma_register_event`, which needs operator-filled form answers) |
 | `payments_only` | identical to `autonomous` at the tool layer. For phone agents it means on-device cards appear for purchases only |
 
-Overrides that force `safe` regardless of the config:
-- any run started by an event trigger: in addition, EVERY tool that is not marked read-only in the tool registry is gated, listed or not, and a tool the registry does not know is gated too (fail closed). Only the built-in framework helpers (final response, tool search and activation, delegation to a sub-agent, knowledge-base retrieval) and `phone_*` (which has its own on-device approval) pass. This also applies to pipelines whose code was hand-edited, and phone actions of a triggered run are clamped to safe;
-- a crew woken by `wake_crew` from its first delivered event onward;
+Override that forces `safe` regardless of the config:
 - trading crews (always safe; their order rails only run on gated tools).
+
+Runs started by an event trigger, and crews woken by `wake_crew`, are NOT forced safe (since 2026-10-05): they use the pipeline's own `hitl_mode` and `human_approval_tools`, exactly like a manual run. Event data is still untrusted, so every write a person must review has to be listed.
 
 Documentation trap: older notes say `human_approval_tools` gates the listed tools "whatever the mode" (the melaya_pipeline_save guide has been corrected). The runtime drops the list under `autonomous` and `payments_only`. Rule: if anything must be reviewed, the pipeline is `safe`.
 
-Second trap: `safe` is not "gate every write". Outside triggered runs it gates only what is listed. Audit each agent's `agent_tools` for write tools (send, reply, post, create, update, delete, share, upload, register, pay) and put every one in `human_approval_tools`.
+Second trap: `safe` is not "gate every write". In every run, triggered included, it gates only what is listed. Audit each agent's `agent_tools` for write tools (send, reply, post, create, update, delete, share, upload, register, pay) and put every one in `human_approval_tools`.
 
 ## 3. Batching of approval cards
 
@@ -74,7 +75,7 @@ What you (the agent) do:
 Allowed only when all of these hold and the user asked for it explicitly:
 - the only write is to the owner's own inbox (resolve the address with `gmail_my_address`, then one `gmail_send` to it) or the owner's own Drive;
 - no third-party recipient, public post, payment or deletion anywhere in the pipeline;
-- the run is manual or scheduled (triggered runs are forced safe and will gate it anyway);
+- the run is manual or scheduled (never ungate a tool a triggered run uses: event data comes from outside);
 - keep `hitl_mode: "safe"` and remove only that one tool from `human_approval_tools`; never flip the pipeline to `autonomous`;
 - record in the handover: which gate was removed, why, and the one-line change that restores it before any real recipient is added.
 
@@ -83,5 +84,5 @@ Allowed only when all of these hold and the user asked for it explicitly:
 - [ ] `melaya_pipeline_get` for each pipeline: `hitl_mode` is `safe` wherever a write tool exists.
 - [ ] Every write tool in each agent's `agent_tools` appears in that agent's `human_approval_tools` (or is documented as a deliberate owner-only exception).
 - [ ] Scheduled pipelines with gated sends: the user knows approvals will wait for them each morning.
-- [ ] Triggered pipelines: the user knows every write in a triggered run asks, and how long approvals live (`approval_ttl_s`).
+- [ ] Triggered pipelines: every write a person must review is in `human_approval_tools` (triggered runs follow the same gates as manual runs), and the user knows how long approvals live (`approval_ttl_s`).
 - [ ] `melaya_approval_list` shows nothing unexpected left pending from validation runs.
