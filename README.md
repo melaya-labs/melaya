@@ -16,7 +16,7 @@ Melaya is a governed platform for AI agents that do real work — in the cloud o
 [![Subagents](https://img.shields.io/badge/subagents-103-8B5CF6)](#the-catalog)
 [![AI providers](https://img.shields.io/badge/AI_providers-48-F59E0B)](#bring-your-own-model)
 [![MCP](https://img.shields.io/badge/MCP-88_tools-10B981)](https://github.com/melaya-labs/melaya-mcp)
-[![Agent Skill](https://img.shields.io/badge/Agent_Skill-11_modules-EC4899)](./skills/melaya)
+[![Agent Skill](https://img.shields.io/badge/Agent_Skill-11_modules-EC4899)](https://github.com/melaya-labs/melaya-mcp/tree/main/skills/melaya)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
 </div>
@@ -154,31 +154,31 @@ Setup for Claude, ChatGPT, Cursor, VS Code, Le Chat, Gemini CLI, Zed, Cline, Goo
 
 ## Agent Skill: teach any AI to run Melaya
 
-The MCP server gives your assistant the tools. The **[Melaya skill](./skills/melaya)** gives it the method: connecting services, building and validating pipelines on real runs, triggers and approvals, reading results and handing work over. A free, open playbook your assistant reads before it acts, so it gets things right the first time.
+The MCP server gives your assistant the tools. The **[Melaya skill](https://github.com/melaya-labs/melaya-mcp/tree/main/skills/melaya)** gives it the method: connecting services, building and validating pipelines on real runs, triggers and approvals, reading results and handing work over. A free, open playbook your assistant reads before it acts, so it gets things right the first time.
 
 **Any assistant** (ChatGPT, Gemini, Cursor, …): paste this line.
 
 ```text
-Install the Melaya skill from https://github.com/melaya-labs/melaya/tree/main/skills/melaya and use it whenever I ask you to work with Melaya.
+Install the Melaya skill from https://github.com/melaya-labs/melaya-mcp/tree/main/skills/melaya and use it whenever I ask you to work with Melaya.
 ```
 
 **Claude Code**: copy it into your skills folder, then restart. It loads on its own when you mention Melaya.
 
 ```bash
-git clone --depth 1 https://github.com/melaya-labs/melaya /tmp/melaya && cp -r /tmp/melaya/skills/melaya ~/.claude/skills/
+git clone --depth 1 https://github.com/melaya-labs/melaya-mcp /tmp/melaya-mcp && cp -r /tmp/melaya-mcp/skills/melaya ~/.claude/skills/
 ```
 
-**Claude.ai and Claude Desktop**: download [`skills/melaya`](./skills/melaya) as a .zip and upload it under **Settings → Capabilities → Skills**. Anywhere else, add [`SKILL.md`](./skills/melaya/SKILL.md) as a project instruction or rules file.
+**Claude.ai and Claude Desktop**: download [`skills/melaya`](https://github.com/melaya-labs/melaya-mcp/tree/main/skills/melaya) as a .zip and upload it under **Settings → Capabilities → Skills**. Anywhere else, add [`SKILL.md`](https://github.com/melaya-labs/melaya-mcp/blob/main/skills/melaya/SKILL.md) as a project instruction or rules file.
 
 The skill is one short router with the rules that always apply, plus eleven modules the assistant opens only when the task needs them:
 
 <table>
-<tr><td width="50%" valign="top"><a href="./skills/melaya/modules/quickstart"><b>quickstart</b></a><br><sub>Plain-language journeys for non-technical users</sub></td><td width="50%" valign="top"><a href="./skills/melaya/modules/discovery"><b>discovery</b></a><br><sub>Finding the right tools, templates and connected services</sub></td></tr>
-<tr><td width="50%" valign="top"><a href="./skills/melaya/modules/runners-models"><b>runners-models</b></a><br><sub>The runner and models: Claude Code, Codex, Copilot, Ollama, LM Studio, cloud</sub></td><td width="50%" valign="top"><a href="./skills/melaya/modules/projects-templates"><b>projects-templates</b></a><br><sub>Projects, teams and starting from a validated template</sub></td></tr>
-<tr><td width="50%" valign="top"><a href="./skills/melaya/modules/pipeline-authoring"><b>pipeline-authoring</b></a><br><sub>Pipeline configs that generate and run correctly</sub></td><td width="50%" valign="top"><a href="./skills/melaya/modules/agentic-systems"><b>agentic-systems</b></a><br><sub>Complete multi-pipeline systems, designed end to end</sub></td></tr>
-<tr><td width="50%" valign="top"><a href="./skills/melaya/modules/data-spine"><b>data-spine</b></a><br><sub>Google Sheets data stores, bulk scoring, clean records</sub></td><td width="50%" valign="top"><a href="./skills/melaya/modules/automation-governance"><b>automation-governance</b></a><br><sub>Schedules, event triggers, approvals and cost limits</sub></td></tr>
-<tr><td width="50%" valign="top"><a href="./skills/melaya/modules/validate-debug"><b>validate-debug</b></a><br><sub>Proving a pipeline on real runs and fixing what fails</sub></td><td width="50%" valign="top"><a href="./skills/melaya/modules/client-handover"><b>client-handover</b></a><br><sub>Documentation and handover for the people who will use it</sub></td></tr>
-<tr><td width="50%" valign="top"><a href="./skills/melaya/modules/devices-browser"><b>devices-browser</b></a><br><sub>Agents that use a phone or a browser like a person</sub></td><td width="50%"></td></tr>
+<tr><td width="50%" valign="top"><a href="https://github.com/melaya-labs/melaya-mcp/tree/main/skills/melaya/modules/quickstart"><b>quickstart</b></a><br><sub>Plain-language journeys for non-technical users</sub></td><td width="50%" valign="top"><a href="https://github.com/melaya-labs/melaya-mcp/tree/main/skills/melaya/modules/discovery"><b>discovery</b></a><br><sub>Finding the right tools, templates and connected services</sub></td></tr>
+<tr><td width="50%" valign="top"><a href="https://github.com/melaya-labs/melaya-mcp/tree/main/skills/melaya/modules/runners-models"><b>runners-models</b></a><br><sub>The runner and models: Claude Code, Codex, Copilot, Ollama, LM Studio, cloud</sub></td><td width="50%" valign="top"><a href="https://github.com/melaya-labs/melaya-mcp/tree/main/skills/melaya/modules/projects-templates"><b>projects-templates</b></a><br><sub>Projects, teams and starting from a validated template</sub></td></tr>
+<tr><td width="50%" valign="top"><a href="https://github.com/melaya-labs/melaya-mcp/tree/main/skills/melaya/modules/pipeline-authoring"><b>pipeline-authoring</b></a><br><sub>Pipeline configs that generate and run correctly</sub></td><td width="50%" valign="top"><a href="https://github.com/melaya-labs/melaya-mcp/tree/main/skills/melaya/modules/agentic-systems"><b>agentic-systems</b></a><br><sub>Complete multi-pipeline systems, designed end to end</sub></td></tr>
+<tr><td width="50%" valign="top"><a href="https://github.com/melaya-labs/melaya-mcp/tree/main/skills/melaya/modules/data-spine"><b>data-spine</b></a><br><sub>Google Sheets data stores, bulk scoring, clean records</sub></td><td width="50%" valign="top"><a href="https://github.com/melaya-labs/melaya-mcp/tree/main/skills/melaya/modules/automation-governance"><b>automation-governance</b></a><br><sub>Schedules, event triggers, approvals and cost limits</sub></td></tr>
+<tr><td width="50%" valign="top"><a href="https://github.com/melaya-labs/melaya-mcp/tree/main/skills/melaya/modules/validate-debug"><b>validate-debug</b></a><br><sub>Proving a pipeline on real runs and fixing what fails</sub></td><td width="50%" valign="top"><a href="https://github.com/melaya-labs/melaya-mcp/tree/main/skills/melaya/modules/client-handover"><b>client-handover</b></a><br><sub>Documentation and handover for the people who will use it</sub></td></tr>
+<tr><td width="50%" valign="top"><a href="https://github.com/melaya-labs/melaya-mcp/tree/main/skills/melaya/modules/devices-browser"><b>devices-browser</b></a><br><sub>Agents that use a phone or a browser like a person</sub></td><td width="50%"></td></tr>
 </table>
 
 ## Official SDKs
@@ -223,7 +223,7 @@ See [Security and trust](./docs/security.md).
 - [Melaya Agents](./docs/agent-builder.md)
 - [Device Control](./docs/device-control.md)
 - [MCP Server](./docs/mcp.md)
-- [Agent Skill](./skills/melaya)
+- [Agent Skill](https://github.com/melaya-labs/melaya-mcp/tree/main/skills/melaya)
 - [Concepts](./docs/concepts.md)
 - [Security and trust](./docs/security.md)
 - [FAQ](./docs/faq.md)
