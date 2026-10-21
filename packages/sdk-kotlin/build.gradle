@@ -1,7 +1,7 @@
 import com.vanniktech.maven.publish.SonatypeHost
 
 plugins {
-    id 'org.jetbrains.kotlin.jvm' version '2.2.20'
+    id 'org.jetbrains.kotlin.jvm' version '2.4.20'
     id 'java-library'
     id 'application'
     id 'com.vanniktech.maven.publish' version '0.30.0'
